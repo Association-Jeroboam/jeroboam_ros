@@ -1,0 +1,20 @@
+std_msgs/Header header
+
+uint32  counter
+float32 speed_left_current
+float32 speed_left_goal
+float32 speed_right_current
+float32 speed_right_goal
+float32 speed_angular_setpoint
+float32 speed_angular_current
+float32 speed_linear_setpoint
+float32 speed_linear_current
+float32 angle_setpoint
+float32 angle_current
+float32 angle_modulo
+float32 angle_absolute
+float32 distance_error
+float32 position_x
+float32 position_y
+float32 pwm_left
+float32 pwm_right
