@@ -9,6 +9,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
 from builtin_interfaces.msg import Duration
+from sensor_msgs.msg import Image
 
 import numpy as np
 import cv2
@@ -16,6 +17,9 @@ import cv2.aruco as aruco
 import sys
 import math
 import os
+from queue import Queue
+import threading
+from cv_bridge import CvBridge
 
 
 def make_marker_msg(id_, stamp, pose, color):
@@ -24,7 +28,7 @@ def make_marker_msg(id_, stamp, pose, color):
     marker.header.frame_id = "robot"
     marker.header.stamp = stamp
 
-    marker.lifetime = Duration(nanosec=int(0.1 * 1e9))
+    marker.lifetime = Duration(nanosec=int(1.5 * 1e9))
 
     # set shape, Arrow: 0; Cube: 1 ; Sphere: 2 ; Cylinder: 3
     marker.type = 0
@@ -115,13 +119,17 @@ class SampleDetector(Node):
         self.publisher_ = self.create_publisher(
             SampleDetectedArray, "sample_detected", 10
         )
-        self.debug_publisher = self.create_publisher(
+        self.maker_publisher = self.create_publisher(
             MarkerArray, "debug/sample_detected", 10
         )
+        self.raw_image_publisher = self.create_publisher(Image, "debug/raw_image", 10)
+        self.processed_image_publisher = self.create_publisher(
+            Image, "debug/processed_image", 10
+        )
+
         self.tf_camera_robot_broadcaster = TransformBroadcaster(self)
 
-        timer_period = 0.05  # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.cv_bridge = CvBridge()
 
         self.aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_1000)
         # chargement de la calibration de la camera (faite avec calib_cam.py)
@@ -150,11 +158,45 @@ class SampleDetector(Node):
             self.Trc
         )  # Tcr : matrice de transformation camera=>robot
 
+        self.camera_read_thread = threading.Thread(target=self.camera_read, daemon=True)
+        self.frame_queue = Queue()
+        self.camera_read_thread.start()
+
+        timer_period = 1  # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+
         # cv2.namedWindow("Display", cv2.WND_PROP_FULLSCREEN)
         # cv2.setWindowProperty("Display", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
+    def cleanup(self):
+        if self.camera_read_thread:
+            self.camera_read_thread.join()
+
+    def camera_read(self):
+        while rclpy.ok():
+            ret, frame = self.cap.read()
+
+            if not ret:
+                continue
+
+            if not self.frame_queue.empty():
+                try:
+                    self.frame_queue.get_nowait()  # discard previous (unprocessed) frame
+                except Queue.Empty:
+                    pass
+
+            self.frame_queue.put(frame)
+
+    def get_last_camera_frame(self):
+        return self.frame_queue.get()
+
     def timer_callback(self):
-        ret, frame = self.cap.read()
+        frame = self.get_last_camera_frame()
+
+        img_msg = self.cv_bridge.cv2_to_imgmsg(frame)
+        img_msg.header.frame_id = "robot"
+        # self.raw_image_publisher.publish(img_msg)
+
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         corners, ids, rejectedImgPoints = aruco.detectMarkers(
             gray, self.aruco_dict, parameters=self.arucoParameters
@@ -166,14 +208,14 @@ class SampleDetector(Node):
             rvecs, tvecs, _objPoints = aruco.estimatePoseSingleMarkers(
                 corners, self.big_marker_size, self.cameraMatrix, self.distCoeffs
             )
-            if (93 in ids) and (92 in ids):
-                i_93 = np.where(ids == 93)
+            if (91 in ids) and (92 in ids):
+                i_91 = np.where(ids == 91)
                 i_92 = np.where(ids == 92)
 
                 if (
-                    len(i_93[0]) + len(i_92[0]) == 2
-                ):  # pour etre sur qu'il n'y a pas 2 fois le même tag 92 ou 93
-                    tvecG = tvecs[i_93] * (
+                    len(i_91[0]) + len(i_92[0]) == 2
+                ):  # pour etre sur qu'il n'y a pas 2 fois le même tag 92 ou 91
+                    tvecG = tvecs[i_91] * (
                         self.small_marker_size / self.big_marker_size
                     )
                     tvecD = tvecs[i_92] * (
@@ -193,7 +235,7 @@ class SampleDetector(Node):
 
                     rotMat = R_euler(angle_x, angle_y, angle_z)
                     q = quaternion_from_matrix(rotMat)
-                    translation = self.tvec[0]
+                    translation = self.tvecO[0]
 
                     # Construct and publish transform camera -> robot
                     transform_msg = TransformStamped()
@@ -203,10 +245,10 @@ class SampleDetector(Node):
                     transform_msg.transform.translation.x = translation[0]
                     transform_msg.transform.translation.y = translation[1]
                     transform_msg.transform.translation.z = translation[2]
-                    transorm_msg.transform.rotation.x = q[0]
-                    transorm_msg.transform.rotation.y = q[1]
-                    transorm_msg.transform.rotation.z = q[2]
-                    transorm_msg.transform.rotation.w = q[3]
+                    transform_msg.transform.rotation.x = q[0]
+                    transform_msg.transform.rotation.y = q[1]
+                    transform_msg.transform.rotation.z = q[2]
+                    transform_msg.transform.rotation.w = q[3]
                     self.tf_camera_robot_broadcaster.sendTransform(transform_msg)
 
                     self.Trc = rotMat.dot(
@@ -220,9 +262,15 @@ class SampleDetector(Node):
 
                     # rvecO=np.array([[0,0,math.atan2(dy,dx)%(2*math.pi)]])
 
-            # frame = aruco.drawAxis(frame, self.cameraMatrix, self.distCoeffs, self.rvecO, self.tvecO, self.length_of_axis)
-
-            # frame = aruco.drawDetectedMarkers(frame, corners, ids)
+            frame = aruco.drawAxis(
+                frame,
+                self.cameraMatrix,
+                self.distCoeffs,
+                self.rvecO,
+                self.tvecO,
+                self.length_of_axis,
+            )
+            frame = aruco.drawDetectedMarkers(frame, corners, ids)
 
             rotation_matrix = np.array(
                 [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 1]], dtype=float
@@ -237,7 +285,14 @@ class SampleDetector(Node):
             for i in range(len(tvecs)):
                 sample_msg = SampleDetected()
 
-                # frame = aruco.drawAxis(frame, self.cameraMatrix, self.distCoeffs, rvecs[i], tvecs[i], self.length_of_axis)
+                frame = aruco.drawAxis(
+                    frame,
+                    self.cameraMatrix,
+                    self.distCoeffs,
+                    rvecs[i],
+                    tvecs[i],
+                    self.length_of_axis,
+                )
                 if ids[i] == 47:
                     sample_msg.type = SampleDetected.RED
                 elif ids[i] == 13:
@@ -247,7 +302,7 @@ class SampleDetector(Node):
                     # pass
                 elif ids[i] == 17:
                     sample_msg.type = SampleDetected.ROCK
-                elif ids[i] == 93:
+                elif ids[i] == 91:
                     continue
                 elif ids[i] == 92:
                     continue
@@ -268,15 +323,28 @@ class SampleDetector(Node):
                     sample_msg.pose.orientation.z = q[2]
                     sample_msg.pose.orientation.w = q[3]
 
+                    msg.samples.append(sample_msg)
+
                     marker_msg = make_marker_msg(
                         i, msg.header.stamp, sample_msg.pose, sample_msg.type
                     )
                     markers_msg.markers.append(marker_msg)
 
             self.publisher_.publish(msg)
-            self.debug_publisher.publish(markers_msg)
+            self.maker_publisher.publish(markers_msg)
 
-        # frame = aruco.drawAxis(frame, self.cameraMatrix, self.distCoeffs, self.rvecO, self.tvecO, self.length_of_axis)
+        frame = aruco.drawAxis(
+            frame,
+            self.cameraMatrix,
+            self.distCoeffs,
+            self.rvecO,
+            self.tvecO,
+            self.length_of_axis,
+        )
+
+        img_msg = self.cv_bridge.cv2_to_imgmsg(frame)
+        img_msg.header.frame_id = "robot"
+        self.processed_image_publisher.publish(img_msg)
         # cv2.imshow('Display', frame)
 
 
@@ -296,6 +364,7 @@ def main(args=None):
     finally:
         node.destroy_node()
         rclpy.shutdown()
+        node.cleanup()
 
 
 if __name__ == "__main__":
