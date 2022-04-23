@@ -7,12 +7,11 @@
   <maintainer email="axel@mousset.me">Axel Mousset</maintainer>
   <license>TODO: License declaration</license>
 
-  <author email="axel@mousset.me">Axel Mousset</author>
-
   <exec_depend>rclpy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>jrb_msgs</exec_depend>
+  <exec_depend>tf_transformations</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

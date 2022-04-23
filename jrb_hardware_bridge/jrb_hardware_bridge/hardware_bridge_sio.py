@@ -13,9 +13,9 @@ SYNCHRO_WORD = b'\xef\xbe\xad\xde'
 FRAME_SCHEMA = '<Iffffffffffffffff'
 FRAME_SIZE = struct.calcsize(FRAME_SCHEMA)
 
-class HardwareBridge(Node):
+class HardwareBridgeSio(Node):
     def __init__(self):
-        super().__init__('hardware_bridge')
+        super().__init__('hardware_bridge_sio')
         self.data_stream_started = False
         self.byte_buffer = bytearray()
 
@@ -137,15 +137,15 @@ class HardwareBridge(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    hardwareBridge = HardwareBridge()
+    hardwareBridgeSio = HardwareBridgeSio()
 
-    is_connected = hardwareBridge.sio_connect()
+    is_connected = hardwareBridgeSio.sio_connect()
     while not is_connected:
-        hardwareBridge.get_logger().error("Could not connect to socket io server. Retrying in 3s")
+        hardwareBridgeSio.get_logger().error("Could not connect to socket io server. Retrying in 3s")
         time.sleep(3)
-        is_connected = hardwareBridge.sio_connect()
+        is_connected = hardwareBridgeSio.sio_connect()
 
-    rclpy.spin(hardwareBridge)
+    rclpy.spin(hardwareBridgeSio)
 
 
 if __name__ == '__main__':

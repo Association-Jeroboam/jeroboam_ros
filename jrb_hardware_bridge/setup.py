@@ -13,14 +13,16 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='pymzor',
-    maintainer_email='pymzor@todo.todo',
+    maintainer='Axel Mousset',
+    maintainer_email='axel@mousset.me',
     description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'hardware_bridge = jrb_hardware_bridge.hardware_bridge:main'
+            'sio_bridge = jrb_hardware_bridge.hardware_bridge_sio:main',
+            'can_bridge = jrb_hardware_bridge.hardware_bridge_can:main',
+            'uart_bridge = jrb_hardware_bridge.hardware_bridge_uart:main',
         ],
     },
 )
