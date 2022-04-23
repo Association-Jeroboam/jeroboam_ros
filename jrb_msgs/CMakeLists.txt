@@ -20,6 +20,7 @@ find_package(geometry_msgs REQUIRED)
 set(msg_files
   "msg/MotionBoardDataFrame.msg"
   "msg/SampleDetected.msg"
+  "msg/SampleDetectedArray.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

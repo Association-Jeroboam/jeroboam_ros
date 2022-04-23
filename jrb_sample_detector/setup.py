@@ -1,6 +1,6 @@
 from setuptools import setup
 import os
-import glob
+from glob import glob
 
 package_name = "jrb_sample_detector"
 
@@ -13,8 +13,12 @@ setup(
         ("share/" + package_name, ["package.xml"]),
         (
             os.path.join("share", package_name),
-            [os.path.join("resource", "cam_calib.npz")],
+            [
+                os.path.join("resource", "cam_calib.npz"),
+                os.path.join("resource", "sample_detector.rviz"),
+            ],
         ),
+        (os.path.join("share", package_name), glob("launch/*.launch.py")),
     ],
     install_requires=["setuptools"],
     zip_safe=True,

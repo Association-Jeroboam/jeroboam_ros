@@ -1,15 +1,14 @@
+import traceback
 import rclpy
 from rclpy.node import Node
-from rclpy.time import Time
 
-from jrb_msgs.msg import SampleDetected
-from geometry_msgs.msg import Quaternion
-from std_msgs.msg import Header
+from jrb_msgs.msg import SampleDetected, SampleDetectedArray
 from tf_transformations import quaternion_from_matrix
 from ament_index_python import get_package_share_directory
-from visualization_msgs.msg import Marker
+from visualization_msgs.msg import Marker, MarkerArray
 from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
+from builtin_interfaces.msg import Duration
 
 import numpy as np
 import cv2
@@ -18,11 +17,14 @@ import sys
 import math
 import os
 
+
 def make_marker_msg(id_, stamp, pose, color):
     marker = Marker()
 
     marker.header.frame_id = "robot"
     marker.header.stamp = stamp
+
+    marker.lifetime = Duration(nanosec=int(0.1 * 1e9))
 
     # set shape, Arrow: 0; Cube: 1 ; Sphere: 2 ; Cylinder: 3
     marker.type = 0
@@ -59,6 +61,7 @@ def make_marker_msg(id_, stamp, pose, color):
     marker.pose = pose
 
     return marker
+
 
 def Rx(angle):
     return np.array(
@@ -107,10 +110,14 @@ DATA_PATH = get_package_share_directory("jrb_sample_detector")
 class SampleDetector(Node):
     def __init__(self):
         super().__init__("sample_detector")
-        self.get_logger().info('init')
+        self.get_logger().info("init")
 
-        self.publisher_ = self.create_publisher(SampleDetected, "sample_detected", 10)
-        self.debug_publisher = self.create_publisher(Marker, "debug/sample_detected", 10)
+        self.publisher_ = self.create_publisher(
+            SampleDetectedArray, "sample_detected", 10
+        )
+        self.debug_publisher = self.create_publisher(
+            MarkerArray, "debug/sample_detected", 10
+        )
         self.tf_camera_robot_broadcaster = TransformBroadcaster(self)
 
         timer_period = 0.05  # seconds
@@ -191,8 +198,8 @@ class SampleDetector(Node):
                     # Construct and publish transform camera -> robot
                     transform_msg = TransformStamped()
                     transform_msg.header.stamp = self.get_clock().now().to_msg()
-                    transform_msg.header.frame_id = 'robot'
-                    transform_msg.child_frame_id = 'camera'
+                    transform_msg.header.frame_id = "robot"
+                    transform_msg.child_frame_id = "camera"
                     transform_msg.transform.translation.x = translation[0]
                     transform_msg.transform.translation.y = translation[1]
                     transform_msg.transform.translation.z = translation[2]
@@ -221,21 +228,25 @@ class SampleDetector(Node):
                 [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 1]], dtype=float
             )
 
-            msg = SampleDetected()
+            msg = SampleDetectedArray()
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = "robot"
 
+            markers_msg = MarkerArray()
+
             for i in range(len(tvecs)):
+                sample_msg = SampleDetected()
+
                 # frame = aruco.drawAxis(frame, self.cameraMatrix, self.distCoeffs, rvecs[i], tvecs[i], self.length_of_axis)
                 if ids[i] == 47:
-                    msg.type = SampleDetected.RED
+                    sample_msg.type = SampleDetected.RED
                 elif ids[i] == 13:
-                    msg.type = SampleDetected.BLUE
+                    sample_msg.type = SampleDetected.BLUE
                 elif ids[i] == 36:
-                    msg.type = SampleDetected.GREEN
+                    sample_msg.type = SampleDetected.GREEN
                     # pass
                 elif ids[i] == 17:
-                    msg.type = SampleDetected.ROCK
+                    sample_msg.type = SampleDetected.ROCK
                 elif ids[i] == 93:
                     continue
                 elif ids[i] == 92:
@@ -243,25 +254,27 @@ class SampleDetector(Node):
                 else:
                     continue
 
-
                 if self.Tcr.any():
                     xyz = self.Tcr.dot(np.append(tvecs[i], 1))[0:3]
 
-                    msg.pose.position.x = xyz[0]
-                    msg.pose.position.y = xyz[1]
-                    msg.pose.position.z = xyz[2]
+                    sample_msg.pose.position.x = xyz[0]
+                    sample_msg.pose.position.y = xyz[1]
+                    sample_msg.pose.position.z = xyz[2]
 
                     rotation_matrix[:3, :3], _ = cv2.Rodrigues(rvecs[i])
                     q = quaternion_from_matrix(rotation_matrix)
-                    msg.pose.orientation.x = q[0]
-                    msg.pose.orientation.y = q[1]
-                    msg.pose.orientation.z = q[2]
-                    msg.pose.orientation.w = q[3]
+                    sample_msg.pose.orientation.x = q[0]
+                    sample_msg.pose.orientation.y = q[1]
+                    sample_msg.pose.orientation.z = q[2]
+                    sample_msg.pose.orientation.w = q[3]
 
-                    self.publisher_.publish(msg)
+                    marker_msg = make_marker_msg(
+                        i, msg.header.stamp, sample_msg.pose, sample_msg.type
+                    )
+                    markers_msg.markers.append(marker_msg)
 
-                    marker_msg = make_marker_msg(i, msg.header.stamp, msg.pose, msg.type)
-                    self.debug_publisher.publish(marker_msg)
+            self.publisher_.publish(msg)
+            self.debug_publisher.publish(markers_msg)
 
         # frame = aruco.drawAxis(frame, self.cameraMatrix, self.distCoeffs, self.rvecO, self.tvecO, self.length_of_axis)
         # cv2.imshow('Display', frame)
@@ -275,14 +288,14 @@ def main(args=None):
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        node.get_logger().info('Node stopped cleanly')
+        node.get_logger().info("Node stopped cleanly")
     except Exception:
-        print('Error while stopping the node')
+        print("Error while stopping the node")
         print(traceback.format_exc())
         raise
     finally:
         node.destroy_node()
-        rclpy.shutdown() 
+        rclpy.shutdown()
 
 
 if __name__ == "__main__":
