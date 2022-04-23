@@ -63,7 +63,7 @@ DATA_PATH = get_package_share_directory("jrb_sample_detector")
 class SampleDetector(Node):
     def __init__(self):
         super().__init__("sample_detector")
-        self.publisher_ = self.create_publisher(SampleDetected, "detected_samples", 10)
+        self.publisher_ = self.create_publisher(SampleDetected, "sample_detected", 10)
         timer_period = 0.05  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
