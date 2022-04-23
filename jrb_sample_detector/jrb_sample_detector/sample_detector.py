@@ -7,6 +7,9 @@ from geometry_msgs.msg import Quaternion
 from std_msgs.msg import Header
 from tf_transformations import quaternion_from_matrix
 from ament_index_python import get_package_share_directory
+from visualization_msgs.msg import Marker
+from tf2_ros import TransformBroadcaster
+from geometry_msgs.msg import TransformStamped
 
 import numpy as np
 import cv2
@@ -15,6 +18,47 @@ import sys
 import math
 import os
 
+def make_marker_msg(id_, stamp, pose, color):
+    marker = Marker()
+
+    marker.header.frame_id = "robot"
+    marker.header.stamp = stamp
+
+    # set shape, Arrow: 0; Cube: 1 ; Sphere: 2 ; Cylinder: 3
+    marker.type = 0
+    marker.id = id_
+
+    # Set the scale of the marker
+    marker.scale.x = 0.3
+    marker.scale.y = 0.05
+    marker.scale.z = 0.05
+
+    # Set the color
+    if color == SampleDetected.RED:
+        marker.color.r = 1.0
+        marker.color.g = 0.0
+        marker.color.b = 0.0
+        marker.color.a = 1.0
+    elif color == SampleDetected.GREEN:
+        marker.color.r = 0.0
+        marker.color.g = 1.0
+        marker.color.b = 0.0
+        marker.color.a = 1.0
+    elif color == SampleDetected.BLUE:
+        marker.color.r = 0.0
+        marker.color.g = 0.0
+        marker.color.b = 1.0
+        marker.color.a = 1.0
+    elif color == SampleDetected.ROCK:
+        marker.color.r = 0.0
+        marker.color.g = 0.0
+        marker.color.b = 0.0
+        marker.color.a = 1.0
+
+    # Set the pose of the marker
+    marker.pose = pose
+
+    return marker
 
 def Rx(angle):
     return np.array(
@@ -63,7 +107,12 @@ DATA_PATH = get_package_share_directory("jrb_sample_detector")
 class SampleDetector(Node):
     def __init__(self):
         super().__init__("sample_detector")
+        self.get_logger().info('init')
+
         self.publisher_ = self.create_publisher(SampleDetected, "sample_detected", 10)
+        self.debug_publisher = self.create_publisher(Marker, "debug/sample_detected", 10)
+        self.tf_camera_robot_broadcaster = TransformBroadcaster(self)
+
         timer_period = 0.05  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
@@ -136,9 +185,25 @@ class SampleDetector(Node):
                     angle_y = 0
 
                     rotMat = R_euler(angle_x, angle_y, angle_z)
+                    q = quaternion_from_matrix(rotMat)
+                    translation = self.tvec[0]
+
+                    # Construct and publish transform camera -> robot
+                    transform_msg = TransformStamped()
+                    transform_msg.header.stamp = self.get_clock().now().to_msg()
+                    transform_msg.header.frame_id = 'robot'
+                    transform_msg.child_frame_id = 'camera'
+                    transform_msg.transform.translation.x = translation[0]
+                    transform_msg.transform.translation.y = translation[1]
+                    transform_msg.transform.translation.z = translation[2]
+                    transorm_msg.transform.rotation.x = q[0]
+                    transorm_msg.transform.rotation.y = q[1]
+                    transorm_msg.transform.rotation.z = q[2]
+                    transorm_msg.transform.rotation.w = q[3]
+                    self.tf_camera_robot_broadcaster.sendTransform(transform_msg)
 
                     self.Trc = rotMat.dot(
-                        T(self.tvecO[0][0], self.tvecO[0][1], self.tvecO[0][2])
+                        T(*translation)
                     )  # Trc : matrice de transformation robot=>camera
                     self.Tcr = np.linalg.inv(
                         self.Trc
@@ -178,8 +243,9 @@ class SampleDetector(Node):
                 else:
                     continue
 
+
                 if self.Tcr.any():
-                    xyz = self.Tcr.dot(np.append(tvecs[i], 1))[0:3] * 1000
+                    xyz = self.Tcr.dot(np.append(tvecs[i], 1))[0:3]
 
                     msg.pose.position.x = xyz[0]
                     msg.pose.position.y = xyz[1]
@@ -194,6 +260,9 @@ class SampleDetector(Node):
 
                     self.publisher_.publish(msg)
 
+                    marker_msg = make_marker_msg(i, msg.header.stamp, msg.pose, msg.type)
+                    self.debug_publisher.publish(marker_msg)
+
         # frame = aruco.drawAxis(frame, self.cameraMatrix, self.distCoeffs, self.rvecO, self.tvecO, self.length_of_axis)
         # cv2.imshow('Display', frame)
 
@@ -201,15 +270,19 @@ class SampleDetector(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    sample_detector = SampleDetector()
+    node = SampleDetector()
 
-    rclpy.spin(sample_detector)
-
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
-    sample_detector.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        node.get_logger().info('Node stopped cleanly')
+    except Exception:
+        print('Error while stopping the node')
+        print(traceback.format_exc())
+        raise
+    finally:
+        node.destroy_node()
+        rclpy.shutdown() 
 
 
 if __name__ == "__main__":
