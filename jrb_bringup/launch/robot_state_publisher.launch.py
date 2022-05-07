@@ -16,6 +16,11 @@ def generate_launch_description():
     urdf_dir = os.path.join(jrb_description_pkg_share, "urdf")
     urdf_file = os.path.join(urdf_dir, "robotrouge.urdf")
 
+    jrb_bringup_pkg_share = FindPackageShare("jrb_bringup").find("jrb_bringup")
+    param_dir = os.path.join(jrb_bringup_pkg_share, "param")
+    robot_state_publisher_param_file = os.path.join(param_dir, "robotrouge_joint_state_publisher_param.yaml")
+    print(robot_state_publisher_param_file)
+
     with open(urdf_file, "r") as infp:
         robot_desc = infp.read()
 
@@ -37,14 +42,10 @@ def generate_launch_description():
             Node(
                 package="joint_state_publisher",
                 executable="joint_state_publisher",
+                name="joint_state_publisher",
                 output="screen",
                 arguments=[urdf_file],
-            ),
-            Node(
-                package="joint_state_publisher",
-                executable="joint_state_publisher",
-                output="screen",
-                arguments=[urdf_file],
+                parameters=[robot_state_publisher_param_file]
             ),
             # Node(
             #     package="joint_state_publisher_gui",

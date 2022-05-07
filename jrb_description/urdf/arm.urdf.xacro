@@ -31,7 +31,7 @@
       <child link="${name}_arm_base_link" />
       <origin xyz="${xyz}" rpy="0 0 0" />
       <axis xyz="0 0 1" />
-      <limit effort="30" velocity="1.0" lower="-0.056" upper="0.056" />
+      <limit effort="30" velocity="1.0" lower="0.0" upper="0.224" />
     </joint>
 
     <link
@@ -50,16 +50,17 @@
 
     <joint
       name="${name}_b_joint"
-      type="continuous">
+      type="revolute">
       <origin
         xyz="0.02814995 0 0"
-        rpy="0 0 0" />
+        rpy="0 0 ${radians(135)}" />
       <parent
         link="${name}_arm_base_link" />
       <child
         link="${name}_b" />
       <axis
         xyz="0 0 1" />
+      <limit effort="30" velocity="1.0" lower="${radians(135)}" upper="${radians(315)}" />
     </joint>
 
     <link name="${name}_c">
@@ -74,11 +75,12 @@
       </visual>
     </link>
 
-    <joint name="${name}_c_joint" type="continuous">
+    <joint name="${name}_c_joint" type="revolute">
       <origin xyz="0.054 0 0" rpy="0 0 0" />
       <parent link="${name}_b" />
       <child link="${name}_c" />
-      <axis xyz="0 0 -1" />
+      <axis xyz="0 0 1" />
+      <limit effort="30" velocity="1.0" lower="${radians(-90)}" upper="${radians(90)}" />
     </joint>
 
     <link name="${name}_d">
@@ -91,11 +93,12 @@
       </visual>
     </link>
 
-    <joint name="${name}_d_joint" type="continuous">
+    <joint name="${name}_d_joint" type="revolute">
       <origin xyz="0.031 0 -0.009" rpy="0 0 0" />
       <parent link="${name}_c" />
       <child link="${name}_d" />
       <axis xyz="0 1 0" />
+      <limit effort="30" velocity="1.0" lower="0" upper="${radians(-90)}" />
     </joint>
 
     <link
@@ -111,16 +114,17 @@
 
     <joint
       name="${name}_e_joint"
-      type="continuous">
+      type="revolute">
       <origin
         xyz="0.0319 0 0"
-        rpy="0 0 0" />
+        rpy="${radians(-90)} 0 0" />
       <parent
         link="${name}_d" />
       <child
         link="${name}_e" />
       <axis
-        xyz="0  0 1" />
+        xyz="1 0 0" />
+      <limit effort="30" velocity="1.0" lower="${radians(-90)}" upper="${radians(90)}" />
     </joint>
 
     <link

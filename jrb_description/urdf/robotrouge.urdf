@@ -45,7 +45,7 @@
   <joint name="base_joint" type="fixed">
     <parent link="base_footprint"/>
     <child link="base_link"/>
-    <origin rpy="0 0 0" xyz="0.0 0.0 0.01416"/>
+    <origin rpy="0 0 0" xyz="0.0 0.0 0.0147"/>
   </joint>
   <link name="base_link">
     <visual>
@@ -67,7 +67,7 @@
   <joint name="wheel_left_joint" type="continuous">
     <parent link="base_link"/>
     <child link="wheel_left_link"/>
-    <origin rpy="-1.57 0 0" xyz="0.0 0.08316 0"/>
+    <origin rpy="-1.57 0 0" xyz="0.0 0.08316 0.01004"/>
     <axis xyz="0 0 1"/>
   </joint>
   <link name="wheel_left_link">
@@ -83,7 +83,7 @@
   <joint name="wheel_right_joint" type="continuous">
     <parent link="base_link"/>
     <child link="wheel_right_link"/>
-    <origin rpy="-1.57 0 0" xyz="0.0 -0.08316  0.0"/>
+    <origin rpy="-1.57 0 0" xyz="0.0 -0.08316  0.01004"/>
     <axis xyz="0 0 1"/>
   </joint>
   <link name="wheel_right_link">
@@ -132,7 +132,7 @@
   <joint name="th_camera_joint" type="fixed">
     <parent link="base_link"/>
     <child link="th_camera_link"/>
-    <origin rpy="0 0 0" xyz="0.091 0.0 0.3183"/>
+    <origin rpy="0 0 0" xyz="0.1468 0.0 0.317"/>
   </joint>
   <link name="th_camera_link">
     <visual>
@@ -158,9 +158,9 @@
   <joint name="left_arm_joint" type="prismatic">
     <parent link="base_link"/>
     <child link="left_arm_base_link"/>
-    <origin rpy="0 0 0" xyz="0.054 0.11275 0.141375"/>
+    <origin rpy="0 0 0" xyz="0.054 0.11275 0.029375"/>
     <axis xyz="0 0 1"/>
-    <limit effort="30" lower="-0.056" upper="0.056" velocity="1.0"/>
+    <limit effort="30" lower="0.0" upper="0.224" velocity="1.0"/>
   </joint>
   <link name="left_b">
     <visual>
@@ -171,11 +171,12 @@
       <material name="arm_yellow"/>
     </visual>
   </link>
-  <joint name="left_b_joint" type="continuous">
-    <origin rpy="0 0 0" xyz="0.02814995 0 0"/>
+  <joint name="left_b_joint" type="revolute">
+    <origin rpy="0 0 2.356194490192345" xyz="0.02814995 0 0"/>
     <parent link="left_arm_base_link"/>
     <child link="left_b"/>
     <axis xyz="0 0 1"/>
+    <limit effort="30" lower="2.356194490192345" upper="5.497787143782138" velocity="1.0"/>
   </joint>
   <link name="left_c">
     <visual>
@@ -186,11 +187,12 @@
       <material name="arm_gray"/>
     </visual>
   </link>
-  <joint name="left_c_joint" type="continuous">
+  <joint name="left_c_joint" type="revolute">
     <origin rpy="0 0 0" xyz="0.054 0 0"/>
     <parent link="left_b"/>
     <child link="left_c"/>
-    <axis xyz="0 0 -1"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="30" lower="-1.5707963267948966" upper="1.5707963267948966" velocity="1.0"/>
   </joint>
   <link name="left_d">
     <visual>
@@ -201,11 +203,12 @@
       <material name="arm_gray"/>
     </visual>
   </link>
-  <joint name="left_d_joint" type="continuous">
+  <joint name="left_d_joint" type="revolute">
     <origin rpy="0 0 0" xyz="0.031 0 -0.009"/>
     <parent link="left_c"/>
     <child link="left_d"/>
     <axis xyz="0 1 0"/>
+    <limit effort="30" lower="0" upper="-1.5707963267948966" velocity="1.0"/>
   </joint>
   <link name="left_e">
     <visual>
@@ -216,11 +219,12 @@
       <material name="arm_yellow"/>
     </visual>
   </link>
-  <joint name="left_e_joint" type="continuous">
-    <origin rpy="0 0 0" xyz="0.0319 0 0"/>
+  <joint name="left_e_joint" type="revolute">
+    <origin rpy="-1.5707963267948966 0 0" xyz="0.0319 0 0"/>
     <parent link="left_d"/>
     <child link="left_e"/>
-    <axis xyz="0  0 1"/>
+    <axis xyz="1 0 0"/>
+    <limit effort="30" lower="-1.5707963267948966" upper="1.5707963267948966" velocity="1.0"/>
   </joint>
   <link name="left_f">
     <visual>
@@ -251,9 +255,9 @@
   <joint name="right_arm_joint" type="prismatic">
     <parent link="base_link"/>
     <child link="right_arm_base_link"/>
-    <origin rpy="0 0 0" xyz="0.054 -0.11275 0.141375"/>
+    <origin rpy="0 0 0" xyz="0.054 -0.11275 0.029375"/>
     <axis xyz="0 0 1"/>
-    <limit effort="30" lower="-0.056" upper="0.056" velocity="1.0"/>
+    <limit effort="30" lower="0.0" upper="0.224" velocity="1.0"/>
   </joint>
   <link name="right_b">
     <visual>
@@ -264,11 +268,12 @@
       <material name="arm_yellow"/>
     </visual>
   </link>
-  <joint name="right_b_joint" type="continuous">
-    <origin rpy="0 0 0" xyz="0.02814995 0 0"/>
+  <joint name="right_b_joint" type="revolute">
+    <origin rpy="0 0 2.356194490192345" xyz="0.02814995 0 0"/>
     <parent link="right_arm_base_link"/>
     <child link="right_b"/>
     <axis xyz="0 0 1"/>
+    <limit effort="30" lower="2.356194490192345" upper="5.497787143782138" velocity="1.0"/>
   </joint>
   <link name="right_c">
     <visual>
@@ -279,11 +284,12 @@
       <material name="arm_gray"/>
     </visual>
   </link>
-  <joint name="right_c_joint" type="continuous">
+  <joint name="right_c_joint" type="revolute">
     <origin rpy="0 0 0" xyz="0.054 0 0"/>
     <parent link="right_b"/>
     <child link="right_c"/>
-    <axis xyz="0 0 -1"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="30" lower="-1.5707963267948966" upper="1.5707963267948966" velocity="1.0"/>
   </joint>
   <link name="right_d">
     <visual>
@@ -294,11 +300,12 @@
       <material name="arm_gray"/>
     </visual>
   </link>
-  <joint name="right_d_joint" type="continuous">
+  <joint name="right_d_joint" type="revolute">
     <origin rpy="0 0 0" xyz="0.031 0 -0.009"/>
     <parent link="right_c"/>
     <child link="right_d"/>
     <axis xyz="0 1 0"/>
+    <limit effort="30" lower="0" upper="-1.5707963267948966" velocity="1.0"/>
   </joint>
   <link name="right_e">
     <visual>
@@ -309,11 +316,12 @@
       <material name="arm_yellow"/>
     </visual>
   </link>
-  <joint name="right_e_joint" type="continuous">
-    <origin rpy="0 0 0" xyz="0.0319 0 0"/>
+  <joint name="right_e_joint" type="revolute">
+    <origin rpy="-1.5707963267948966 0 0" xyz="0.0319 0 0"/>
     <parent link="right_d"/>
     <child link="right_e"/>
-    <axis xyz="0  0 1"/>
+    <axis xyz="1 0 0"/>
+    <limit effort="30" lower="-1.5707963267948966" upper="1.5707963267948966" velocity="1.0"/>
   </joint>
   <link name="right_f">
     <visual>

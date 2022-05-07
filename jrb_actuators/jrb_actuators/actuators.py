@@ -2,11 +2,12 @@ import traceback
 from rclpy.node import Node
 import rclpy
 from geometry_msgs.msg import Pose
-from lib import custom_dxl_API as API
+from .lib import custom_dxl_API as API
 from dynamixel_sdk import *  # Uses Dynamixel SDK library
 import RPi.GPIO as GPIO
 import time
 from functools import partial
+from sensor_msgs.msg import JointState
 
 
 def speed2rapportCyclique(speed):
@@ -26,6 +27,7 @@ class Actuators(Node):
         self.get_logger().info("init")
 
         self.init_gpio()
+        self.init_actuators()
 
         self.sub_left_arm = self.create_subscription(
             Pose, "left_arm_goto", partial(self.arm_goto_cb, "left"), 10
@@ -34,6 +36,35 @@ class Actuators(Node):
         self.sub_right_arm = self.create_subscription(
             Pose, "right_arm_goto", partial(self.arm_goto_cb, "right"), 10
         )
+
+        self.pub_actuator_state = self.create_publisher(
+            JointState, "actuator_state", 10
+        )
+
+        publish_state_rate = 1 / 10  # Hz
+        self.state_publish_timer = self.create_timer(
+            publish_state_rate, self.on_state_publish_timer
+        )
+
+        self.actuator_state_msg = JointState()
+
+    def on_state_publish_timer(self):
+        now = self.get_clock().now().to_msg()
+        state = self.bras.getState()
+        state[0] = state[0] / 1000.0 # mm -> m
+
+        self.actuator_state_msg.header.stamp = now
+        self.actuator_state_msg.name = [
+            "left_arm_joint",
+            "left_b_joint",
+            "left_c_joint",
+            "left_d_joint",
+            "left_e_joint",
+            "left_f_joint",
+        ]
+        self.actuator_state_msg.position = state
+
+        self.pub_actuator_state.publish(self.actuator_state_msg)
 
     def init_gpio(self):
         GPIO.setmode(GPIO.BOARD)
@@ -62,17 +93,18 @@ class Actuators(Node):
         self.bras = API.bras(16, 14, 22, 1, 8, 2)
 
         self.rateaux = API.rakes()
-        # bras.setTorque(1)
 
         # centre reservoir : 112.75 ; -22.5
         x = 112.75
         y = -22.5
 
-        self.startPump()
+        # self.startPump()
 
-        self.rateaux.setTorque(1)
-        self.rateaux.close()
+        # self.rateaux.setTorque(1)
+        # self.rateaux.close()
         self.bras.initSlider()
+        self.bras.slider.setTorque(0)
+        self.bras.setTorque(1)
 
     def startPump(self):
         self.pPompe.ChangeDutyCycle(speed2rapportCyclique(100))
@@ -91,12 +123,14 @@ class Actuators(Node):
         #     self.stopVanneTimer.cancel()
 
     def arm_goto_cb(self, side: str, msg: Pose):
-        x = msg.x
-        y = msg.y
-        self.get_logger().info(f"[GOTO] {side} ({x}, {y})")
+        x = msg.position.x
+        y = msg.position.y
+        z = msg.position.z
+
+        self.get_logger().info(f"[GOTO] {side} ({x}, {y}, {z})")
 
         # TODO : select arm
-        self.arm.setArmPosition(x, y)
+        self.bras.setArmPosition(x*1000, y*1000)
 
 
 def main(args=None):
@@ -114,7 +148,6 @@ def main(args=None):
     finally:
         node.destroy_node()
         rclpy.shutdown()
-        node.cleanup()
 
 
 if __name__ == "__main__":

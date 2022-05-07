@@ -14,10 +14,10 @@ import os
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time", default="false")
 
-    jrb_description_package_share = FindPackageShare("jrb_description").find("jrb_description")
+    jrb_bringup_pkg_share = FindPackageShare("jrb_bringup").find("jrb_bringup")
     camera_param_path = LaunchConfiguration(
         'camera_param_path',
-        default=os.path.join(jrb_description_package_share, 'param', 'robotrouge_camera_param.yaml'))
+        default=os.path.join(jrb_bringup_pkg_share, 'param', 'robotrouge_camera_param.yaml'))
 
     return LaunchDescription(
         [
@@ -37,16 +37,21 @@ def generate_launch_description():
                 ),
                 launch_arguments={"use_sim_time": use_sim_time}.items(),
             ),
+            # Node(
+            #     package="usb_cam",
+            #     executable="usb_cam_node_exe",
+            #     name="camera",
+            #     parameters=[camera_param_path],
+            #     output="screen",
+            # ),
+            # Node(
+            #     package="jrb_sample_detector",
+            #     executable="sample_detector",
+            #     output="screen",
+            # ),
             Node(
-                package="usb_cam",
-                executable="usb_cam_node_exe",
-                name="camera",
-                parameters=[camera_param_path],
-                output="screen",
-            ),
-            Node(
-                package="jrb_sample_detector",
-                executable="sample_detector",
+                package="jrb_actuators",
+                executable="actuators",
                 output="screen",
             ),
             # Node(
