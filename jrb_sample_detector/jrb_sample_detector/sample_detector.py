@@ -11,7 +11,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
 from geometry_msgs.msg import TransformStamped, Pose, Quaternion
 from builtin_interfaces.msg import Duration
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CompressedImage, CameraInfo
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from tf_transformations import (
@@ -89,7 +89,7 @@ def make_marker_msg(id_, stamp, pose, color):
 
 
 def opencv_to_ros(vec):
-    return np.array([-vec[1], vec[0], vec[2], 1])
+    return np.array([-vec[1], vec[0], vec[2]])
 
 
 DATA_PATH = get_package_share_directory("jrb_sample_detector")
@@ -107,28 +107,23 @@ class SampleDetector(Node):
             MarkerArray, "debug/sample_detected", 10
         )
         self.image_publisher = self.create_publisher(Image, "debug/image", 10)
+        self.image_subscriber = self.create_subscription(CompressedImage, "/image_raw/compressed", self.on_image_compressed, 10)
+        self.camera_info_subscriber = self.create_subscription(CameraInfo, "/camera_info", self.on_camera_info, 10)
 
         # Tf publisher
         self.tf_broadcaster = TransformBroadcaster(self)
-
+        self.tf_static_broadcaster = StaticTransformBroadcaster(self)
+        
         # Tf subscriber
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
         self.cv_bridge = CvBridge()
-
         self.aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_1000)
-        # chargement de la calibration de la camera (faite avec calib_cam.py)
-        data = np.load(os.path.join(DATA_PATH, "cam_calib.npz"))
-        self.cameraMatrix = data["cameraMatrix"]
-        self.distCoeffs = data["distCoeffs"]
-
+        self.cameraMatrix = None
+        self.distCoeffs = None
         self.arucoParameters = aruco.DetectorParameters_create()
-        self.cap = cv2.VideoCapture(os.path.join(DATA_PATH, "outpy.avi"))
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-        self.tvec0 = np.array([[-0.015, 0.033, 0.317]])
-        self.rvecO = np.array([[0, 0, 3.16516633]])
 
         # calibration en trichant sur la taille des tags :
         self.big_marker_size = 0.050  # en m
@@ -140,42 +135,33 @@ class SampleDetector(Node):
         self.get_logger().info("Wait for static transforms")
         now = self.get_clock().now().to_msg()
 
-        f = self.tf_buffer.wait_for_transform_async("base_link", "left_tag_link", now)
+        f = self.tf_buffer.wait_for_transform_async("th_camera_link", "left_tag_link", now)
         rclpy.spin_until_future_complete(self, f)
 
-        f = self.tf_buffer.wait_for_transform_async("base_link", "right_tag_link", now)
+        f = self.tf_buffer.wait_for_transform_async("th_camera_link", "right_tag_link", now)
         rclpy.spin_until_future_complete(self, f)
 
         f = self.tf_buffer.wait_for_transform_async("base_link", "th_camera_link", now)
         rclpy.spin_until_future_complete(self, f)
 
         self.get_logger().info("Static transforms found")
-        self.base_to_left_tag_tf = self.lookupTransform("base_link", "left_tag_link")
-        self.base_to_right_tag_tf = self.lookupTransform("base_link", "right_tag_link")
+
+        th_cam_to_left_tag_tf = self.lookupTransform("th_camera_link", "left_tag_link")
+        self.th_cam_to_left_tag_trans = translation_from_matrix(th_cam_to_left_tag_tf)
+
+        th_cam_to_right_tag_tf = self.lookupTransform("th_camera_link", "right_tag_link")
+        self.th_cam_to_right_tag_trans = translation_from_matrix(th_cam_to_right_tag_tf)
 
         # Init camera_link tf equal to th_camera-link
-        camera_tf_msg = self.tf_buffer.lookup_transform(
-            "base_link", "th_camera_link", now
-        )
-        camera_tf_msg.child_frame_id = "camera_link"
-        self.tf_broadcaster.sendTransform(camera_tf_msg)
+        self.camera_tf_msg = TransformStamped()
+        self.camera_tf_msg.header.stamp = now
+        self.camera_tf_msg.header.frame_id = 'th_camera_link'
+        self.camera_tf_msg.child_frame_id = 'camera_link'
 
-        # Camera read thread
-        _, self.frame = self.cap.read()
-        # self.camera_read_thread = threading.Thread(target=self.camera_read, daemon=True)
-        # self.frame_queue = Queue()
-        # self.camera_read_thread.start()
+        # TF th_camera_link -> camera_link publish timer
+        publish_rate = 1 / 50  # hz
+        self.tf_publish_timer = self.create_timer(publish_rate, self.on_tf_publish_timer)
 
-        # Publish timer
-        analysis_rate = 1 / 3  # seconds
-        self.analysis_timer = self.create_timer(analysis_rate, self.timer_callback)
-
-        # cv2.namedWindow("Display", cv2.WND_PROP_FULLSCREEN)
-        # cv2.setWindowProperty("Display", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-
-    def cleanup(self):
-        if self.camera_read_thread:
-            self.camera_read_thread.join()
 
     def lookupTransform(
         self, target_frame, source_frame, time=rclpy.time.Time().to_msg()
@@ -204,36 +190,27 @@ class SampleDetector(Node):
 
         return transform
 
-    def camera_read(self):
-        return
-        # ret, self.frame = self.cap.read()
+    def on_camera_info(self, msg):
+        self.get_logger().info('Got camera info, unsubscribing')
+        self.cameraMatrix = np.array(msg.k).reshape(3, 3)
+        self.distCoeffs = np.array(msg.d).reshape(1, 5)
+        self.destroy_subscription(self.camera_info_subscriber)
 
-        while rclpy.ok():
-            ret, frame = self.cap.read()
+    def on_tf_publish_timer(self):
+        self.camera_tf_msg.header.stamp = self.get_clock().now().to_msg() 
+        self.tf_broadcaster.sendTransform(self.camera_tf_msg)
 
-            if not ret:
-                continue
+    def on_image_compressed(self, msg):
+        if self.cameraMatrix is None or self.distCoeffs is None:
+            self.get_logger().warn('No CameraInfo yet, discard frame')
+            return
 
-            if not self.frame_queue.empty():
-                try:
-                    self.frame_queue.get_nowait()  # discard previous (unprocessed) frame
-                except Queue.Empty:
-                    pass
-
-            self.frame_queue.put(frame)
-            sleep(1 / 30)
-
-    def get_last_camera_frame(self):
-        return self.frame_queue.get()
-
-    def timer_callback(self):
         now = self.get_clock().now().to_msg()
 
-        # frame = self.get_last_camera_frame()
-        frame = copy(self.frame)
+        frame = self.cv_bridge.compressed_imgmsg_to_cv2(msg)
 
-        img_msg = self.cv_bridge.cv2_to_imgmsg(frame)
-        img_msg.header.frame_id = "camera_link"
+        # img_msg = self.cv_bridge.cv2_to_imgmsg(frame)
+        # img_msg.header.frame_id = "camera_link"
         # self.image_publisher.publish(img_msg)
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -247,6 +224,19 @@ class SampleDetector(Node):
             rvecs, tvecs, _objPoints = aruco.estimatePoseSingleMarkers(
                 corners, self.big_marker_size, self.cameraMatrix, self.distCoeffs
             )
+
+            # Draw origin
+            frame = aruco.drawAxis(
+                frame,
+                self.cameraMatrix,
+                self.distCoeffs,
+                np.array([[0.0, 0.0, 0.0]]),
+                np.array([[0.0, 0.0, 0.0]]),
+                self.length_of_axis,
+            )
+
+            frame = aruco.drawDetectedMarkers(frame, corners, ids)
+
             if (91 in ids) and (92 in ids):
                 i_91 = np.where(ids == 91)
                 i_92 = np.where(ids == 92)
@@ -261,74 +251,56 @@ class SampleDetector(Node):
                     tvecD_opencv = (
                         tvecs[i_92] * (self.small_marker_size / self.big_marker_size)
                     )[0]
-                    print(tvecD_opencv)
 
                     tvecG_opencv[2] = 0.3183
                     tvecD_opencv[2] = 0.3183
 
                     # Construct and publish transform camera -> G
-                    self.transform_msg = TransformStamped()
-                    self.transform_msg.header.stamp = now
-                    self.transform_msg.header.frame_id = "camera_link"
-                    self.transform_msg.child_frame_id = "left_tag_camera_link"
-                    self.transform_msg.transform.translation.x = tvecG_opencv[0]
-                    self.transform_msg.transform.translation.y = tvecG_opencv[1]
-                    self.transform_msg.transform.translation.z = tvecG_opencv[2]
-                    self.tf_broadcaster.sendTransform(self.transform_msg)
+                    transform_msg = TransformStamped()
+                    transform_msg.header.stamp = now
+                    transform_msg.header.frame_id = "camera_link"
+                    transform_msg.child_frame_id = "left_tag_camera_link"
+                    transform_msg.transform.translation.x = tvecG_opencv[0]
+                    transform_msg.transform.translation.y = tvecG_opencv[1]
+                    transform_msg.transform.translation.z = tvecG_opencv[2]
+                    self.tf_broadcaster.sendTransform(transform_msg)
 
                     # Construct and publish transform camera -> D
-                    self.transform_msg = TransformStamped()
-                    self.transform_msg.header.stamp = now
-                    self.transform_msg.header.frame_id = "camera_link"
-                    self.transform_msg.child_frame_id = "right_tag_camera_link"
-                    self.transform_msg.transform.translation.x = tvecD_opencv[0]
-                    self.transform_msg.transform.translation.y = tvecD_opencv[1]
-                    self.transform_msg.transform.translation.z = tvecD_opencv[2]
-                    self.tf_broadcaster.sendTransform(self.transform_msg)
+                    transform_msg = TransformStamped()
+                    transform_msg.header.stamp = now
+                    transform_msg.header.frame_id = "camera_link"
+                    transform_msg.child_frame_id = "right_tag_camera_link"
+                    transform_msg.transform.translation.x = tvecD_opencv[0]
+                    transform_msg.transform.translation.y = tvecD_opencv[1]
+                    transform_msg.transform.translation.z = tvecD_opencv[2]
+                    self.tf_broadcaster.sendTransform(transform_msg)
 
                     tvecG = opencv_to_ros(tvecG_opencv)
                     tvecD = opencv_to_ros(tvecD_opencv)
 
-                    camera_pos = 0.5 * (tvecG + tvecD)
+                    th_avg_tag_pos = 0.5 * (self.th_cam_to_left_tag_trans + self.th_cam_to_right_tag_trans)
+                    avg_tag_pos = 0.5 * (tvecG + tvecD)
+                    error = (th_avg_tag_pos - avg_tag_pos)
 
                     yaw = math.degrees(
                         np.arctan2(tvecD[0] - tvecG[0], tvecD[1] - tvecG[1])
                     )
 
                     q = quaternion_from_euler(radians(180), 0, radians(-yaw - 90))
-                    self.transform_msg = TransformStamped()
-                    self.transform_msg.header.stamp = now
-                    self.transform_msg.header.frame_id = "th_camera_link"
-                    self.transform_msg.child_frame_id = "camera_link"
-                    self.transform_msg.transform.translation.x = -camera_pos[0]
-                    self.transform_msg.transform.translation.y = -camera_pos[1]
-                    self.transform_msg.transform.translation.z = 0.0
-                    self.transform_msg.transform.rotation.x = q[0]
-                    self.transform_msg.transform.rotation.y = q[1]
-                    self.transform_msg.transform.rotation.z = q[2]
-                    self.transform_msg.transform.rotation.w = q[3]
-                    self.tf_broadcaster.sendTransform(self.transform_msg)
+                    self.camera_tf_msg = TransformStamped()
+                    self.camera_tf_msg.header.frame_id = "th_camera_link"
+                    self.camera_tf_msg.child_frame_id = "camera_link"
+                    self.camera_tf_msg.transform.translation.x = 0.0
+                    self.camera_tf_msg.transform.translation.y = 0.0
+                    self.camera_tf_msg.transform.translation.z = 0.0
+                    self.camera_tf_msg.transform.rotation.x = q[0]
+                    self.camera_tf_msg.transform.rotation.y = q[1]
+                    self.camera_tf_msg.transform.rotation.z = q[2]
+                    self.camera_tf_msg.transform.rotation.w = q[3]
 
-                    # frame = aruco.drawAxis(
-                    #     frame,
-                    #     self.cameraMatrix,
-                    #     self.distCoeffs,
-                    #     self.rvecO,
-                    #     self.tvec0,
-                    #     self.length_of_axis,
-                    # )
 
-                    # Draw origin
-                    frame = aruco.drawAxis(
-                        frame,
-                        self.cameraMatrix,
-                        self.distCoeffs,
-                        np.array([[0.0, 0.0, 0.0]]),
-                        np.array([[0.0, 0.0, 0.0]]),
-                        self.length_of_axis,
-                    )
-                    frame = aruco.drawDetectedMarkers(frame, corners, ids)
-
+            self.camera_tf_msg.header.stamp = now
+            self.tf_broadcaster.sendTransform(self.camera_tf_msg)
             msg = SampleDetectedArray()
             msg.header.stamp = now
             msg.header.frame_id = "camera_link"
@@ -366,7 +338,7 @@ class SampleDetector(Node):
 
                 sample_msg.pose.position.x = xyz[0]
                 sample_msg.pose.position.y = xyz[1]
-                sample_msg.pose.position.z = 0.332
+                sample_msg.pose.position.z = 0.32435
 
                 rotation_matrix = np.identity(4)
                 rotation_matrix[:3, :3], _ = cv2.Rodrigues(np.array([rvecs[i][0][:3]]))
@@ -381,19 +353,18 @@ class SampleDetector(Node):
 
                 marker_msg = make_marker_msg(
                     len(markers_msg.markers),
-                    msg.header.stamp,
+                    now,
                     sample_msg.pose,
                     sample_msg.type,
                 )
                 markers_msg.markers.append(marker_msg)
 
-                self.publisher_.publish(msg)
-                self.maker_publisher.publish(markers_msg)
+            self.publisher_.publish(msg)
+            self.maker_publisher.publish(markers_msg)
 
-        img_msg = self.cv_bridge.cv2_to_imgmsg(frame)
-        img_msg.header.frame_id = "camera_link"
-        self.image_publisher.publish(img_msg)
-        # cv2.imshow('Display', frame)
+        # img_msg = self.cv_bridge.cv2_to_imgmsg(frame)
+        # img_msg.header.frame_id = "camera_link"
+        # self.image_publisher.publish(img_msg)
 
 
 def main(args=None):
@@ -412,8 +383,6 @@ def main(args=None):
     finally:
         node.destroy_node()
         rclpy.shutdown()
-        node.cleanup()
-
 
 if __name__ == "__main__":
     main()

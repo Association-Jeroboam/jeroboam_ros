@@ -2,7 +2,6 @@
 
 import os
 
-from launch_ros.substitutions import FindPackageShare
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
@@ -13,8 +12,8 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time", default="false")
 
-    pkg_share = FindPackageShare("jrb_description").find("jrb_description")
-    urdf_dir = os.path.join(pkg_share, "urdf")
+    jrb_description_pkg_share = FindPackageShare("jrb_description").find("jrb_description")
+    urdf_dir = os.path.join(jrb_description_pkg_share, "urdf")
     urdf_file = os.path.join(urdf_dir, "robotrouge.urdf")
 
     with open(urdf_file, "r") as infp:
@@ -35,17 +34,23 @@ def generate_launch_description():
                 output="screen",
                 parameters=[rsp_params, {"use_sim_time": use_sim_time}],
             ),
-            # Node(
-            #     package="joint_state_publisher",
-            #     executable="joint_state_publisher",
-            #     output="screen",
-            #     arguments=[urdf_file],
-            # ),
             Node(
-                package="joint_state_publisher_gui",
-                executable="joint_state_publisher_gui",
+                package="joint_state_publisher",
+                executable="joint_state_publisher",
                 output="screen",
                 arguments=[urdf_file],
             ),
+            Node(
+                package="joint_state_publisher",
+                executable="joint_state_publisher",
+                output="screen",
+                arguments=[urdf_file],
+            ),
+            # Node(
+            #     package="joint_state_publisher_gui",
+            #     executable="joint_state_publisher_gui",
+            #     output="screen",
+            #     arguments=[urdf_file],
+            # ),
         ]
     )

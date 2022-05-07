@@ -7,10 +7,17 @@ from launch.actions import DeclareLaunchArgument
 from launch_ros.actions import Node
 from launch.substitutions import ThisLaunchFileDir
 from launch.actions import IncludeLaunchDescription
+from launch_ros.substitutions import FindPackageShare
+import os
 
 
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time", default="false")
+
+    jrb_description_package_share = FindPackageShare("jrb_description").find("jrb_description")
+    camera_param_path = LaunchConfiguration(
+        'camera_param_path',
+        default=os.path.join(jrb_description_package_share, 'param', 'robotrouge_camera_param.yaml'))
 
     return LaunchDescription(
         [
@@ -19,6 +26,11 @@ def generate_launch_description():
                 default_value=use_sim_time,
                 description="Use simulation (Gazebo) clock if true",
             ),
+            DeclareLaunchArgument(
+                'camera_param_path',
+                default_value=camera_param_path,
+                description='Full path to camera parameter file to load'
+            ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
                     [ThisLaunchFileDir(), "/robot_state_publisher.launch.py"]
@@ -26,11 +38,23 @@ def generate_launch_description():
                 launch_arguments={"use_sim_time": use_sim_time}.items(),
             ),
             Node(
-                package="rviz2",
-                executable="rviz2",
-                name="rviz2",
-                # arguments=['-d', rviz_config_dir],
+                package="usb_cam",
+                executable="usb_cam_node_exe",
+                name="camera",
+                parameters=[camera_param_path],
                 output="screen",
             ),
+            Node(
+                package="jrb_sample_detector",
+                executable="sample_detector",
+                output="screen",
+            ),
+            # Node(
+            #     package="rviz2",
+            #     executable="rviz2",
+            #     name="rviz2",
+            #     # arguments=['-d', rviz_config_dir],
+            #     output="screen",
+            # ),
         ],
     )
