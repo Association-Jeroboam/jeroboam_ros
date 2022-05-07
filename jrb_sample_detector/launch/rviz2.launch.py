@@ -8,7 +8,6 @@ rviz_config_path = os.path.join(
     get_package_share_directory("jrb_sample_detector"),
     "sample_detector.rviz",
 )
-print(rviz_config_path)
 
 
 def generate_launch_description():

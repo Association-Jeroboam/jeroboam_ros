@@ -19,6 +19,8 @@ setup(
             ],
         ),
         (os.path.join("share", package_name), glob("launch/*.launch.py")),
+        (os.path.join("share", package_name), glob("meshes/*.*")),
+        (os.path.join("share", package_name), [os.path.join("resource", "outpy.avi")]),
     ],
     install_requires=["setuptools"],
     zip_safe=True,

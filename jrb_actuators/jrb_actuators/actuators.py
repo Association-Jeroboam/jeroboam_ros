@@ -1,13 +1,12 @@
 import traceback
-from struct import pack, unpack
 from rclpy.node import Node
 import rclpy
-from jrb_msgs.msg import SampleDetected
+from geometry_msgs.msg import Pose
 from lib import custom_dxl_API as API
-from tf_transformations import quaternion_from_euler, euler_from_quaternion
 from dynamixel_sdk import *  # Uses Dynamixel SDK library
 import RPi.GPIO as GPIO
 import time
+from functools import partial
 
 
 def speed2rapportCyclique(speed):
@@ -28,8 +27,12 @@ class Actuators(Node):
 
         self.init_gpio()
 
-        self.sub_sample_detected = self.create_subscription(
-            SampleDetected, "sample_detected", self.sample_detected_cb, 10
+        self.sub_left_arm = self.create_subscription(
+            Pose, "left_arm_goto", partial(self.arm_goto_cb, "left"), 10
+        )
+
+        self.sub_right_arm = self.create_subscription(
+            Pose, "right_arm_goto", partial(self.arm_goto_cb, "right"), 10
         )
 
     def init_gpio(self):
@@ -75,7 +78,7 @@ class Actuators(Node):
         self.pPompe.ChangeDutyCycle(speed2rapportCyclique(100))
         self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
 
-    def stopPump():
+    def stopPump(self):
         self.pPompe.ChangeDutyCycle(speed2rapportCyclique(0))
         self.pVanne.ChangeDutyCycle(speed2rapportCyclique(100))
         time.sleep(1)
@@ -87,10 +90,12 @@ class Actuators(Node):
         #     self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
         #     self.stopVanneTimer.cancel()
 
-    def sample_detected_cb(self, msg):
-        x = msg.pose.x
-        y = msg.pose.y
+    def arm_goto_cb(self, side: str, msg: Pose):
+        x = msg.x
+        y = msg.y
+        self.get_logger().info(f"[GOTO] {side} ({x}, {y})")
 
+        # TODO : select arm
         self.arm.setArmPosition(x, y)
 
 

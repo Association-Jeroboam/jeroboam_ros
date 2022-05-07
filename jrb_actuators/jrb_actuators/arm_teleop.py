@@ -72,18 +72,18 @@ def main(args=None):
 
     bras = API.bras(16, 14, 22, 1, 8, 2)
 
-    rateaux = API.rakes()
-    # bras.setTorque(1)
+    # rateaux = API.rakes()
+    bras.setTorque(1)
 
     # centre reservoir : 112.75 ; -22.5
     x = 112.75
     y = -22.5
 
-    startPump()
+    # startPump()
 
-    rateaux.setTorque(1)
-    rateaux.close()
-    bras.initSlider()
+    # rateaux.setTorque(1)
+    # rateaux.close()
+    # bras.initSlider()
 
     while 1:
         print("Press any key to continue! (or press ESC to quit!)")
@@ -110,10 +110,10 @@ def main(args=None):
         # getch()
         # rateaux.close()
 
-    rateaux.setTorque(0)
+    # rateaux.setTorque(0)
     bras.setTorque(0)
 
     API.closePort()
-    stopPump()
-    pPompe.stop()
-    pVanne.stop()
+    # stopPump()
+    # pPompe.stop()
+    # pVanne.stop()

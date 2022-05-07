@@ -1,0 +1,150 @@
+<?xml version="1.0" ?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <material name="arm_yellow">
+    <color rgba="0.619607843137255 0.619607843137255 0.517647058823529 1" />
+  </material>
+
+  <material name="arm_gray">
+    <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+  </material>
+
+  <xacro:macro name="arm" params="name xyz">
+    <link
+      name="${name}_arm_base_link">
+      <visual>
+        <origin
+          xyz="0 0 0"
+          rpy="0 0 0" />
+        <geometry>
+          <mesh
+            filename="package://jrb_description/meshes/${name}_arm_base_link.STL" />
+        </geometry>
+        <material name="arm_black">
+          <color rgba="0.298039215686275 0.298039215686275 0.298039215686275 1" />
+        </material>
+      </visual>
+    </link>
+
+    <joint name="${name}_arm_joint" type="prismatic">
+      <parent link="base_link" />
+      <child link="${name}_arm_base_link" />
+      <origin xyz="${xyz}" rpy="0 0 0" />
+      <axis xyz="0 0 1" />
+      <limit effort="30" velocity="1.0" lower="-0.056" upper="0.056" />
+    </joint>
+
+    <link
+      name="${name}_b">
+      <visual>
+        <origin
+          xyz="0 0 0"
+          rpy="0 0 0" />
+        <geometry>
+          <mesh
+            filename="package://jrb_description/meshes/${name}_bras.STL" />
+        </geometry>
+        <material name="arm_yellow" />
+      </visual>
+    </link>
+
+    <joint
+      name="${name}_b_joint"
+      type="continuous">
+      <origin
+        xyz="0.02814995 0 0"
+        rpy="0 0 0" />
+      <parent
+        link="${name}_arm_base_link" />
+      <child
+        link="${name}_b" />
+      <axis
+        xyz="0 0 1" />
+    </joint>
+
+    <link name="${name}_c">
+      <visual>
+        <origin
+          xyz="0 0 0"
+          rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://jrb_description/meshes/${name}_avant_bras.STL" />
+        </geometry>
+        <material name="arm_gray" />
+      </visual>
+    </link>
+
+    <joint name="${name}_c_joint" type="continuous">
+      <origin xyz="0.054 0 0" rpy="0 0 0" />
+      <parent link="${name}_b" />
+      <child link="${name}_c" />
+      <axis xyz="0 0 -1" />
+    </joint>
+
+    <link name="${name}_d">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://jrb_description/meshes/poignet.STL" />
+        </geometry>
+        <material name="arm_gray" />
+      </visual>
+    </link>
+
+    <joint name="${name}_d_joint" type="continuous">
+      <origin xyz="0.031 0 -0.009" rpy="0 0 0" />
+      <parent link="${name}_c" />
+      <child link="${name}_d" />
+      <axis xyz="0 1 0" />
+    </joint>
+
+    <link
+      name="${name}_e">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://jrb_description/meshes/${name}_prehenseur.STL" />
+        </geometry>
+        <material name="arm_yellow" />
+      </visual>
+    </link>
+
+    <joint
+      name="${name}_e_joint"
+      type="continuous">
+      <origin
+        xyz="0.0319 0 0"
+        rpy="0 0 0" />
+      <parent
+        link="${name}_d" />
+      <child
+        link="${name}_e" />
+      <axis
+        xyz="0  0 1" />
+    </joint>
+
+    <link
+      name="${name}_f">
+      <visual>
+        <origin
+          xyz="0 0 0"
+          rpy="0 0 0" />
+        <geometry>
+          <mesh
+            filename="package://jrb_description/meshes/ventouse.STL" />
+        </geometry>
+        <material name="arm_gray" />
+      </visual>
+    </link>
+
+    <joint
+      name="${name}_f_joint"
+      type="continuous">
+      <origin xyz="0.02824 0 -0.029448" rpy="0 0 0" />
+      <parent link="${name}_e" />
+      <child link="${name}_f" />
+      <axis
+        xyz="0 0 1" />
+    </joint>
+  </xacro:macro>
+</robot>
