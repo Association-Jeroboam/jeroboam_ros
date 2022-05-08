@@ -28,23 +28,22 @@ else:
 import traceback
 from rclpy.node import Node
 import rclpy
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import PoseStamped
 import time
+
 
 class ArmTeleop(Node):
     def __init__(self):
         super().__init__("arm_teleop")
         self.get_logger().info("init")
 
-        self.pub_goto = self.create_publisher(
-            Pose, "left_arm_goto", 10
-        )
+        self.pub_goto = self.create_publisher(PoseStamped, "left_arm_goto", 10)
 
-        # centre reservoir : 112.75 ; -22.5
-        self.goto_msg = Pose()
-        self.goto_msg.position.x = 0.1127
-        self.goto_msg.position.y = -0.0225
-        self.goto_msg.position.z = 0.1
+        self.goto_msg = PoseStamped()
+        self.goto_msg.header.frame_id = "left_arm_origin_link"
+        self.goto_msg.pose.position.x = 0.0
+        self.goto_msg.pose.position.y = 0.13
+        self.goto_msg.pose.position.z = 0.22
 
     def loop(self):
         self.get_logger().info("Press any key to continue! (or press ESC to quit!)")
@@ -53,18 +52,24 @@ class ArmTeleop(Node):
             if value == chr(0x1B):
                 break
             elif value == "q":
-                self.goto_msg.position.x += 0.01
+                self.goto_msg.pose.position.x -= 0.001
             elif value == "d":
-                self.goto_msg.position.x -= 0.01
+                self.goto_msg.pose.position.x += 0.001
             elif value == "z":
-                self.goto_msg.position.y -= 0.01
+                self.goto_msg.pose.position.y += 0.001
             elif value == "s":
-                self.goto_msg.position.y += 0.01
+                self.goto_msg.pose.position.y -= 0.001
 
-            self.get_logger().info(f"goto {self.goto_msg.position.x} {self.goto_msg.position.y} {self.goto_msg.position.z}")
+            self.get_logger().info(
+                f"goto {self.goto_msg.pose.position.x} {self.goto_msg.pose.position.y} {self.goto_msg.pose.position.z}"
+            )
+
+            now = self.get_clock().now().to_msg()
+            self.goto_msg.header.stamp = now
             self.pub_goto.publish(self.goto_msg)
 
         self.get_logger().info("Node stopped cleanly")
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -82,6 +87,6 @@ def main(args=None):
         node.destroy_node()
         rclpy.shutdown()
 
+
 if __name__ == "__main__":
     main()
-

@@ -671,15 +671,20 @@ class bras:
     def getState(self):
         pos_to_rad = math.radians(300) / 1024
 
-        joints = [
-            (1023 - self.joinA.getPresentPosition() + 512 - 307),
-            (self.joinB.getPresentPosition() - 512) ,
-            (self.joinC.getPresentPosition() + 307 - 512),
-            (self.joinD.getPresentPosition() - 512) ,
-            (1023 - self.joinE.getPresentPosition() + 512),
-        ]
+        joints = []
 
-        return [self.getSlidePosition_mm()] + [pos * pos_to_rad for pos in joints]
+        joints.append(self.joinA.getPresentPosition())
+        time.sleep(0.001)
+        joints.append(self.joinB.getPresentPosition())
+        time.sleep(0.001)
+        joints.append(self.joinC.getPresentPosition())
+        time.sleep(0.001)
+        joints.append(self.joinD.getPresentPosition())
+        time.sleep(0.001)
+        joints.append(self.joinE.getPresentPosition())
+        time.sleep(0.001)
+
+        return [self.getSlidePosition_mm() / 1000] + [pos * pos_to_rad for pos in joints]
 
     def goToAngle(self, join, angle):
         ratio = 614 / 180

@@ -22,7 +22,7 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "arm_to_sample = arm_to_sample:main",
+            "arm_to_sample = jrb_strategy.arm_to_sample:main",
         ],
     },
 )

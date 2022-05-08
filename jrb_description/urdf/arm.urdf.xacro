@@ -9,7 +9,15 @@
     <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
   </material>
 
-  <xacro:macro name="arm" params="name xyz">
+  <xacro:macro name="arm" params="name xyz origin">
+    <link name="${name}_arm_origin_link" />
+
+    <joint name="${name}_arm_origin_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="${name}_arm_origin_link"/>
+      <origin xyz="${origin}" rpy="0 0 ${radians(-90)}"/>
+    </joint>
+
     <link
       name="${name}_arm_base_link">
       <visual>
@@ -52,15 +60,14 @@
       name="${name}_b_joint"
       type="revolute">
       <origin
-        xyz="0.02814995 0 0"
-        rpy="0 0 ${radians(135)}" />
+        xyz="0.02814995 0 0" rpy="0 0 ${radians(150)}" />
       <parent
         link="${name}_arm_base_link" />
       <child
         link="${name}_b" />
       <axis
-        xyz="0 0 1" />
-      <limit effort="30" velocity="1.0" lower="${radians(135)}" upper="${radians(315)}" />
+        xyz="0 0 -1" />
+      <limit effort="30" velocity="1.0" lower="${radians(0)}" upper="${radians(300)}" />
     </joint>
 
     <link name="${name}_c">
@@ -76,11 +83,11 @@
     </link>
 
     <joint name="${name}_c_joint" type="revolute">
-      <origin xyz="0.054 0 0" rpy="0 0 0" />
+      <origin xyz="0.054 0 0" rpy="0 0 ${radians(-150)}" />
       <parent link="${name}_b" />
       <child link="${name}_c" />
       <axis xyz="0 0 1" />
-      <limit effort="30" velocity="1.0" lower="${radians(-90)}" upper="${radians(90)}" />
+      <limit effort="30" velocity="1.0" lower="${radians(0)}" upper="${radians(300)}" />
     </joint>
 
     <link name="${name}_d">
@@ -94,11 +101,11 @@
     </link>
 
     <joint name="${name}_d_joint" type="revolute">
-      <origin xyz="0.031 0 -0.009" rpy="0 0 0" />
+      <origin xyz="0.031 0 -0.009" rpy="0 ${radians(-150+90)} 0" />
       <parent link="${name}_c" />
       <child link="${name}_d" />
       <axis xyz="0 1 0" />
-      <limit effort="30" velocity="1.0" lower="0" upper="${radians(-90)}" />
+      <limit effort="30" velocity="1.0" lower="${radians(0)}" upper="${radians(300)}" />
     </joint>
 
     <link
@@ -116,15 +123,14 @@
       name="${name}_e_joint"
       type="revolute">
       <origin
-        xyz="0.0319 0 0"
-        rpy="${radians(-90)} 0 0" />
+        xyz="0.0319 0 0" rpy="${radians(-240)} 0 0" />
       <parent
         link="${name}_d" />
       <child
         link="${name}_e" />
       <axis
         xyz="1 0 0" />
-      <limit effort="30" velocity="1.0" lower="${radians(-90)}" upper="${radians(90)}" />
+      <limit effort="30" velocity="1.0" lower="${radians(0)}" upper="${radians(300)}" />
     </joint>
 
     <link

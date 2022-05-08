@@ -164,6 +164,6 @@
 
   <!-- Arms -->
 
-  <xacro:arm name="left" xyz="0.054 0.11275 0.029375"/>
-  <xacro:arm name="right" xyz="0.054 -0.11275 0.029375"/>
+  <xacro:arm name="left" xyz="0.054 0.11275 0.029375" origin="0.0865 0.11275 0"/>
+  <xacro:arm name="right" xyz="0.054 -0.11275 0.029375" origin="0.0865 -0.11275 0"/>
 </robot>

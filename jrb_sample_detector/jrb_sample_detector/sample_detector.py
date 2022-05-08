@@ -157,6 +157,11 @@ class SampleDetector(Node):
         self.camera_tf_msg.header.stamp = now
         self.camera_tf_msg.header.frame_id = 'th_camera_link'
         self.camera_tf_msg.child_frame_id = 'camera_link'
+        q = quaternion_from_euler(radians(180), 0, radians(- 90))
+        self.camera_tf_msg.transform.rotation.x = q[0]
+        self.camera_tf_msg.transform.rotation.y = q[1]
+        self.camera_tf_msg.transform.rotation.z = q[2]
+        self.camera_tf_msg.transform.rotation.w = q[3]
 
         # TF th_camera_link -> camera_link publish timer
         publish_rate = 1 / 50  # hz

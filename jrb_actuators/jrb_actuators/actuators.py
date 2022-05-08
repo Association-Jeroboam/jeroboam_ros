@@ -1,13 +1,21 @@
 import traceback
 from rclpy.node import Node
 import rclpy
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import PoseStamped
 from .lib import custom_dxl_API as API
 from dynamixel_sdk import *  # Uses Dynamixel SDK library
 import RPi.GPIO as GPIO
 import time
+import numpy as np
 from functools import partial
 from sensor_msgs.msg import JointState
+from tf_transformations import (
+    concatenate_matrices,
+    translation_matrix,
+    quaternion_matrix,
+)
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
 
 
 def speed2rapportCyclique(speed):
@@ -29,19 +37,23 @@ class Actuators(Node):
         self.init_gpio()
         self.init_actuators()
 
+        # Tf subscriber
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
         self.sub_left_arm = self.create_subscription(
-            Pose, "left_arm_goto", partial(self.arm_goto_cb, "left"), 10
+            PoseStamped, "left_arm_goto", partial(self.arm_goto_cb, "left"), 10
         )
 
         self.sub_right_arm = self.create_subscription(
-            Pose, "right_arm_goto", partial(self.arm_goto_cb, "right"), 10
+            PoseStamped, "right_arm_goto", partial(self.arm_goto_cb, "right"), 10
         )
 
         self.pub_actuator_state = self.create_publisher(
             JointState, "actuator_state", 10
         )
 
-        publish_state_rate = 1 / 10  # Hz
+        publish_state_rate = 1 / 6  # Hz
         self.state_publish_timer = self.create_timer(
             publish_state_rate, self.on_state_publish_timer
         )
@@ -51,7 +63,6 @@ class Actuators(Node):
     def on_state_publish_timer(self):
         now = self.get_clock().now().to_msg()
         state = self.bras.getState()
-        state[0] = state[0] / 1000.0 # mm -> m
 
         self.actuator_state_msg.header.stamp = now
         self.actuator_state_msg.name = [
@@ -92,7 +103,7 @@ class Actuators(Node):
 
         self.bras = API.bras(16, 14, 22, 1, 8, 2)
 
-        self.rateaux = API.rakes()
+        # self.rateaux = API.rakes()
 
         # centre reservoir : 112.75 ; -22.5
         x = 112.75
@@ -105,6 +116,7 @@ class Actuators(Node):
         self.bras.initSlider()
         self.bras.slider.setTorque(0)
         self.bras.setTorque(1)
+        self.get_logger().info("init OK")
 
     def startPump(self):
         self.pPompe.ChangeDutyCycle(speed2rapportCyclique(100))
@@ -122,15 +134,55 @@ class Actuators(Node):
         #     self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
         #     self.stopVanneTimer.cancel()
 
-    def arm_goto_cb(self, side: str, msg: Pose):
-        x = msg.position.x
-        y = msg.position.y
-        z = msg.position.z
+    def arm_goto_cb(self, side: str, msg: PoseStamped):
+        print("cb")
+        pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1])
+
+        if msg.header.frame_id != "left_arm_origin_link":
+            transform = self.lookupTransform(
+                "left_arm_origin_link", msg.header.frame_id, rclpy.time.Time().to_msg()
+            )
+            pos = transform.dot(pos)
+            # print(pos)
+
+        x = pos[0]
+        y = pos[1]
+        z = pos[2]
+
+        z = 0 if z < 0 else z
 
         self.get_logger().info(f"[GOTO] {side} ({x}, {y}, {z})")
 
         # TODO : select arm
-        self.bras.setArmPosition(x*1000, y*1000)
+        self.bras.setArmPosition(x * 1000, y * 1000)
+        self.bras.setSliderPosition_mm(z * 1000)
+
+    def lookupTransform(
+        self, target_frame, source_frame, time=rclpy.time.Time().to_msg()
+    ):
+        transform_msg = self.tf_buffer.lookup_transform(
+            target_frame, source_frame, time
+        )
+        trans = np.array(
+            [
+                transform_msg.transform.translation.x,
+                transform_msg.transform.translation.y,
+                transform_msg.transform.translation.z,
+            ]
+        )
+        rot = np.array(
+            [
+                transform_msg.transform.rotation.x,
+                transform_msg.transform.rotation.y,
+                transform_msg.transform.rotation.z,
+                transform_msg.transform.rotation.w,
+            ]
+        )
+        transform = concatenate_matrices(
+            translation_matrix(trans), quaternion_matrix(rot)
+        )
+
+        return transform
 
 
 def main(args=None):

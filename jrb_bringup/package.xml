@@ -17,6 +17,12 @@
   <exec_depend>joint_state_publisher</exec_depend>
   <exec_depend>joint_state_publisher_gui</exec_depend>
   <exec_depend>rviz2</exec_depend>
+  <exec_depend>usb_cam</exec_depend>
+  <exec_depend>jrb_actuators</exec_depend>
+  <exec_depend>jrb_description</exec_depend>
+  <exec_depend>jrb_hardware_bridge</exec_depend>
+  <exec_depend>jrb_sample_detector</exec_depend>
+  <exec_depend>jrb_strategy</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

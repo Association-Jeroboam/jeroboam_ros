@@ -37,18 +37,18 @@ def generate_launch_description():
                 ),
                 launch_arguments={"use_sim_time": use_sim_time}.items(),
             ),
-            # Node(
-            #     package="usb_cam",
-            #     executable="usb_cam_node_exe",
-            #     name="camera",
-            #     parameters=[camera_param_path],
-            #     output="screen",
-            # ),
-            # Node(
-            #     package="jrb_sample_detector",
-            #     executable="sample_detector",
-            #     output="screen",
-            # ),
+            Node(
+                package="usb_cam",
+                executable="usb_cam_node_exe",
+                name="camera",
+                parameters=[camera_param_path],
+                output="screen",
+            ),
+            Node(
+                package="jrb_sample_detector",
+                executable="sample_detector",
+                output="screen",
+            ),
             Node(
                 package="jrb_actuators",
                 executable="actuators",
