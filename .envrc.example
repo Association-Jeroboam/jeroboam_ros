@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+# This file is meant to be run by direnv. Direnv will execute your script with bash, even if you're using another shell.
+
+printf '─%.0s' $(seq $(tput cols))
+
+################## CMake Generator (Cmake 3.15+)
+
+# If available, use Ninja buildsystem generator, which is faster
+# but Colcon may not show compiler output on a failed build
+# if [ -x "$(command -v ninja)" ]; then
+# 	export CMAKE_GENERATOR="Ninja"
+# fi
+
+################## Python
+
+export PATH="/usr/local/opt/python/libexec/bin:$PATH"
+
+################## CHOOSE A COMPILER
+
+# Clang tends to give better error messages but has stricter warnings
+# export CC=gcc CXX=g++
+if [ -x "$(command -v clang)" ]; then
+	export CC=clang CXX=clang++
+fi
+
+# Use CCache to cache compiler output
+if [ -x "$(command -v ccache)" ]; then
+	export CC="ccache $CC" CXX="ccache $CXX"
+fi
+
+# If available, use lld linker, which is faster. Install with: sudo apt install lld
+if [ -x "$(command -v lld)" ]; then
+	LDFLAGS+=" -fuse-ld=lld"
+fi
+
+# Use LLVM Project's C++ implementation. Install with: sudo apt install libc++-dev libc++abi-dev
+ldconfig -p -N | grep -q libc++
+if [ $? -eq 0 ]; then
+	export CXXFLAGS+=" -stdlib=libc++"
+fi
+
+# enable low-performance-impact sanitizers to tell us if we break something
+# export SAN_FLAGS=-fsanitize-trap=undefined
+# export CFLAGS="$SAN_FLAGS"
+# export CXXFLAGS="$SAN_FLAGS"
+# export UBSAN_OPTIONS=print_stacktrace=1
+
+################# CHOOSE A ROS BASE DISTRIBUTION
+
+# UNDERLAY=/opt/ros/dashing
+# UNDERLAY=/opt/ros/eloquent
+# UNDERLAY=/opt/ros/foxy
+# UNDERLAY=/opt/ros/rolling
+UNDERLAY=/opt/ros/galactic
+# UNDERLAY= # no underlay
+
+################# CHOOSE A MIDDLEWARE
+
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+# export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+# export RMW_IMPLEMENTATION=rmw_fastrtps_dynamic_cpp
+# export RMW_IMPLEMENTATION=rmw_gurumdds_cpp
+
+################# ROS Underlay
+
+if [ -z "$UNDERLAY" ]; then
+	echo "No underlay path specified. Not using an underlay."
+else
+	DID_UNDERLAY_SETUP=0
+	for UNDERLAY_SETUP in "$UNDERLAY/install/setup.bash" "$UNDERLAY/setup.bash"
+	do
+		# if setup files change (on build), rerun this script.
+		watch_file $UNDERLAY_SETUP
+		test -f "$UNDERLAY_SETUP" && echo "running underlay script $UNDERLAY_SETUP..." && source "$UNDERLAY_SETUP" && DID_UNDERLAY_SETUP=1
+	done
+	if [ $DID_UNDERLAY_SETUP = 0 ]; then
+		echo "Failed to run underlay script"
+	fi
+fi
+
+################# ROS Workspace
+
+OVERLAY_SETUP=../../install/local_setup.bash
+
+# if setup files change (on build), rerun this script.
+watch_file $OVERLAY_SETUP
+
+if [ -f "$OVERLAY_SETUP" ]; then
+	source $OVERLAY_SETUP
+else
+	echo "Did not find overlay setup. Has this workspace been built yet?"
+fi
+
+
+################# Runtime preferences
+
+export ROS_DOMAIN_ID=42 # make this number different than your coworkers' to isolate your ROS from theirs
+# export COLCON_HOME=/opt/ros/_common/colcon
+# export COLCON_DEFAULTS_FILE=$PWD/colcon.yaml
+
+################# Aliases
+export ROS_WS_PATH=$(cd ../.. && pwd)
+
+alias_dir=$PWD/.direnv/aliases
+rm -rf "$alias_dir"
+
+export_alias() {                                                                                                       
+  local name=$1                                                                                                        
+  shift                                                                                                                
+  local target="$alias_dir/$name"                                                                                      
+  mkdir -p "$alias_dir"                                                                                                
+  if ! [[ ":$PATH:" == *":$alias_dir:"* ]]; then                                                                       
+    PATH_add "$alias_dir"                                                                                              
+  fi                                                                                                                   
+
+  echo "#!/usr/bin/env bash" > "$target"                                                                            
+  echo "$@" >> "$target"                                                                                               
+  chmod +x "$target"                                                                                                    
+}                                                                                                                      
+
+export_alias b "cd ${ROS_WS_PATH} && pwd && colcon build --symlink-install"
+export_alias c "rm -rf ${ROS_WS_PATH}/{build,install,log}"
+export_alias rosdep_install "rosdep install -i --from-path ${ROS_WS_PATH}/src --rosdistro ${ROS_DISTRO} -y"
+
+python3 -c "
+import platform, os
+print()
+print('System:', platform.system(), platform.release())
+print('Python:', platform.python_implementation(), platform.python_version())
+print('   RMW:', os.environ.get('RMW_IMPLEMENTATION','?'))
+print('   ROS:', os.environ.get('ROS_DISTRO','distro?'))
+print('   DOMAIN_ID:', os.environ.get('ROS_DOMAIN_ID'))
+print('🤖 Welcome to ROS on', platform.node())
+print()
+"
