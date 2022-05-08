@@ -1,4 +1,3 @@
-from time import sleep
 import math
 from re import I
 import traceback
@@ -9,18 +8,16 @@ from jrb_msgs.msg import SampleDetected, SampleDetectedArray
 from ament_index_python import get_package_share_directory
 from visualization_msgs.msg import Marker, MarkerArray
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
-from geometry_msgs.msg import TransformStamped, Pose, Quaternion
+from geometry_msgs.msg import TransformStamped
 from builtin_interfaces.msg import Duration
 from sensor_msgs.msg import Image, CompressedImage, CameraInfo
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from tf_transformations import (
     concatenate_matrices,
-    inverse_matrix,
     translation_matrix,
     quaternion_matrix,
     translation_from_matrix,
-    quaternion_from_matrix,
     euler_from_matrix,
     quaternion_from_euler,
 )
@@ -65,22 +62,19 @@ def make_marker_msg(id_, stamp, pose, color):
     # Set the color
     if color == SampleDetected.RED:
         marker.mesh_resource = "file://" + os.path.join(
-            DATA_PATH, "echantillon_rouge.dae"
+            DATA_PATH, "meshes/echantillon_rouge.dae"
         )
     elif color == SampleDetected.GREEN:
         marker.mesh_resource = "file://" + os.path.join(
-            DATA_PATH, "echantillon_vert.dae"
+            DATA_PATH, "meshes/echantillon_vert.dae"
         )
     elif color == SampleDetected.BLUE:
         marker.mesh_resource = "file://" + os.path.join(
-            DATA_PATH, "echantillon_bleu.dae"
+            DATA_PATH, "meshes/echantillon_bleu.dae"
         )
     elif color == SampleDetected.ROCK:
-        # quat = quaternion_from_euler(math.pi, 0, 0)
-        # marker.pose.orientation = Quaternion(**dict(zip(["x", "y", "z", "w"], quat)))
-
         marker.mesh_resource = "file://" + os.path.join(
-            DATA_PATH, "echantillon_surprise.dae"
+            DATA_PATH, "meshes/echantillon_surprise.dae"
         )
 
     marker.mesh_use_embedded_materials = True
@@ -107,13 +101,17 @@ class SampleDetector(Node):
             MarkerArray, "debug/sample_detected", 10
         )
         self.image_publisher = self.create_publisher(Image, "debug/image", 10)
-        self.image_subscriber = self.create_subscription(CompressedImage, "/image_raw/compressed", self.on_image_compressed, 10)
-        self.camera_info_subscriber = self.create_subscription(CameraInfo, "/camera_info", self.on_camera_info, 10)
+        self.image_subscriber = self.create_subscription(
+            CompressedImage, "/image_raw/compressed", self.on_image_compressed, 10
+        )
+        self.camera_info_subscriber = self.create_subscription(
+            CameraInfo, "/camera_info", self.on_camera_info, 10
+        )
 
         # Tf publisher
         self.tf_broadcaster = TransformBroadcaster(self)
         self.tf_static_broadcaster = StaticTransformBroadcaster(self)
-        
+
         # Tf subscriber
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -123,7 +121,6 @@ class SampleDetector(Node):
         self.cameraMatrix = None
         self.distCoeffs = None
         self.arucoParameters = aruco.DetectorParameters_create()
-
 
         # calibration en trichant sur la taille des tags :
         self.big_marker_size = 0.050  # en m
@@ -135,10 +132,14 @@ class SampleDetector(Node):
         self.get_logger().info("Wait for static transforms")
         now = self.get_clock().now().to_msg()
 
-        f = self.tf_buffer.wait_for_transform_async("th_camera_link", "left_tag_link", now)
+        f = self.tf_buffer.wait_for_transform_async(
+            "th_camera_link", "left_tag_link", now
+        )
         rclpy.spin_until_future_complete(self, f)
 
-        f = self.tf_buffer.wait_for_transform_async("th_camera_link", "right_tag_link", now)
+        f = self.tf_buffer.wait_for_transform_async(
+            "th_camera_link", "right_tag_link", now
+        )
         rclpy.spin_until_future_complete(self, f)
 
         f = self.tf_buffer.wait_for_transform_async("base_link", "th_camera_link", now)
@@ -149,15 +150,17 @@ class SampleDetector(Node):
         th_cam_to_left_tag_tf = self.lookupTransform("th_camera_link", "left_tag_link")
         self.th_cam_to_left_tag_trans = translation_from_matrix(th_cam_to_left_tag_tf)
 
-        th_cam_to_right_tag_tf = self.lookupTransform("th_camera_link", "right_tag_link")
+        th_cam_to_right_tag_tf = self.lookupTransform(
+            "th_camera_link", "right_tag_link"
+        )
         self.th_cam_to_right_tag_trans = translation_from_matrix(th_cam_to_right_tag_tf)
 
         # Init camera_link tf equal to th_camera-link
         self.camera_tf_msg = TransformStamped()
         self.camera_tf_msg.header.stamp = now
-        self.camera_tf_msg.header.frame_id = 'th_camera_link'
-        self.camera_tf_msg.child_frame_id = 'camera_link'
-        q = quaternion_from_euler(radians(180), 0, radians(- 90))
+        self.camera_tf_msg.header.frame_id = "th_camera_link"
+        self.camera_tf_msg.child_frame_id = "camera_link"
+        q = quaternion_from_euler(radians(180), 0, radians(-90))
         self.camera_tf_msg.transform.rotation.x = q[0]
         self.camera_tf_msg.transform.rotation.y = q[1]
         self.camera_tf_msg.transform.rotation.z = q[2]
@@ -165,8 +168,9 @@ class SampleDetector(Node):
 
         # TF th_camera_link -> camera_link publish timer
         publish_rate = 1 / 50  # hz
-        self.tf_publish_timer = self.create_timer(publish_rate, self.on_tf_publish_timer)
-
+        self.tf_publish_timer = self.create_timer(
+            publish_rate, self.on_tf_publish_timer
+        )
 
     def lookupTransform(
         self, target_frame, source_frame, time=rclpy.time.Time().to_msg()
@@ -196,18 +200,18 @@ class SampleDetector(Node):
         return transform
 
     def on_camera_info(self, msg):
-        self.get_logger().info('Got camera info, unsubscribing')
+        self.get_logger().info("Got camera info, unsubscribing")
         self.cameraMatrix = np.array(msg.k).reshape(3, 3)
         self.distCoeffs = np.array(msg.d).reshape(1, 5)
         self.destroy_subscription(self.camera_info_subscriber)
 
     def on_tf_publish_timer(self):
-        self.camera_tf_msg.header.stamp = self.get_clock().now().to_msg() 
+        self.camera_tf_msg.header.stamp = self.get_clock().now().to_msg()
         self.tf_broadcaster.sendTransform(self.camera_tf_msg)
 
     def on_image_compressed(self, msg):
         if self.cameraMatrix is None or self.distCoeffs is None:
-            self.get_logger().warn('No CameraInfo yet, discard frame')
+            self.get_logger().warn("No CameraInfo yet, discard frame")
             return
 
         now = self.get_clock().now().to_msg()
@@ -283,9 +287,11 @@ class SampleDetector(Node):
                     tvecG = opencv_to_ros(tvecG_opencv)
                     tvecD = opencv_to_ros(tvecD_opencv)
 
-                    th_avg_tag_pos = 0.5 * (self.th_cam_to_left_tag_trans + self.th_cam_to_right_tag_trans)
+                    th_avg_tag_pos = 0.5 * (
+                        self.th_cam_to_left_tag_trans + self.th_cam_to_right_tag_trans
+                    )
                     avg_tag_pos = 0.5 * (tvecG + tvecD)
-                    error = (th_avg_tag_pos - avg_tag_pos)
+                    error = th_avg_tag_pos - avg_tag_pos
 
                     yaw = math.degrees(
                         np.arctan2(tvecD[0] - tvecG[0], tvecD[1] - tvecG[1])
@@ -302,7 +308,6 @@ class SampleDetector(Node):
                     self.camera_tf_msg.transform.rotation.y = q[1]
                     self.camera_tf_msg.transform.rotation.z = q[2]
                     self.camera_tf_msg.transform.rotation.w = q[3]
-
 
             self.camera_tf_msg.header.stamp = now
             self.tf_broadcaster.sendTransform(self.camera_tf_msg)
@@ -388,6 +393,7 @@ def main(args=None):
     finally:
         node.destroy_node()
         rclpy.shutdown()
+
 
 if __name__ == "__main__":
     main()
