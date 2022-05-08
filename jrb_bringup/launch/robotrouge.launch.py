@@ -16,8 +16,11 @@ def generate_launch_description():
 
     jrb_bringup_pkg_share = FindPackageShare("jrb_bringup").find("jrb_bringup")
     camera_param_path = LaunchConfiguration(
-        'camera_param_path',
-        default=os.path.join(jrb_bringup_pkg_share, 'param', 'robotrouge_camera_param.yaml'))
+        "camera_param_path",
+        default=os.path.join(
+            jrb_bringup_pkg_share, "param", "robotrouge_camera_param.yaml"
+        ),
+    )
 
     return LaunchDescription(
         [
@@ -27,9 +30,9 @@ def generate_launch_description():
                 description="Use simulation (Gazebo) clock if true",
             ),
             DeclareLaunchArgument(
-                'camera_param_path',
+                "camera_param_path",
                 default_value=camera_param_path,
-                description='Full path to camera parameter file to load'
+                description="Full path to camera parameter file to load",
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
@@ -49,9 +52,14 @@ def generate_launch_description():
                 executable="sample_detector",
                 output="screen",
             ),
+            # Node(
+            #     package="jrb_actuators",
+            #     executable="actuators",
+            #     output="screen",
+            # ),
             Node(
-                package="jrb_actuators",
-                executable="actuators",
+                package="jrb_localization",
+                executable="map_manager",
                 output="screen",
             ),
             # Node(

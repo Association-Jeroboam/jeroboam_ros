@@ -23,6 +23,7 @@
   <exec_depend>jrb_hardware_bridge</exec_depend>
   <exec_depend>jrb_sample_detector</exec_depend>
   <exec_depend>jrb_strategy</exec_depend>
+  <exec_depend>jrb_localization</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
