@@ -40,6 +40,7 @@ sudo apt update && sudo apt install -y \
 
 # install some pip packages needed for testing
 python3 -m pip install -U \
+  python3-testresources
   flake8-blind-except \
   flake8-builtins \
   flake8-class-newline \
