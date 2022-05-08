@@ -24,6 +24,7 @@ ros2 run demo_nodes_py listener
 
 ### Development tools and ROS tools
 ```shell
+# source: https://docs.ros.org/en/galactic/Installation/Ubuntu-Development-Setup.html#install-development-tools-and-ros-tools
 sudo apt update && sudo apt install -y \
   build-essential \
   cmake \
@@ -57,6 +58,7 @@ python3 -m pip install -U \
 ```shell
 sudo apt install -y direnv
 echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
+source ~/.bashrc
 
 # In project root
 cp .envrc.example .envrc
