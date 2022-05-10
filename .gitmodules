@@ -1,0 +1,4 @@
+[submodule "extern/rpilidar_ros"]
+	path = extern/rpilidar_ros
+	url = git@github.com:Slamtec/rplidar_ros.git
+	branch = ros2
