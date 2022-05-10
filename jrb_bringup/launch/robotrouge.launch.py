@@ -52,14 +52,19 @@ def generate_launch_description():
                 executable="sample_detector",
                 output="screen",
             ),
-            # Node(
-            #     package="jrb_actuators",
-            #     executable="actuators",
-            #     output="screen",
-            # ),
+            Node(
+                package="jrb_actuators",
+                executable="actuators",
+                output="screen",
+            ),
             Node(
                 package="jrb_localization",
                 executable="map_manager",
+                output="screen",
+            ),
+            Node(
+                package="jrb_screen",
+                executable="screen_manager",
                 output="screen",
             ),
             # Node(
