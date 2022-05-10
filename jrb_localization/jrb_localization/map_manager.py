@@ -37,11 +37,10 @@ class MapManager(Node):
             Marker, "debug/table_mesh", latchedQoS
         )
 
-        # Latched markers doen't show up in rviz, so we use a timer :(
-        map_marker_publish_rate = 1
-        self.publish_map_marker_timer = self.create_timer(
-            map_marker_publish_rate, self.on_map_publish_map_marker_timer
-        )
+        # map_marker_publish_rate = 1
+        # self.publish_map_marker_timer = self.create_timer(
+        #     map_marker_publish_rate, self.on_map_publish_map_marker_timer
+        # )
 
         # Tf publisher
         self.tf_broadcaster = TransformBroadcaster(self)
@@ -75,6 +74,7 @@ class MapManager(Node):
         )
 
         self.map_marker_msg.mesh_use_embedded_materials = True
+        self.on_map_publish_map_marker_timer()
 
         # Transform msg
         self.tf_msg = TransformStamped()
