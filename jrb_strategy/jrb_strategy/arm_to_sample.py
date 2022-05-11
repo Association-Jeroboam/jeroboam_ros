@@ -1,5 +1,4 @@
 import traceback
-from turtle import left
 import rclpy
 from rclpy.node import Node
 
@@ -12,7 +11,9 @@ class ArmToSample(Node):
         super().__init__("sample_detector")
         self.get_logger().info("init")
 
-        self.pub_left_arm_goto = self.create_publisher(PoseStamped, "/left_arm_goto", 10)
+        self.pub_left_arm_goto = self.create_publisher(
+            PoseStamped, "/left_arm_goto", 10
+        )
         self.sub_sample_detected = self.create_subscription(
             SampleDetectedArray, "sample_detected", self.on_sample_detected, 10
         )
@@ -20,7 +21,7 @@ class ArmToSample(Node):
     def on_sample_detected(self, msg: SampleDetectedArray):
         if len(msg.samples) == 0:
             return
-            
+
         poses = [sample.pose for sample in msg.samples]
 
         left_arm_goal = PoseStamped()
