@@ -13,6 +13,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -61,32 +62,51 @@ unsigned int subCnt;
 
 pthread_t txThread, rxThread;
 
-class MinimalPublisher : public rclcpp::Node
+class CanRxPublisher : public rclcpp::Node
 {
   public:
-    MinimalPublisher()
-    : Node("minimal_publisher"), count_(0)
+    CanRxPublisher()
+    : Node("Can_RX_Publisher")
     {
-      publisher_ = this->create_publisher<std_msgs::msg::String>("topic", 10);
-      timer_ = this->create_wall_timer(
-      500ms, std::bind(&MinimalPublisher::timer_callback, this));
+      publisher_ = this->create_publisher<nav_msgs::msg::Odometry>("robot_current_state", 50);
     }
 
-  private:
-    void timer_callback()
+  
+    void publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 * state)
     {
-      auto message = std_msgs::msg::String();
-      message.data = "Hello, world! " + std::to_string(count_++);
-      RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", message.data.c_str());
-      publisher_->publish(message);
+      auto state_msg = nav_msgs::msg::Odometry();
+      state_msg.header.frame_id = "odom";
+      state_msg.child_frame_id = "base_footprint";
+      
+      state_msg.pose.pose.position.x = state->pose.position.value.meter[0];
+      state_msg.pose.pose.position.y = state->pose.position.value.meter[1];
+      state_msg.pose.pose.position.z = state->pose.position.value.meter[2];
+
+      state_msg.pose.pose.orientation.w = state->pose.orientation.wxyz[0],
+      state_msg.pose.pose.orientation.x = state->pose.orientation.wxyz[1],
+      state_msg.pose.pose.orientation.y = state->pose.orientation.wxyz[2],
+      state_msg.pose.pose.orientation.z = state->pose.orientation.wxyz[3],
+
+
+      state_msg.twist.twist.linear.x = state->twist.linear.meter_per_second[0];
+      state_msg.twist.twist.linear.y = state->twist.linear.meter_per_second[1];
+      state_msg.twist.twist.linear.z = state->twist.linear.meter_per_second[2];
+
+      state_msg.twist.twist.angular.x = state->twist.angular.radian_per_second[0];
+      state_msg.twist.twist.angular.y = state->twist.angular.radian_per_second[1];
+      state_msg.twist.twist.angular.z = state->twist.angular.radian_per_second[2];
+
+      publisher_->publish(state_msg);
     }
-    rclcpp::TimerBase::SharedPtr timer_;
-    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
-    size_t count_;
+  private:
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr publisher_;
 };
+
+std::shared_ptr<CanRxPublisher> canRxPublisher;
 
 int main(int argc, char * argv[])
 {
+    rclcpp::TimerBase::SharedPtr timer_;
   if(argc != 2) {
         print_usage();
         return 1;
@@ -126,7 +146,8 @@ int main(int argc, char * argv[])
   pthread_create(&rxThread, NULL, &checkRxMsg, NULL);
 
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<MinimalPublisher>());
+  canRxPublisher = std::make_shared<CanRxPublisher>();
+  rclcpp::spin(canRxPublisher);
   rclcpp::shutdown();
   return 0;
 }
@@ -191,36 +212,37 @@ void* checkRxMsg(void*) {
 
           // process message
           reg_udral_physics_kinematics_cartesian_State_0_1 state;
-          bool state_rcvd = false;
+          // bool state_rcvd = false;
           if(transfer.metadata.port_id == 0) {
 
-            state_rcvd = true;
+            // state_rcvd = true;
             reg_udral_physics_kinematics_cartesian_State_0_1_deserialize_(&state,
                                                                           (uint8_t *)transfer.payload,
                                                                           &transfer.payload_size);
+            canRxPublisher.get()->publishRobotCurrentState(&state);
           }
           //then
           instance.memory_free(&instance, transfer.payload);
 
-          if(state_rcvd) {
-            for (int i = 0; i < 3; ++i) {
-              printf("%.4f ", state.pose.position.value.meter[i]);
-            }
-            printf("\n");
-            for (int i = 0; i < 4; ++i) {
-              printf("%.4f ", state.pose.orientation.wxyz[i]);
-            }
-            printf("\n");
-            for (int i = 0; i < 3; ++i) {
-              printf("%.4f ", state.twist.linear.meter_per_second[i]);
-            }
-            printf("\n");
-            for (int i = 0; i < 3; ++i) {
-              printf("%.4f ", state.twist.angular.radian_per_second[i]);
-            }
-            printf("\n");
+          // if(state_rcvd) {
+          //   for (int i = 0; i < 3; ++i) {
+          //     printf("%.4f ", state.pose.position.value.meter[i]);
+          //   }
+          //   printf("\n");
+          //   for (int i = 0; i < 4; ++i) {
+          //     printf("%.4f ", state.pose.orientation.wxyz[i]);
+          //   }
+          //   printf("\n");
+          //   for (int i = 0; i < 3; ++i) {
+          //     printf("%.4f ", state.twist.linear.meter_per_second[i]);
+          //   }
+          //   printf("\n");
+          //   for (int i = 0; i < 3; ++i) {
+          //     printf("%.4f ", state.twist.angular.radian_per_second[i]);
+          //   }
+          //   printf("\n");
 
-          }
+          // }
 
         } else if (ret == 0) {
             // rejected because not subscribed or transfer not complete
