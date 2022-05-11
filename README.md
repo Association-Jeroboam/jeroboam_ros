@@ -36,11 +36,11 @@ sudo apt update && sudo apt install -y \
   python3-rosdep \
   python3-setuptools \
   python3-vcstool \
+  python3-testresources \
   wget
 
 # install some pip packages needed for testing
 python3 -m pip install -U \
-  python3-testresources
   flake8-blind-except \
   flake8-builtins \
   flake8-class-newline \
