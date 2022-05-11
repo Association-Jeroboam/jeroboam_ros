@@ -142,11 +142,11 @@ int main(int argc, char * argv[])
       return 1;
   }
 
-  pthread_create(&txThread, NULL, &checkTxQueue, NULL);
-  pthread_create(&rxThread, NULL, &checkRxMsg, NULL);
 
   rclcpp::init(argc, argv);
   canRxPublisher = std::make_shared<CanRxPublisher>();
+  pthread_create(&txThread, NULL, &checkTxQueue, NULL);
+  pthread_create(&rxThread, NULL, &checkRxMsg, NULL);
   rclcpp::spin(canRxPublisher);
   rclcpp::shutdown();
   return 0;
