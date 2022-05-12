@@ -62,6 +62,11 @@ def getModel(DXL_ID):
     print("Ping of ", DXL_ID, ": Unable to get model number")
     return -1
 
+def resetTorque4All():
+    #SetTorque à 0 en broadcast (254)
+    global portHandler
+    writeValue(portHandler, 1, 254, 24, 0) #XL320
+    writeValue(portHandler, 1, 254, 64, 0) #XL430
 
 def setGoalPosition(DXL_ID, POSITION):
     dxl_model_number = getModel(DXL_ID)
@@ -397,6 +402,21 @@ class XL320:
     def reboot(self):
         packetHandler.reboot(portHandler, self.ID)
 
+    def getPresentVelocity(self):
+        #todo
+        pass
+    
+    def waitMoveEnd(self,timeout):
+        t_speed = time.time() + timeout  # timeout en secondes
+        speed = 0
+        while t_speed > time.time() :
+            lastspeed = speed
+            speed = self.getPresentVelocity()
+            if speed == 0 and lastspeed != 0:
+                return 1  # arret après un front descendant sur speed
+            time.sleep(0.1)
+        return 0
+
 
 class XL430:
     def __init__(
@@ -550,6 +570,17 @@ class XL430:
     def setHomingOffset(self, offset):
         self.offset = offset
         writeValue(portHandler, 4, self.ID, 20, offset)
+
+    def waitMoveEnd(self,timeout):
+        t_speed = time.time() + timeout  # timeout en secondes
+        speed = 0
+        while t_speed > time.time() :
+            lastspeed = speed
+            speed = self.getPresentVelocity()
+            if speed == 0 and lastspeed != 0:
+                return 1  # arret après un front descendant sur speed
+            time.sleep(0.1)
+        return 0
 
 
 class bras:
@@ -753,15 +784,7 @@ class bras:
 
         self.slider.setGoalPosition(-10000)
 
-        t_speed = time.time() + 10  # timeout de 10s
-        speed = 0
-        while t_speed - time.time() > 0:
-            lastspeed = speed
-            speed = self.slider.getPresentVelocity()
-            if speed == 0 and lastspeed != 0:
-                t_speed = time.time()  # arret après un front descendant sur speed
-            # print("Speed=",speed)
-            time.sleep(0.1)
+        self.slider.waitMoveEnd(10)
 
         pos = self.slider.getPresentPosition()
         self.setTorque(0)

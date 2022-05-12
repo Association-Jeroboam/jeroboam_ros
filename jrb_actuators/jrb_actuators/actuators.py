@@ -60,6 +60,9 @@ class Actuators(Node):
 
         self.actuator_state_msg = JointState()
 
+    def __del__(self):
+        API.resetTorque4All()
+
     def on_state_publish_timer(self):
         now = self.get_clock().now().to_msg()
         state = self.bras.getState()
@@ -113,8 +116,11 @@ class Actuators(Node):
 
         # self.rateaux.setTorque(1)
         # self.rateaux.close()
+        self.bras.setTorque(1)
+        self.bras.setArmPosition(20,120)
+        time.sleep(1)
         self.bras.initSlider()
-        self.bras.slider.setTorque(0)
+        #self.bras.slider.setTorque(0)
         self.bras.setTorque(1)
         self.get_logger().info("init OK")
 
@@ -136,9 +142,7 @@ class Actuators(Node):
 
     def arm_goto_cb(self, side: str, msg: PoseStamped):
         print("cb")
-        pos = np.array(
-            [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1]
-        )
+        pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1])
 
         if msg.header.frame_id != "left_arm_origin_link":
             transform = self.lookupTransform(
@@ -152,6 +156,8 @@ class Actuators(Node):
         z = pos[2]
 
         z = 0 if z < 0 else z
+        z = 275 if z > 275 else z
+
 
         self.get_logger().info(f"[GOTO] {side} ({x}, {y}, {z})")
 
