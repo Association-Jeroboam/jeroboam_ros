@@ -1,0 +1,3 @@
+/rplidar_scan_publisher:
+  ros__parameters:
+    frame_id: "laser_link"

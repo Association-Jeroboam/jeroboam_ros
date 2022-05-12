@@ -72,10 +72,10 @@
     </visual>
   </link>
 
-  <joint name="laser_join" type="fixed">
+  <joint name="laser_joint" type="fixed">
     <parent link="base_link" />
     <child link="laser_link" />
-    <origin xyz="0.0 0.0 0.37733" rpy="0 0 0"/>
+    <origin xyz="0.0 0.0 0.37733" rpy="0 0 ${radians(-90)}"/>
   </joint>
 
   <link name="laser_link" />

@@ -5,14 +5,14 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 
 rviz_config_path = os.path.join(
-    get_package_share_directory("jrb_sample_detector"),
+    get_package_share_directory("jrb_sensors"),
     "sample_detector.rviz",
 )
 
 
 def generate_launch_description():
     rviz_config_path = os.path.join(
-        get_package_share_directory("jrb_sample_detector"),
+        get_package_share_directory("jrb_sensors"),
         "sample_detector.rviz",
     )
 

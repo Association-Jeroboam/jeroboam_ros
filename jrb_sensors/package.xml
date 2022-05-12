@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>jrb_sample_detector</name>
+  <name>jrb_sensors</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="gosset.lucas@gmail.com">Lucas Gosset</maintainer>
@@ -19,6 +19,7 @@
   <exec_depend>jrb_msgs</exec_depend>
   <exec_depend>cv_bridge</exec_depend>
   <exec_depend>image_pipeline</exec_depend>
+  <exec_depend>message_filters</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

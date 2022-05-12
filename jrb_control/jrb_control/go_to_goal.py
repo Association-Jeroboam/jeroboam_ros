@@ -5,7 +5,6 @@ import rclpy
 from rclpy.time import Duration
 import time
 from rclpy.node import Node
-from rclpy.parameter import Parameter
 from rclpy.action import ActionServer, ActionClient, GoalResponse, CancelResponse
 from rclpy.action.server import ServerGoalHandle
 from rcl_interfaces.msg import SetParametersResult
@@ -15,13 +14,11 @@ from geometry_msgs.msg import Twist, PoseStamped, Quaternion
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Float32, Bool
 from typing import Optional
-from rclpy.task import Future
 import threading
 from action_msgs.msg import GoalStatus
-from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
-from goal_controller import GoalController, Pose2D
+from .goal_controller import GoalController, Pose2D
 from jrb_msgs.action import GoToPose
 
 
@@ -36,15 +33,15 @@ class GoToGoalNode(Node):
         self.goal_handle_lock = threading.Lock()
         self.goal_handle: Optional[ServerGoalHandle] = None
         self.goal: Optional[Pose2D] = None
-        # self.action_server = ActionServer(
-        #     self,
-        #     GoToPose,
-        #     self.action_name,
-        #     self.on_execute,
-        #     goal_callback=self.on_goal_callback,
-        #     cancel_callback=self.on_cancel_callback,
-        #     handle_accepted_callback=self.on_accepted_callback,
-        # )
+        self.action_server = ActionServer(
+            self,
+            GoToPose,
+            self.action_name,
+            self.on_execute,
+            goal_callback=self.on_goal_callback,
+            cancel_callback=self.on_cancel_callback,
+            handle_accepted_callback=self.on_accepted_callback,
+        )
 
         self.action_client = ActionClient(
             self,
@@ -320,6 +317,7 @@ class GoToGoalNode(Node):
 
             now = self.get_clock().now()
             if now > nextWork:
+                ## TODO : use seconds_nanoseconds
                 actual_dT = self.dT + (now - nextWork).nanoseconds / 1e9
                 actual_rate = 1 / actual_dT
                 self.get_logger().warn(

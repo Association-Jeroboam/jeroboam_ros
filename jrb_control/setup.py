@@ -22,7 +22,7 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "go_to_goal = go_to_goal.arm_to_sample:main",
+            "go_to_goal = jrb_control.go_to_goal:main",
         ],
     },
 )

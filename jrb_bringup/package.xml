@@ -21,7 +21,7 @@
   <exec_depend>jrb_actuators</exec_depend>
   <exec_depend>jrb_description</exec_depend>
   <exec_depend>jrb_hardware_bridge</exec_depend>
-  <exec_depend>jrb_sample_detector</exec_depend>
+  <exec_depend>jrb_sensors</exec_depend>
   <exec_depend>jrb_strategy</exec_depend>
   <exec_depend>jrb_localization</exec_depend>
 

@@ -37,7 +37,7 @@ from cv_bridge import CvBridge
 from ament_index_python import get_package_share_directory
 
 
-DATA_PATH = get_package_share_directory("jrb_sample_detector")
+DATA_PATH = get_package_share_directory("jrb_sensors")
 
 
 def make_marker_msg(id_, stamp, pose, color):
@@ -86,7 +86,7 @@ def opencv_to_ros(vec):
     return np.array([-vec[1], vec[0], vec[2]])
 
 
-DATA_PATH = get_package_share_directory("jrb_sample_detector")
+DATA_PATH = get_package_share_directory("jrb_sensors")
 
 
 class SampleDetector(Node):

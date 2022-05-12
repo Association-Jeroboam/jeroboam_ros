@@ -44,10 +44,10 @@ class MapManager(Node):
 
         # Tf publisher
         self.tf_broadcaster = TransformBroadcaster(self)
-        # tf_publish_rate = 50
-        # self.publish_tf_timer = self.create_timer(
-        #     tf_publish_rate, self.on_publish_tf_timer
-        # )
+        tf_publish_rate = 1 / 50  # Hz
+        self.publish_tf_timer = self.create_timer(
+            tf_publish_rate, self.on_publish_tf_timer
+        )
 
         # Map marker msg
         self.map_marker_msg = Marker()

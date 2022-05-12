@@ -2,7 +2,7 @@ from setuptools import setup
 import os
 from glob import glob
 
-package_name = "jrb_sample_detector"
+package_name = "jrb_sensors"
 
 setup(
     name=package_name,
@@ -24,8 +24,8 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "sample_detector = jrb_sample_detector.sample_detector:main",
-            "calib_cam = jrb_sample_detector.calib_cam:main",
+            "sample_detector = jrb_sensors.sample_detector:main",
+            "obstacle_detector = jrb_sensors.obstacle_detector:main",
         ],
     },
 )

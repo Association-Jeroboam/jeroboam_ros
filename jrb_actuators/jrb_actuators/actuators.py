@@ -136,7 +136,9 @@ class Actuators(Node):
 
     def arm_goto_cb(self, side: str, msg: PoseStamped):
         print("cb")
-        pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1])
+        pos = np.array(
+            [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1]
+        )
 
         if msg.header.frame_id != "left_arm_origin_link":
             transform = self.lookupTransform(

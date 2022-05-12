@@ -21,6 +21,10 @@ def generate_launch_description():
             jrb_bringup_pkg_share, "param", "robotrouge_camera_param.yaml"
         ),
     )
+    lidar_param_path = LaunchConfiguration(
+        "lidar_param_path",
+        default=os.path.join(jrb_bringup_pkg_share, "param", "lidar_param.yaml"),
+    )
 
     return LaunchDescription(
         [
@@ -48,7 +52,7 @@ def generate_launch_description():
                 output="screen",
             ),
             Node(
-                package="jrb_sample_detector",
+                package="jrb_sensors",
                 executable="sample_detector",
                 output="screen",
             ),
@@ -65,6 +69,22 @@ def generate_launch_description():
             Node(
                 package="jrb_screen",
                 executable="screen_manager",
+                output="screen",
+            ),
+            Node(
+                package="jrb_control",
+                executable="go_to_goal",
+                output="screen",
+            ),
+            Node(
+                package="rplidar_ros2",
+                executable="rplidar_scan_publisher",
+                parameters=[lidar_param_path],
+                output="screen",
+            ),
+            Node(
+                package="jrb_sensors",
+                executable="obstacle_detector",
                 output="screen",
             ),
             # Node(
