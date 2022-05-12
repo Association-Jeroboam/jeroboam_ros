@@ -59,6 +59,13 @@ class ArmTeleop(Node):
                 self.goto_msg.pose.position.y += 0.001
             elif value == "s":
                 self.goto_msg.pose.position.y -= 0.001
+            elif value == "a":
+                self.goto_msg.pose.position.z -= 0.005
+            elif value == "e":
+                self.goto_msg.pose.position.z += 0.005
+            elif value == "h":
+                self.goto_msg.pose.position.x = 0.0
+                self.goto_msg.pose.position.y = 0.13
 
             self.get_logger().info(
                 f"goto {self.goto_msg.pose.position.x} {self.goto_msg.pose.position.y} {self.goto_msg.pose.position.z}"
