@@ -25,6 +25,7 @@ from jrb_msgs.action import GoToPose
 class GoToGoalNode(Node):
     def __init__(self):
         super().__init__("go_to_goal")
+        self.get_logger().info(f"{self.get_name()} started")
 
         self.controller = GoalController()
 
@@ -52,8 +53,6 @@ class GoToGoalNode(Node):
         self.dist_pub = self.create_publisher(Float32, "distance_to_goal", 10)
         self.twist_pub = self.create_publisher(Twist, "cmd_vel", 10)
         self.goal_achieved_pub = self.create_publisher(Bool, "goal_achieved", 1)
-
-        self.get_logger().info(f"{self.get_name()} started")
 
         self.odom_sub = self.create_subscription(
             Odometry, "odometry", self.on_odometry, 10
@@ -251,7 +250,6 @@ class GoToGoalNode(Node):
             if param.name == "rate":
                 self.rate = param.value
                 self.dT = 1 / self.rate
-
             elif param.name == "kP":
                 self.kP = self.get_parameter("kp").value
                 self.controller.set_constants(self.kP, self.kA, self.kB)
