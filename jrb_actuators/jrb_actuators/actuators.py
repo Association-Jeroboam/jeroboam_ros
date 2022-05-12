@@ -106,22 +106,22 @@ class Actuators(Node):
 
         self.bras = API.bras(16, 14, 22, 1, 8, 2)
 
-        # self.rateaux = API.rakes()
+        self.rateaux = API.rakes()
 
         # centre reservoir : 112.75 ; -22.5
         x = 112.75
         y = -22.5
 
         # self.startPump()
-
-        # self.rateaux.setTorque(1)
-        # self.rateaux.close()
+        self.rateaux.setTorque(1)
+        #self.rateaux.close()
         self.bras.setTorque(1)
         self.bras.setArmPosition(20,120)
         time.sleep(1)
         self.bras.initSlider()
         #self.bras.slider.setTorque(0)
         self.bras.setTorque(1)
+        #self.rateaux.open()
         self.get_logger().info("init OK")
 
     def startPump(self):

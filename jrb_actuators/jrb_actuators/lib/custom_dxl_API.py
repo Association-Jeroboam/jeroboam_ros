@@ -589,7 +589,7 @@ class bras:
         self.joinB = XL320(ID_B, 512 - 333, 512 + 333, 250)
         self.joinC = XL320(ID_C, 160, 580, 450)
         self.joinD = XL320(ID_D, 0, 1023, 500)
-        self.joinE = XL320(ID_E)
+        self.joinE = XL320(ID_E,0,1023,150)
 
         self.slider = XL430(ID_Slider)
 
@@ -604,7 +604,7 @@ class bras:
         self.joinD.setPositionPID(120, 30, 0)
         self.joinE.setPositionPID(70, 30, 0)
 
-    def setArmPosition(self, x_sucker, y_sucker, angle_C=0, angle_D=90):
+    def setArmPosition(self, x_sucker, y_sucker, angle_C=0, angle_D=90, angle_E=0):
         h1 = 54  # entraxe A et B
         h2 = 91  # entraxe B et ventouse
         if math.sqrt(x_sucker**2 + y_sucker**2) > (h1 + h2):
@@ -690,6 +690,8 @@ class bras:
         self.goToAngle("B", angle_B)
         self.goToAngle("C", angle_C)
         self.goToAngle("D", angle_D)
+        self.goToAngle("E", angle_E)
+
 
     def setTorque(self, value):
         self.joinA.setTorque(value)
@@ -737,7 +739,7 @@ class bras:
         #     self.joinE.setGoalPosition(1023-(angle*ratio+512))
         elif join == "E":
             alpha = 180 - ((self.joinA.goalPosition - (512 - 307)) / ratio)
-            beta = (self.joinB.goalPosition() - 512) / ratio
+            beta = (self.joinB.goalPosition - 512) / ratio
             alpha = formatAngle(alpha)
             beta = formatAngle(beta)
             angle = (angle - alpha - beta) % 360
@@ -800,45 +802,65 @@ class bras:
     def getSlidePosition_mm(self):
         return (self.slider.getPresentPosition() - 8679) * (1 / -36.93191489)
 
+def mirrorAngle(angle):
+    return 1023-angle
 
 class rakes:
-    def __init__(self, ID_gauche=7, ID_droit=15):
-        self.gauche = XL320(ID_gauche, 520 - 220, 500, 300)
-        self.droit = XL320(ID_droit, 590, 570 + 220, 300)
+    def __init__(self, ID_gauche_bas=7, ID_droit_bas=15, ID_gauche_haut=5, ID_droit_haut=13):
+        self.gaucheB = XL320(ID_gauche_bas, 520 - 220, 500, 300)
+        self.droitB = XL320(ID_droit_bas, 590, 570 + 220, 300)
+
+        self.gaucheH = XL320(ID_gauche_haut, mirrorAngle(520 - 220), mirrorAngle(500), 300)
+        self.droitH = XL320(ID_droit_haut, mirrorAngle(590), mirrorAngle(570 + 220), 300)
 
     def setTorque(self, value):
-        self.droit.setTorque(value)
-        self.gauche.setTorque(value)
+        self.gaucheB.setTorque(value)
+        self.droitB.setTorque(value)
+        self.droitH.setTorque(value)
+        self.gaucheH.setTorque(value)
         self.torque = value
 
     def open(self):
-        self.gauche.setGoalPosition(471)
-        time.sleep(0.01)
-        self.droit.setGoalPosition(607)
+        self.gaucheB.setGoalPosition(471)
+        self.gaucheH.setGoalPosition(mirrorAngle(471))
+        self.droitB.setGoalPosition(607)
+        self.droitH.setGoalPosition(mirrorAngle(607))
+
 
     def close(self):
         torqueSetup = self.torque
 
-        self.gauche.setPositionPID(100, 30, 10)
-        self.droit.setPositionPID(100, 30, 10)
+        self.gaucheB.setPositionPID(100, 30, 10)
+        self.droitB.setPositionPID(100, 30, 10)
+        self.gaucheH.setPositionPID(100, 30, 10)
+        self.droitH.setPositionPID(100, 30, 10)
 
-        self.gauche.setGoalPosition(300)
-        self.droit.setGoalPosition(790)
+        self.gaucheB.setGoalPosition(300)
+        self.gaucheH.setGoalPosition(mirrorAngle(300))
+        self.droitB.setGoalPosition(790)
+        self.droitH.setGoalPosition(mirrorAngle(790))
+
         time.sleep(0.3)
 
         # self.setTorque(0)
-        self.gauche.setPositionPID(20, 0, 0)
-        self.droit.setPositionPID(20, 0, 0)
+        self.gaucheB.setPositionPID(20, 0, 0)
+        self.droitB.setPositionPID(20, 0, 0)
+        self.gaucheH.setPositionPID(20, 0, 0)
+        self.droitH.setPositionPID(20, 0, 0)
         # self.setTorque(1)
         self.open()
         time.sleep(0.3)
 
-        self.gauche.setGoalPosition(300)
-        self.droit.setGoalPosition(790)
+        self.gaucheB.setGoalPosition(300)
+        self.gaucheH.setGoalPosition(mirrorAngle(300))
+        self.droitB.setGoalPosition(790)
+        self.droitH.setGoalPosition(mirrorAngle(790))
         time.sleep(0.3)
 
-        self.gauche.setGoalPosition(self.gauche.getPresentPosition())
-        self.droit.setGoalPosition(self.droit.getPresentPosition())
+        self.gaucheB.setGoalPosition(self.gaucheB.getPresentPosition())
+        self.droitB.setGoalPosition(self.droitB.getPresentPosition())
+        self.gaucheH.setGoalPosition(self.gaucheH.getPresentPosition())
+        self.droitH.setGoalPosition(self.droitH.getPresentPosition())
 
         time.sleep(0.1)
         self.setTorque(torqueSetup)
