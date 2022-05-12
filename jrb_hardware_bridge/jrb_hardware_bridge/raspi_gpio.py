@@ -121,7 +121,7 @@ class RaspiGpio(Node):
 
         if team_value != self.last_team_value:
             self.last_team_value = team_value
-            self.pub_team.publish(Bool(data=team_value))
+            self.pub_team.publish(String(data="yellow" if team_value else "violet"))
 
     def on_strategy_polling(self):
         strategy_value = bool(GPIO.input(STRATEGY_PIN))
