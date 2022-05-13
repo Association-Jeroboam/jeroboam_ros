@@ -156,6 +156,31 @@ def formatAngle(angle):
     else:
         return angle
 
+def bitfield(n):
+    return [1 if digit=='1' else 0 for digit in bin(n)[2:].zfill(8)]
+
+def getHardwareError(ID):  # a debug
+    dxl_model_number, dxl_comm_result, dxl_error = packetHandler.ping(portHandler, ID)
+    if dxl_model_number == 350:
+        hard_error=bitfield(readValue(portHandler,1,ID,50))
+        return "Hardware error unknown (XL320)"
+    elif dxl_model_number == 1060: #XL430
+        value=readValue(portHandler,1,ID,70)
+        print(value)
+        hard_error=bitfield(value)
+    print(hard_error)
+    errror_msg=""
+    if hard_error[0] :
+         errror_msg+=" Input Voltage Error"
+    if hard_error[2] :
+         errror_msg+=" Overheating Error"
+    if hard_error[3] :
+         errror_msg+=" Motor Encoder Error"
+    if hard_error[4] :
+         errror_msg+=" Electrical Shock Error"
+    if hard_error[5] :
+         errror_msg+=" Overload Error"
+    return errror_msg
 
 def writeValue(portHandler, size, ID, address, value):
     if size == 1:
@@ -187,6 +212,9 @@ def writeValue(portHandler, size, ID, address, value):
             ": %s" % packetHandler.getTxRxResult(dxl_comm_result),
         )
     elif dxl_error != 0:
+        error_msg=packetHandler.getRxPacketError(dxl_error)
+        # if(error_msg == "[RxPacketError] Hardware error occurred. Check the error at Control Table (Hardware Error Status)!"):
+        #     error_msg=getHardwareError(ID)
         print(
             "DXL error (",
             dxl_error,
@@ -194,7 +222,7 @@ def writeValue(portHandler, size, ID, address, value):
             ID,
             " address",
             address,
-            ": %s" % packetHandler.getRxPacketError(dxl_error),
+            ": %s" % error_msg,
         )
 
 
@@ -273,6 +301,9 @@ class XL320:
         Max_Torque=1023,
     ):
         self.ID = DXL_ID
+        self.CW_Angle_Limit = 512         #to avoid crach for undefine if getModel is not working (due to ping error)
+        self.CCW_Angle_Limit = 512        #to avoid crach for undefine if getModel is not working (due to ping error)
+
         if 350 == getModel(DXL_ID):
             self.model_number = 350
         else:
@@ -753,7 +784,7 @@ class bras:
         if join == "A":
             value = 1023 - (angle * ratio + (512 - 307))
             if self.joinA.CW_Angle_Limit > value or self.joinA.CCW_Angle_Limit < value:
-                # print("Join A : angle=",angle,"  value=",value,"  CW=",self.joinA.CW_Angle_Limit,"  CCW=",self.joinA.CCW_Angle_Limit)
+                #print("Join A : angle=",angle,"  value=",value,"  CW=",self.joinA.CW_Angle_Limit,"  CCW=",self.joinA.CCW_Angle_Limit)
                 return 0
             else:
                 return 1
