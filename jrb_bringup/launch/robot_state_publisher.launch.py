@@ -4,40 +4,60 @@ import os
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+from launch.substitutions import (
+    LaunchConfiguration,
+    PathJoinSubstitution,
+    Command,
+)
+from launch_ros.actions import Node
+from launch.conditions import IfCondition, UnlessCondition
+from launch_ros.descriptions import ParameterValue
 
 
 def generate_launch_description():
-    use_sim_time = LaunchConfiguration("use_sim_time", default="false")
+    this_pkg = FindPackageShare("jrb_bringup")
 
-    jrb_description_pkg_share = FindPackageShare("jrb_description").find("jrb_description")
-    urdf_dir = os.path.join(jrb_description_pkg_share, "urdf")
-    urdf_file = os.path.join(urdf_dir, "robotrouge.urdf")
-
-    jrb_bringup_pkg_share = FindPackageShare("jrb_bringup").find("jrb_bringup")
-    param_dir = os.path.join(jrb_bringup_pkg_share, "param")
-    robot_state_publisher_param_file = os.path.join(param_dir, "robotrouge_joint_state_publisher_param.yaml")
-    print(robot_state_publisher_param_file)
-
-    with open(urdf_file, "r") as infp:
-        robot_desc = infp.read()
-
-    rsp_params = {"robot_description": robot_desc}
+    use_sim_time = LaunchConfiguration("use_sim_time")
+    use_gui = LaunchConfiguration("use_gui")
+    urdf_file = LaunchConfiguration(
+        "urdf_file",
+        default=PathJoinSubstitution(
+            [FindPackageShare("jrb_description"), "urdf", "robotrouge.urdf"]
+        ),
+    )
+    robot_state_publisher_param_file = LaunchConfiguration(
+        "robot_state_publisher_param_file",
+        default=PathJoinSubstitution(
+            [this_pkg, "param", "robotrouge_joint_state_publisher_param.yaml"]
+        ),
+    )
 
     return LaunchDescription(
         [
             DeclareLaunchArgument(
                 "use_sim_time",
-                default_value="false",
                 description="Use simulation clock if true",
+                default_value="False",
+            ),
+            DeclareLaunchArgument(
+                "use_gui",
+                description="Launch joint_state_publisher_gui instead of joint_state_publisher",
+                default_value="False",
             ),
             Node(
                 package="robot_state_publisher",
                 executable="robot_state_publisher",
                 output="screen",
-                parameters=[rsp_params, {"use_sim_time": use_sim_time}],
+                parameters=[
+                    {
+                        "robot_description": ParameterValue(
+                            Command(["cat ", urdf_file]),
+                            value_type=str,
+                        ),
+                        "use_sim_time": use_sim_time,
+                    }
+                ],
             ),
             Node(
                 package="joint_state_publisher",
@@ -45,13 +65,15 @@ def generate_launch_description():
                 name="joint_state_publisher",
                 output="screen",
                 arguments=[urdf_file],
-                parameters=[robot_state_publisher_param_file]
+                parameters=[robot_state_publisher_param_file],
+                condition=UnlessCondition(use_gui),
             ),
-            # Node(
-            #     package="joint_state_publisher_gui",
-            #     executable="joint_state_publisher_gui",
-            #     output="screen",
-            #     arguments=[urdf_file],
-            # ),
+            Node(
+                package="joint_state_publisher_gui",
+                executable="joint_state_publisher_gui",
+                output="screen",
+                arguments=[urdf_file],
+                condition=IfCondition(use_gui),
+            ),
         ]
     )

@@ -10,6 +10,8 @@ from builtin_interfaces.msg import Duration
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import TransformStamped
+from rcl_interfaces.msg import ParameterDescriptor, ParameterType, FloatingPointRange
+from rcl_interfaces.msg import SetParametersResult
 
 import os
 from ament_index_python import get_package_share_directory
@@ -22,6 +24,17 @@ class MapManager(Node):
     def __init__(self):
         super().__init__("map_manager")
         self.get_logger().info("init")
+
+        self.declare_parameter(
+            "tf_publish_rate",
+            50.0,
+            descriptor=ParameterDescriptor(
+                type=ParameterType.PARAMETER_DOUBLE,
+                floating_point_range=[
+                    FloatingPointRange(from_value=1.0, to_value=100.0, step=0.1)
+                ],
+            ),
+        )
 
         # Subscribers
         self.sub_odometry = self.create_subscription(
@@ -37,16 +50,11 @@ class MapManager(Node):
             Marker, "debug/table_mesh", latchedQoS
         )
 
-        # map_marker_publish_rate = 1
-        # self.publish_map_marker_timer = self.create_timer(
-        #     map_marker_publish_rate, self.on_map_publish_map_marker_timer
-        # )
-
         # Tf publisher
         self.tf_broadcaster = TransformBroadcaster(self)
-        tf_publish_rate = 1 / 50  # Hz
-        self.publish_tf_timer = self.create_timer(
-            tf_publish_rate, self.on_publish_tf_timer
+        self.tf_publish_rate = self.get_parameter("tf_publish_rate").value  # Hz
+        self.tf_publish_timer = self.create_timer(
+            1 / self.tf_publish_rate, self.on_publish_tf_timer
         )
 
         # Map marker msg
@@ -82,6 +90,18 @@ class MapManager(Node):
         self.tf_msg.child_frame_id = "base_footprint"
 
         self.on_publish_tf_timer()
+
+        self.add_on_set_parameters_callback(self.on_update_parameters)
+
+    def on_update_parameters(self, params):
+        for param in params:
+            if param.name == "tf_publish_rate":
+                self.tf_publish_rate = param.value
+                self.tf_publish_timer.timer_period_ns = 1 / self.tf_publish_rate * 1e9
+
+        self.get_logger().info("Params updated")
+
+        return SetParametersResult(successful=True)
 
     def on_map_publish_map_marker_timer(self):
         self.map_marker_publisher.publish(self.map_marker_msg)

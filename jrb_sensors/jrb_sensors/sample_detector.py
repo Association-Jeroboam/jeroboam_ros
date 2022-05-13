@@ -23,6 +23,8 @@ from tf_transformations import (
 )
 from copy import copy
 from math import radians
+from rcl_interfaces.msg import ParameterDescriptor, ParameterType, FloatingPointRange
+from rcl_interfaces.msg import SetParametersResult
 
 
 import numpy as np
@@ -108,6 +110,17 @@ class SampleDetector(Node):
             CameraInfo, "/camera_info", self.on_camera_info, 10
         )
 
+        self.declare_parameter(
+            "tf_publish_rate",
+            30.0,
+            descriptor=ParameterDescriptor(
+                type=ParameterType.PARAMETER_DOUBLE,
+                floating_point_range=[
+                    FloatingPointRange(from_value=1.0, to_value=50.0, step=0.1)
+                ],
+            ),
+        )
+
         # Tf publisher
         self.tf_broadcaster = TransformBroadcaster(self)
         self.tf_static_broadcaster = StaticTransformBroadcaster(self)
@@ -167,10 +180,22 @@ class SampleDetector(Node):
         self.camera_tf_msg.transform.rotation.w = q[3]
 
         # TF th_camera_link -> camera_link publish timer
-        publish_rate = 1 / 50  # hz
+        self.tf_publish_rate = self.get_parameter("tf_publish_rate").value  # hz
         self.tf_publish_timer = self.create_timer(
-            publish_rate, self.on_tf_publish_timer
+            1 / self.tf_publish_rate, self.on_tf_publish_timer
         )
+
+        self.add_on_set_parameters_callback(self.on_update_parameters)
+
+    def on_update_parameters(self, params):
+        for param in params:
+            if param.name == "tf_publish_rate":
+                self.tf_publish_rate = param.value
+                self.tf_publish_timer.timer_period_ns = 1 / self.tf_publish_rate * 1e9
+
+        self.get_logger().info("Params updated")
+
+        return SetParametersResult(successful=True)
 
     def lookupTransform(
         self, target_frame, source_frame, time=rclpy.time.Time().to_msg()
