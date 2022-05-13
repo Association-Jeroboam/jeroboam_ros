@@ -88,15 +88,15 @@ class RaspiGpio(Node):
             if param.name == "starter_polling_rate":
                 self.starter_polling_rate = param.value
                 self.starter_polling_timer.timer_period_ns = (
-                    1 / self.starter_polling_rate
+                    1 / self.starter_polling_rate * 1e9
                 )
-            elif param.name == "team_polling_name":
+            elif param.name == "team_polling_rate":
                 self.team_polling_rate = param.value
                 self.team_polling_timer.timer_period_ns = 1 / self.team_polling_rate
-            elif param.name == "strategy_polling_name":
+            elif param.name == "strategy_polling_rate":
                 self.strategy_polling_rate = param.value
                 self.strategy_polling_timer.timer_period_ns = (
-                    1 / self.strategy_polling_rate
+                    1 / self.strategy_polling_rate * 1e9
                 )
 
         self.get_logger().info("Params updated")
