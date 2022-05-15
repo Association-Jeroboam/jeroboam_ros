@@ -2,6 +2,7 @@ import traceback
 from rclpy.node import Node
 import rclpy
 from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import Bool
 from .lib import custom_dxl_API as API
 from dynamixel_sdk import *  # Uses Dynamixel SDK library
 import RPi.GPIO as GPIO
@@ -47,6 +48,10 @@ class Actuators(Node):
 
         self.sub_right_arm = self.create_subscription(
             PoseStamped, "right_arm_goto", partial(self.arm_goto_cb, "right"), 10
+        )
+
+        self.sub_rakes = self.create_subscription(
+            Bool, "open_rakes", self.rakes_cb, 10
         )
 
         self.pub_actuator_state = self.create_publisher(
@@ -140,8 +145,15 @@ class Actuators(Node):
         #     self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
         #     self.stopVanneTimer.cancel()
 
-    def arm_goto_cb(self, side: str, msg: PoseStamped):
+    def rakes_cb(self, msg: Bool):
         print("cb")
+        if msg.data :
+            self.rateaux.open()
+        else :
+            self.rateaux.close()
+
+    def arm_goto_cb(self, side: str, msg: PoseStamped):
+        #print("cb")
         pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1])
 
         if msg.header.frame_id != "left_arm_origin_link":

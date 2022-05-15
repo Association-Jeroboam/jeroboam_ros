@@ -166,14 +166,13 @@ def bitfield(n):
     return [1 if digit=='1' else 0 for digit in bin(n)[2:].zfill(8)]
 
 def getHardwareError(ID):  # a debug
-    dxl_model_number, dxl_comm_result, dxl_error = packetHandler.ping(portHandler, ID)
-    if dxl_model_number == 350:
+    if ID in XL320 :
         hard_error=bitfield(readValue(portHandler,1,ID,50))
-        return "Hardware error unknown (XL320)"
-    elif dxl_model_number == 1060: #XL430
-        value=readValue(portHandler,1,ID,70)
-        print(value)
-        hard_error=bitfield(value)
+        #return "Hardware error unknown (XL320)"
+
+    elif ID in XL430 :
+        hard_error=bitfield(readValue(portHandler,1,ID,70))
+
     print(hard_error)
     errror_msg=""
     if hard_error[0] :
@@ -226,8 +225,8 @@ def writeValue(portHandler, size, ID, address, value):
                 print("value :",value,"  size :",size)
 
 
-            # if(error_msg == "[RxPacketError] Hardware error occurred. Check the error at Control Table (Hardware Error Status)!"):
-            #     error_msg=getHardwareError(ID)
+            if(error_msg == "[RxPacketError] Hardware error occurred. Check the error at Control Table (Hardware Error Status)!"):
+                error_msg=getHardwareError(ID)
             print(
                 "DXL error (",
                 dxl_error,
@@ -318,6 +317,7 @@ class XL320:
         self.ID = DXL_ID
         self.CW_Angle_Limit = 512         #to avoid crach for undefine if getModel is not working (due to ping error)
         self.CCW_Angle_Limit = 512        #to avoid crach for undefine if getModel is not working (due to ping error)
+        self.offset=0
 
         if 350 == getModel(DXL_ID):
             self.model_number = 350
@@ -335,6 +335,8 @@ class XL320:
         self.setPunch(50)
         self.goalPosition = self.getPresentPosition()
 
+        self.setLED(2)
+
         print("XL320 ", DXL_ID, " was well initialized (temp:",self.getPresentTemperature(),"°C  Voltage:",self.getPresentVoltage(),"V)")
 
 
@@ -344,9 +346,20 @@ class XL320:
     def setLED(self, value):
         writeValue(portHandler, 1, self.ID, 25, value)
 
+    def setHomingOffset(self, offset):
+        oldOffset = self.offset
+        self.offset=offset
+        self.setAngleLimits(self.CW_Angle_Limit-oldOffset,self.CCW_Angle_Limit-oldOffset)
+
     def setAngleLimits(self, CW_Angle_Limit, CCW_Angle_Limit):
+        CW_Angle_Limit+=self.offset
+        CCW_Angle_Limit+=self.offset
         if CW_Angle_Limit > CCW_Angle_Limit:
-            print("Error for ID", self.ID, ": CW_Angle_Limit>CCW_Angle_Limit")
+            print("Warning for ID", self.ID, ": CW_Angle_Limit>CCW_Angle_Limit (=> auto reverse)")
+            tmp=CW_Angle_Limit
+            CW_Angle_Limit=CCW_Angle_Limit
+            CCW_Angle_Limit=tmp
+
         if CW_Angle_Limit < 0:
             print("Error for ID", self.ID, ": CW_Angle_Limit<0")
             CW_Angle_Limit = 0
@@ -400,6 +413,7 @@ class XL320:
         print("P:", P, "  I:", I, "  D:", D)
 
     def setGoalPosition(self, POSITION):
+        POSITION+=self.offset
         if self.CW_Angle_Limit > POSITION:
             print(
                 "Error for ID",
@@ -430,6 +444,7 @@ class XL320:
 
     def getPresentPosition(self):
         dxl_present_position = readValue(portHandler, 2, self.ID, 37)
+        dxl_present_position+=self.offset
         return dxl_present_position
 
     def getPresentTemperature(self):
@@ -869,18 +884,18 @@ class bras:
     def getSlidePosition_mm(self):
         return (self.slider.getPresentPosition() - 8679) * (1 / -36.93191489)
 
-    
-
 def mirrorAngle(angle):
-    return 1023-angle
+    return 1024-angle
 
 class rakes:
-    def __init__(self, ID_gauche_bas=7, ID_droit_bas=15, ID_gauche_haut=5, ID_droit_haut=13):
+    def __init__(self, ID_gauche_bas=7, ID_droit_bas=15, ID_gauche_haut=5, ID_droit_haut=18):
         self.gaucheB = XL320(ID_gauche_bas, 520 - 220, 500, 300)
         self.droitB = XL320(ID_droit_bas, 590, 570 + 220, 300)
 
         self.gaucheH = XL320(ID_gauche_haut, mirrorAngle(520 - 220), mirrorAngle(500), 300)
         self.droitH = XL320(ID_droit_haut, mirrorAngle(590), mirrorAngle(570 + 220), 300)
+
+        self.droitH.setHomingOffset(65)
 
     def setTorque(self, value):
         self.gaucheB.setTorque(value)
@@ -899,10 +914,12 @@ class rakes:
     def close(self):
         torqueSetup = self.torque
 
+        self.setTorque(0)
         self.gaucheB.setPositionPID(100, 30, 10)
         self.droitB.setPositionPID(100, 30, 10)
         self.gaucheH.setPositionPID(100, 30, 10)
         self.droitH.setPositionPID(100, 30, 10)
+        self.setTorque(1)
 
         self.gaucheB.setGoalPosition(300)
         self.gaucheH.setGoalPosition(mirrorAngle(300))
