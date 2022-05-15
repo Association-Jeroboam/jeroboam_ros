@@ -5,6 +5,8 @@ from dynamixel_sdk import *
 import time
 import math
 
+connected_XL430=[]
+connected_XL320=[]
 
 def initHandlers(DEVICENAME, BAUDRATE, PROTOCOL_VERSION):
     # Initialize PortHandler instance
@@ -48,25 +50,29 @@ def getModel(DXL_ID):
             portHandler, DXL_ID
         )
         if dxl_comm_result != COMM_SUCCESS:
-            print(
-                "Ping of ",
-                DXL_ID,
-                ": %s" % packetHandler.getTxRxResult(dxl_comm_result),
-            )
+            # print(
+            #     "Ping of ",
+            #     DXL_ID,
+            #     ": %s" % packetHandler.getTxRxResult(dxl_comm_result),
+            # )
+            pass
         elif dxl_error != 0:
             print(
                 "Ping of ", DXL_ID, ": %s" % packetHandler.getRxPacketError(dxl_error)
             )
         else:
             return dxl_model_number
-    print("Ping of ", DXL_ID, ": Unable to get model number")
+    print("Ping of ", DXL_ID, ": Unable to get model number. Please check electrical connection")
     return -1
 
 def resetTorque4All():
-    #SetTorque à 0 en broadcast (254)
-    global portHandler
-    writeValue(portHandler, 1, 254, 24, 0) #XL320
-    writeValue(portHandler, 1, 254, 64, 0) #XL430
+    time.sleep(0.01)
+    for xl320 in connected_XL320 :
+        writeValue(portHandler, 1, xl320, 24, 0) #XL320
+        time.sleep(0.005)
+    for xl430 in connected_XL430 :
+        writeValue(portHandler, 1, xl430, 64, 0) #XL430
+        time.sleep(0.005)
 
 def setGoalPosition(DXL_ID, POSITION):
     dxl_model_number = getModel(DXL_ID)
@@ -183,108 +189,117 @@ def getHardwareError(ID):  # a debug
     return errror_msg
 
 def writeValue(portHandler, size, ID, address, value):
-    if size == 1:
-        dxl_comm_result, dxl_error = packetHandler.write1ByteTxRx(
-            portHandler, ID, address, value
-        )
-    elif size == 2:
-        dxl_comm_result, dxl_error = packetHandler.write2ByteTxRx(
-            portHandler, ID, address, value
-        )
-    elif size == 3:
-        dxl_comm_result, dxl_error = packetHandler.write3ByteTxRx(
-            portHandler, ID, address, value
-        )
-    elif size == 4:
-        dxl_comm_result, dxl_error = packetHandler.write4ByteTxRx(
-            portHandler, ID, address, value
-        )
-    else:
-        print("Incorrect size")
-        return
+    if ( ID in connected_XL320 ) or ( ID in connected_XL430 ) or ID==254:
 
-    if dxl_comm_result != COMM_SUCCESS:
-        print(
-            "Comm_result for ID",
-            ID,
-            " address",
-            address,
-            ": %s" % packetHandler.getTxRxResult(dxl_comm_result),
-        )
-    elif dxl_error != 0:
-        error_msg=packetHandler.getRxPacketError(dxl_error)
-        # if(error_msg == "[RxPacketError] Hardware error occurred. Check the error at Control Table (Hardware Error Status)!"):
-        #     error_msg=getHardwareError(ID)
-        print(
-            "DXL error (",
-            dxl_error,
-            ")for ID",
-            ID,
-            " address",
-            address,
-            ": %s" % error_msg,
-        )
+        if size == 1:
+            dxl_comm_result, dxl_error = packetHandler.write1ByteTxRx(
+                portHandler, ID, address, value
+            )
+        elif size == 2:
+            dxl_comm_result, dxl_error = packetHandler.write2ByteTxRx(
+                portHandler, ID, address, value
+            )
+        elif size == 3:
+            dxl_comm_result, dxl_error = packetHandler.write3ByteTxRx(
+                portHandler, ID, address, value
+            )
+        elif size == 4:
+            dxl_comm_result, dxl_error = packetHandler.write4ByteTxRx(
+                portHandler, ID, address, value
+            )
+        else:
+            print("Incorrect size")
+            return
+
+        if dxl_comm_result != COMM_SUCCESS:
+            # print(
+            #     "Comm_result for ID",
+            #     ID,
+            #     " address",
+            #     address,
+            #     ": %s" % packetHandler.getTxRxResult(dxl_comm_result),
+            # )
+            pass
+        elif dxl_error != 0:
+            error_msg=packetHandler.getRxPacketError(dxl_error)
+            if(error_msg == "[RxPacketError] The data value exceeds the limit value!"):
+                print("value :",value,"  size :",size)
+
+
+            # if(error_msg == "[RxPacketError] Hardware error occurred. Check the error at Control Table (Hardware Error Status)!"):
+            #     error_msg=getHardwareError(ID)
+            print(
+                "DXL error (",
+                dxl_error,
+                ")for ID",
+                ID,
+                " address",
+                address,
+                ": %s" % error_msg,
+            )
 
 
 def readValue(portHandler, size, ID, address):
-    if size == 1:
-        value, dxl_comm_result, dxl_error = packetHandler.read1ByteTxRx(
-            portHandler, ID, address
-        )
-        if dxl_comm_result != COMM_SUCCESS:
-            time.sleep(0.05)
+    if ( ID in connected_XL320 ) or ( ID in connected_XL430 ):
+        if size == 1:
             value, dxl_comm_result, dxl_error = packetHandler.read1ByteTxRx(
                 portHandler, ID, address
             )
-    elif size == 2:
-        value, dxl_comm_result, dxl_error = packetHandler.read2ByteTxRx(
-            portHandler, ID, address
-        )
-        if dxl_comm_result != COMM_SUCCESS:
-            time.sleep(0.05)
+            if dxl_comm_result != COMM_SUCCESS:
+                time.sleep(0.05)
+                value, dxl_comm_result, dxl_error = packetHandler.read1ByteTxRx(
+                    portHandler, ID, address
+                )
+        elif size == 2:
             value, dxl_comm_result, dxl_error = packetHandler.read2ByteTxRx(
                 portHandler, ID, address
             )
-    elif size == 3:
-        value, dxl_comm_result, dxl_error = packetHandler.read3ByteTxRx(
-            portHandler, ID, address
-        )
-        if dxl_comm_result != COMM_SUCCESS:
-            time.sleep(0.05)
+            if dxl_comm_result != COMM_SUCCESS:
+                time.sleep(0.05)
+                value, dxl_comm_result, dxl_error = packetHandler.read2ByteTxRx(
+                    portHandler, ID, address
+                )
+        elif size == 3:
             value, dxl_comm_result, dxl_error = packetHandler.read3ByteTxRx(
                 portHandler, ID, address
             )
-    elif size == 4:
-        value, dxl_comm_result, dxl_error = packetHandler.read4ByteTxRx(
-            portHandler, ID, address
-        )
-        if dxl_comm_result != COMM_SUCCESS:
-            time.sleep(0.05)
+            if dxl_comm_result != COMM_SUCCESS:
+                time.sleep(0.05)
+                value, dxl_comm_result, dxl_error = packetHandler.read3ByteTxRx(
+                    portHandler, ID, address
+                )
+        elif size == 4:
             value, dxl_comm_result, dxl_error = packetHandler.read4ByteTxRx(
                 portHandler, ID, address
             )
-    else:
-        print("Incorrect size")
-        return -1
+            if dxl_comm_result != COMM_SUCCESS:
+                time.sleep(0.05)
+                value, dxl_comm_result, dxl_error = packetHandler.read4ByteTxRx(
+                    portHandler, ID, address
+                )
+        else:
+            print("Incorrect size")
+            return -1
 
-    if dxl_comm_result != COMM_SUCCESS:
-        print(
-            "Comm_result for ID",
-            ID,
-            " address",
-            address,
-            ": %s" % packetHandler.getTxRxResult(dxl_comm_result),
-        )
-    elif dxl_error != 0:
-        print(
-            "DXL error for ID",
-            ID,
-            " address",
-            address,
-            ": %s" % packetHandler.getRxPacketError(dxl_error),
-        )
-    else:
-        return value
+        if dxl_comm_result != COMM_SUCCESS:
+            # print(
+            #     "Comm_result for ID",
+            #     ID,
+            #     " address",
+            #     address,
+            #     ": %s" % packetHandler.getTxRxResult(dxl_comm_result),
+            # )
+            pass
+        elif dxl_error != 0:
+            print(
+                "DXL error for ID",
+                ID,
+                " address",
+                address,
+                ": %s" % packetHandler.getRxPacketError(dxl_error),
+            )
+        else:
+            return value
     return -1
 
 
@@ -306,8 +321,9 @@ class XL320:
 
         if 350 == getModel(DXL_ID):
             self.model_number = 350
+            connected_XL320.append(DXL_ID)
         else:
-            print("Error : DXL with ID ", DXL_ID, " does not appear to be XL320")
+            #print("Error : DXL with ID ", DXL_ID, " does not appear to be XL320")
             return
         self.setTorque(0)
         self.setDriveMode(2)
@@ -318,6 +334,9 @@ class XL320:
         self.setMaxSpeed(Moving_Speed)
         self.setPunch(50)
         self.goalPosition = self.getPresentPosition()
+
+        print("XL320 ", DXL_ID, " was well initialized (temp:",self.getPresentTemperature(),"°C  Voltage:",self.getPresentVoltage(),"V)")
+
 
     def setPunch(self, punch):
         writeValue(portHandler, 2, self.ID, 51, punch)
@@ -413,6 +432,14 @@ class XL320:
         dxl_present_position = readValue(portHandler, 2, self.ID, 37)
         return dxl_present_position
 
+    def getPresentTemperature(self):
+        present_temp = readValue(portHandler, 1, self.ID, 46)
+        return present_temp
+
+    def getPresentVoltage(self):
+        present_voltage=readValue(portHandler, 1, self.ID, 45)/10.0
+        return present_voltage
+
     def reboot(self):
         packetHandler.reboot(portHandler, self.ID)
 
@@ -462,6 +489,7 @@ class XL430:
         self.driveMode = driveMode
         if 1060 == getModel(DXL_ID):
             self.model_number = 1060
+            connected_XL430.append(DXL_ID)
         else:
             print(
                 "Error for ID",
@@ -473,10 +501,12 @@ class XL430:
         self.setTorque(0)
         if driveMode == 3:
             self.setAngleLimits(CW_Angle_Limit, CCW_Angle_Limit)
-            time.sleep(0.01)
+            time.sleep(0.005)
         self.setMaxSpeed(Moving_Speed)
         self.setDriveMode(driveMode)
         self.setPositionPID(640, 0, 4000)
+
+        print("XL430 ", DXL_ID, " was well initialized (temp:",self.getPresentTemperature(),"°C  Voltage:",self.getPresentVoltage(),"V)")
 
     def setAngleLimits(self, CW_Angle_Limit, CCW_Angle_Limit):
         if self.driveMode != 3:
@@ -505,6 +535,12 @@ class XL430:
 
         self.CW_Angle_Limit = CW_Angle_Limit
         self.CCW_Angle_Limit = CCW_Angle_Limit
+
+    def getPresentTemperature(self):
+        return readValue(portHandler, 1, self.ID, 146)
+
+    def getPresentVoltage(self):
+        return readValue(portHandler, 2, self.ID, 144)/10
 
     def setMaxSpeed(self, Max_Speed):
         self.maxSpeed = Max_Speed
@@ -832,6 +868,8 @@ class bras:
 
     def getSlidePosition_mm(self):
         return (self.slider.getPresentPosition() - 8679) * (1 / -36.93191489)
+
+    
 
 def mirrorAngle(angle):
     return 1023-angle
