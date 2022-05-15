@@ -10,9 +10,11 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 include_directories(libcanard/libcanard)
 include_directories(include/includes)
+include_directories(CanProtocol/)
 include_directories(include/includes/jeroboam)
 include_directories(include/includes/jeroboam/actuators)
 include_directories(include/includes/jeroboam/actuators/motion)
@@ -109,7 +111,7 @@ include_directories(include/includes/uavcan/time)
 
 add_executable(jrb_can_bridge src/jrb_can_bridge.cpp
     libcanard/libcanard/canard.c)
-ament_target_dependencies(jrb_can_bridge rclcpp std_msgs nav_msgs)
+ament_target_dependencies(jrb_can_bridge rclcpp std_msgs nav_msgs geometry_msgs)
 target_include_directories(jrb_can_bridge PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
@@ -117,7 +119,7 @@ target_compile_features(jrb_can_bridge PUBLIC c_std_99 cxx_std_17)  # Require C9
 
 
 add_executable(listener src/subscriber_member_function.cpp)
-ament_target_dependencies(listener rclcpp std_msgs nav_msgs)
+ament_target_dependencies(listener rclcpp std_msgs nav_msgs geometry_msgs)
 
 install(TARGETS
   jrb_can_bridge

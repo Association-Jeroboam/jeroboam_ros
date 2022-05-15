@@ -14,6 +14,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "geometry_msgs/msg/twist.hpp"
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -23,7 +24,8 @@
 #include "canard.h"
 #include "Heartbeat_1_0.h"
 #include "cartesian/State_0_1.h"
-
+#include "cartesian/Twist_0_1.h"
+#include "CanProtocol.hpp"
 
 using namespace std::chrono_literals;
 
@@ -45,6 +47,8 @@ bool pushQueue(const CanardTransferMetadata* const metadata,
                const void* const                   payload);
 bool subscribe(CanardTransferKind transfer_kind, CanardPortID port_id, size_t extent);
 
+void publishReceivedMessage(CanardRxTransfer * transfer);
+
 void print_usage(void) {
     printf("usage:\n\tchyphal_demo can_interface (can0, vcan0...)\n");
 }
@@ -62,18 +66,21 @@ unsigned int subCnt;
 
 pthread_t txThread, rxThread;
 
-class CanRxPublisher : public rclcpp::Node
+class CanBridge : public rclcpp::Node
 {
   public:
-    CanRxPublisher()
+    CanBridge()
     : Node("Can_RX_Publisher")
     {
-      publisher_ = this->create_publisher<nav_msgs::msg::Odometry>("robot_current_state", 50);
+      odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("robot_current_state", 50);
+      twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
+      "cmd_vel", 50, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
     }
 
   
     void publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 * state)
     {
+      printf("publish current state\r\n");
       auto state_msg = nav_msgs::msg::Odometry();
       state_msg.header.frame_id = "odom";
       state_msg.child_frame_id = "base_footprint";
@@ -96,13 +103,44 @@ class CanRxPublisher : public rclcpp::Node
       state_msg.twist.twist.angular.y = state->twist.angular.radian_per_second[1];
       state_msg.twist.twist.angular.z = state->twist.angular.radian_per_second[2];
 
-      publisher_->publish(state_msg);
+      odom_pub->publish(state_msg);
     }
   private:
-    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr publisher_;
+    void robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr msg) const {
+        static CanardTransferID transfer_id = 0;
+        reg_udral_physics_kinematics_cartesian_Twist_0_1 twist;
+        twist.linear.meter_per_second[0] = msg->linear.x;
+        twist.linear.meter_per_second[1] = msg->linear.y;
+        twist.linear.meter_per_second[2] = msg->linear.z;
+
+        twist.angular.radian_per_second[0] = msg->angular.x;
+        twist.angular.radian_per_second[1] = msg->angular.y;
+        twist.angular.radian_per_second[2] = msg->angular.z;
+
+        size_t buf_size = reg_udral_physics_kinematics_cartesian_Twist_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+        uint8_t buffer[reg_udral_physics_kinematics_cartesian_Twist_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+        reg_udral_physics_kinematics_cartesian_Twist_0_1_serialize_(&twist, buffer, &buf_size);
+
+        CanardTransferMetadata metadata;
+        metadata.priority = CanardPriorityNominal,
+        metadata.transfer_kind = CanardTransferKindMessage,
+        metadata.port_id = ROBOT_TWIST_GOAL_ID,
+        metadata.remote_node_id = CANARD_NODE_ID_UNSET,
+        metadata.transfer_id = transfer_id,
+        
+        transfer_id++;
+        bool success = pushQueue(&metadata, buf_size, buffer);
+        if (!success ) {
+            printf("Queue push failed\n");
+        }
+
+    }
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub;
+    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr twist_sub;
 };
 
-std::shared_ptr<CanRxPublisher> canRxPublisher;
+std::shared_ptr<CanBridge> canBridge;
 
 int main(int argc, char * argv[])
 {
@@ -126,8 +164,7 @@ int main(int argc, char * argv[])
 
   initCAN(iface);
   initCanard();
-  CanardPortID portID = 0; // Robot Current State ID
-  subscribe(CanardTransferKindMessage, portID, reg_udral_physics_kinematics_cartesian_State_0_1_EXTENT_BYTES_);
+  subscribe(CanardTransferKindMessage, ROBOT_CURRENT_STATE_ID, reg_udral_physics_kinematics_cartesian_State_0_1_EXTENT_BYTES_);
   subscribe(CanardTransferKindMessage, uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_, uavcan_node_Heartbeat_1_0_EXTENT_BYTES_);
 
   if (pthread_mutex_init(&tx_exec_lock, NULL) != 0)
@@ -144,10 +181,10 @@ int main(int argc, char * argv[])
 
 
   rclcpp::init(argc, argv);
-  canRxPublisher = std::make_shared<CanRxPublisher>();
+  canBridge = std::make_shared<CanBridge>();
   pthread_create(&txThread, NULL, &checkTxQueue, NULL);
   pthread_create(&rxThread, NULL, &checkRxMsg, NULL);
-  rclcpp::spin(canRxPublisher);
+  rclcpp::spin(canBridge);
   rclcpp::shutdown();
   return 0;
 }
@@ -211,38 +248,9 @@ void* checkRxMsg(void*) {
           //success
 
           // process message
-          reg_udral_physics_kinematics_cartesian_State_0_1 state;
-          // bool state_rcvd = false;
-          if(transfer.metadata.port_id == 0) {
-
-            // state_rcvd = true;
-            reg_udral_physics_kinematics_cartesian_State_0_1_deserialize_(&state,
-                                                                          (uint8_t *)transfer.payload,
-                                                                          &transfer.payload_size);
-            canRxPublisher.get()->publishRobotCurrentState(&state);
-          }
+          publishReceivedMessage(&transfer);
           //then
           instance.memory_free(&instance, transfer.payload);
-
-          // if(state_rcvd) {
-          //   for (int i = 0; i < 3; ++i) {
-          //     printf("%.4f ", state.pose.position.value.meter[i]);
-          //   }
-          //   printf("\n");
-          //   for (int i = 0; i < 4; ++i) {
-          //     printf("%.4f ", state.pose.orientation.wxyz[i]);
-          //   }
-          //   printf("\n");
-          //   for (int i = 0; i < 3; ++i) {
-          //     printf("%.4f ", state.twist.linear.meter_per_second[i]);
-          //   }
-          //   printf("\n");
-          //   for (int i = 0; i < 3; ++i) {
-          //     printf("%.4f ", state.twist.angular.radian_per_second[i]);
-          //   }
-          //   printf("\n");
-
-          // }
 
         } else if (ret == 0) {
             // rejected because not subscribed or transfer not complete
@@ -254,6 +262,23 @@ void* checkRxMsg(void*) {
     } else {
       usleep(10);
     }
+  }
+}
+
+void publishReceivedMessage(CanardRxTransfer * transfer) {
+  switch (transfer->metadata.port_id)
+  {
+    case ROBOT_CURRENT_STATE_ID:{
+      reg_udral_physics_kinematics_cartesian_State_0_1 state;
+      reg_udral_physics_kinematics_cartesian_State_0_1_deserialize_(&state,
+                                                                  (uint8_t *)transfer->payload,
+                                                                  &transfer->payload_size);
+      canBridge.get()->publishRobotCurrentState(&state);
+      break;
+    }
+    default:
+      printf("Accepted a non handled CAN message! Please fix me!\n");
+      break;
   }
 }
 
@@ -336,7 +361,7 @@ bool check_parameter(char * iface, char * name, size_t n) {
 
 void initCanard(void) {
     instance = canardInit(canardSpecificAlloc, canardSpecificFree);
-    instance.node_id = 42; // Embedded computer Node ID
+    instance.node_id = EMBEDDED_COMPUTER_ID; // Embedded computer Node ID
     queue = canardTxInit(100, MAX_FRAME_SIZE);
 }
 
