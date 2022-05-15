@@ -15,6 +15,9 @@
 #include "std_msgs/msg/string.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "jrb_msgs/msg/pid_state.hpp"
+#include "jrb_msgs/msg/pump_status.hpp"
+#include "jrb_msgs/msg/valve_status.hpp"
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -77,6 +80,13 @@ class CanBridge : public rclcpp::Node
     : Node("Can_RX_Publisher")
     {
       odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("robot_current_state", 50);
+      left_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("left_pid_state", 10);
+      right_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("right_pid_state", 10);
+      left_pump_pub = this->create_publisher<jrb_msgs::msg::PumpStatus>("left_pump_status", 10);
+      right_pump_pub = this->create_publisher<jrb_msgs::msg::PumpStatus>("right_pump_status", 10);
+      left_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("left_valve_status", 10);
+      right_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("right_valve_status", 10);
+
       twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
       "cmd_vel", 50, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
     }
@@ -109,6 +119,48 @@ class CanBridge : public rclcpp::Node
 
       odom_pub->publish(state_msg);
     }
+
+    void publishLeftPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1* pid){
+      auto pid_msg = jrb_msgs::msg::PIDState();
+      pid_msg.output = pid->output;
+      pid_msg.setpoint = pid->setpoint;
+      pid_msg.error = pid->_error;
+
+      left_pid_pub->publish(pid_msg);
+    }
+
+    void publishRightPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1* pid) {
+      auto pid_msg = jrb_msgs::msg::PIDState();
+      pid_msg.output = pid->output;
+      pid_msg.setpoint = pid->setpoint;
+      pid_msg.error = pid->_error;
+
+      right_pid_pub->publish(pid_msg);
+    }
+    void publishLeftPumpStatus(jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 * status){
+      auto status_msg = jrb_msgs::msg::PumpStatus();
+      status_msg.enabled = status->status.enabled.value;
+
+      left_pump_pub->publish(status_msg);
+    }
+    void publishRightPumpStatus(jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 * status){
+      auto status_msg = jrb_msgs::msg::PumpStatus();
+      status_msg.enabled = status->status.enabled.value;
+
+      right_pump_pub->publish(status_msg);
+    }
+    void publishLeftValveStatus(jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 * status){
+      auto status_msg = jrb_msgs::msg::ValveStatus();
+      status_msg.enabled = status->status.enabled.value;
+
+      left_valve_pub->publish(status_msg);
+    }
+    void publishRightValveStatus(jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 * status){
+      auto status_msg = jrb_msgs::msg::ValveStatus();
+      status_msg.enabled = status->status.enabled.value;
+
+      right_valve_pub->publish(status_msg);
+    }
   private:
     void robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr msg) const {
         static CanardTransferID transfer_id = 0;
@@ -140,8 +192,15 @@ class CanBridge : public rclcpp::Node
         }
 
     }
-    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr      odom_pub;
+    rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr      left_pid_pub;
+    rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr      right_pid_pub;
+    rclcpp::Publisher<jrb_msgs::msg::PumpStatus>::SharedPtr     left_pump_pub;
+    rclcpp::Publisher<jrb_msgs::msg::PumpStatus>::SharedPtr     right_pump_pub;
+    rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    left_valve_pub;
+    rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    right_valve_pub;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr twist_sub;
+
 };
 
 std::shared_ptr<CanBridge> canBridge;
@@ -303,7 +362,11 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
       jeroboam_datatypes_actuators_motion_PIDState_0_1_deserialize_(&pidState,
                                                                     (uint8_t *)transfer->payload,
                                                                     &transfer->payload_size);
-      // publish pid state
+      if(pidState.ID == 0) {
+        canBridge.get()->publishLeftPIDState(&pidState);
+      } else {
+        canBridge.get()->publishRightPIDState(&pidState);
+      }
       break;
     }
     case ACTION_PUMP_STATUS_ID:{
@@ -311,7 +374,11 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
       jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_deserialize_(&status,
                                                                     (uint8_t *)transfer->payload,
                                                                     &transfer->payload_size);
-      // Publish pump state  
+      if(status.status.ID == 0) {
+        canBridge.get()->publishLeftPumpStatus(&status);
+      } else {
+        canBridge.get()->publishRightPumpStatus(&status);
+      }
       break;
     }
     case ACTION_VALVE_STATUS_ID:{
@@ -319,7 +386,11 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
       jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_deserialize_(&status,
                                                                     (uint8_t *)transfer->payload,
                                                                     &transfer->payload_size);
-      // Publish valve state  
+      if(status.status.ID == 0) {
+        canBridge.get()->publishLeftValveStatus(&status);
+      } else {
+        canBridge.get()->publishRightValveStatus(&status);
+      }
       break;
     }
     default:
@@ -420,3 +491,4 @@ void canardSpecificFree(CanardInstance * instance, void * pointer) {
     (void)instance;
     if(pointer) free(pointer);
 }
+

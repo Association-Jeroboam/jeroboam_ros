@@ -18,8 +18,11 @@ find_package(geometry_msgs REQUIRED)
 
 set(msg_files
   "msg/MotionBoardDataFrame.msg"
+  "msg/PIDState.msg"
+  "msg/PumpStatus.msg"
   "msg/SampleDetected.msg"
   "msg/SampleDetectedArray.msg"
+  "msg/ValveStatus.msg"
   "action/GoToPose.action"
 )
 

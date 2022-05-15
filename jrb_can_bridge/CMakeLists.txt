@@ -11,6 +11,7 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(jrb_msgs REQUIRED)
 
 include_directories(libcanard/libcanard)
 include_directories(CanProtocol/)
@@ -111,7 +112,7 @@ include_directories(CanProtocol/Cyphal/includes/uavcan/time)
 
 add_executable(jrb_can_bridge src/jrb_can_bridge.cpp
     libcanard/libcanard/canard.c)
-ament_target_dependencies(jrb_can_bridge rclcpp std_msgs nav_msgs geometry_msgs)
+ament_target_dependencies(jrb_can_bridge rclcpp std_msgs nav_msgs geometry_msgs jrb_msgs)
 target_include_directories(jrb_can_bridge PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
