@@ -26,7 +26,9 @@
 #include "cartesian/State_0_1.h"
 #include "cartesian/Twist_0_1.h"
 #include "CanProtocol.hpp"
-#include "CanBridge.hpp"
+#include "PIDState_0_1.h"
+#include "PumpStatus_0_1.h"
+#include "ValveStatus_0_1.h"
 
 using namespace std::chrono_literals;
 
@@ -68,6 +70,79 @@ unsigned int subCnt;
 
 pthread_t txThread, rxThread;
 
+class CanBridge : public rclcpp::Node
+{
+  public:
+    CanBridge()
+    : Node("Can_RX_Publisher")
+    {
+      odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("robot_current_state", 50);
+      twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
+      "cmd_vel", 50, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
+    }
+
+  
+    void publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 * state)
+    {
+      printf("publish current state\r\n");
+      auto state_msg = nav_msgs::msg::Odometry();
+      state_msg.header.frame_id = "odom";
+      state_msg.child_frame_id = "base_footprint";
+      
+      state_msg.pose.pose.position.x = state->pose.position.value.meter[0];
+      state_msg.pose.pose.position.y = state->pose.position.value.meter[1];
+      state_msg.pose.pose.position.z = state->pose.position.value.meter[2];
+
+      state_msg.pose.pose.orientation.w = state->pose.orientation.wxyz[0],
+      state_msg.pose.pose.orientation.x = state->pose.orientation.wxyz[1],
+      state_msg.pose.pose.orientation.y = state->pose.orientation.wxyz[2],
+      state_msg.pose.pose.orientation.z = state->pose.orientation.wxyz[3],
+
+
+      state_msg.twist.twist.linear.x = state->twist.linear.meter_per_second[0];
+      state_msg.twist.twist.linear.y = state->twist.linear.meter_per_second[1];
+      state_msg.twist.twist.linear.z = state->twist.linear.meter_per_second[2];
+
+      state_msg.twist.twist.angular.x = state->twist.angular.radian_per_second[0];
+      state_msg.twist.twist.angular.y = state->twist.angular.radian_per_second[1];
+      state_msg.twist.twist.angular.z = state->twist.angular.radian_per_second[2];
+
+      odom_pub->publish(state_msg);
+    }
+  private:
+    void robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr msg) const {
+        static CanardTransferID transfer_id = 0;
+        reg_udral_physics_kinematics_cartesian_Twist_0_1 twist;
+        twist.linear.meter_per_second[0] = msg->linear.x;
+        twist.linear.meter_per_second[1] = msg->linear.y;
+        twist.linear.meter_per_second[2] = msg->linear.z;
+
+        twist.angular.radian_per_second[0] = msg->angular.x;
+        twist.angular.radian_per_second[1] = msg->angular.y;
+        twist.angular.radian_per_second[2] = msg->angular.z;
+
+        size_t buf_size = reg_udral_physics_kinematics_cartesian_Twist_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+        uint8_t buffer[reg_udral_physics_kinematics_cartesian_Twist_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+        reg_udral_physics_kinematics_cartesian_Twist_0_1_serialize_(&twist, buffer, &buf_size);
+
+        CanardTransferMetadata metadata;
+        metadata.priority = CanardPriorityNominal,
+        metadata.transfer_kind = CanardTransferKindMessage,
+        metadata.port_id = ROBOT_TWIST_GOAL_ID,
+        metadata.remote_node_id = CANARD_NODE_ID_UNSET,
+        metadata.transfer_id = transfer_id,
+        
+        transfer_id++;
+        bool success = pushQueue(&metadata, buf_size, buffer);
+        if (!success ) {
+            printf("Queue push failed\n");
+        }
+
+    }
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub;
+    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr twist_sub;
+};
 
 std::shared_ptr<CanBridge> canBridge;
 
@@ -202,8 +277,14 @@ void createSubscriptions(void) {
             uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_,
             uavcan_node_Heartbeat_1_0_EXTENT_BYTES_);
   subscribe(CanardTransferKindMessage,
-            uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_,
-            uavcan_node_Heartbeat_1_0_EXTENT_BYTES_);
+            MOTION_PID_STATE_ID,
+            jeroboam_datatypes_actuators_motion_PIDState_0_1_EXTENT_BYTES_);
+  subscribe(CanardTransferKindMessage,
+            ACTION_PUMP_STATUS_ID,
+            jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_EXTENT_BYTES_);
+  subscribe(CanardTransferKindMessage,
+            ACTION_VALVE_STATUS_ID,
+            jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_EXTENT_BYTES_);
 }
 
 void publishReceivedMessage(CanardRxTransfer * transfer) {
@@ -215,6 +296,30 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
                                                                   (uint8_t *)transfer->payload,
                                                                   &transfer->payload_size);
       canBridge.get()->publishRobotCurrentState(&state);
+      break;
+    }
+    case MOTION_PID_STATE_ID:{
+      jeroboam_datatypes_actuators_motion_PIDState_0_1 pidState;
+      jeroboam_datatypes_actuators_motion_PIDState_0_1_deserialize_(&pidState,
+                                                                    (uint8_t *)transfer->payload,
+                                                                    &transfer->payload_size);
+      // publish pid state
+      break;
+    }
+    case ACTION_PUMP_STATUS_ID:{
+      jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 status;
+      jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_deserialize_(&status,
+                                                                    (uint8_t *)transfer->payload,
+                                                                    &transfer->payload_size);
+      // Publish pump state  
+      break;
+    }
+    case ACTION_VALVE_STATUS_ID:{
+      jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 status;
+      jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_deserialize_(&status,
+                                                                    (uint8_t *)transfer->payload,
+                                                                    &transfer->payload_size);
+      // Publish valve state  
       break;
     }
     default:
