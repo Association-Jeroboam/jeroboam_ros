@@ -30,6 +30,7 @@ from rclpy.node import Node
 import rclpy
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Bool
+import math
 
 import time
 
@@ -48,6 +49,11 @@ class ArmTeleop(Node):
         self.goto_msg.pose.position.y = 0.13
         self.goto_msg.pose.position.z = 0.22
 
+        self.goto_msg.pose.orientation.x = math.radians(90)
+        self.goto_msg.pose.orientation.y = 0.0
+        self.goto_msg.pose.orientation.z = 0.0
+        self.goto_msg.pose.orientation.w = 0.0
+
         self.open_rakes_msg = Bool()
 
     def loop(self):
@@ -57,6 +63,8 @@ class ArmTeleop(Node):
             value = getch()
             if value == chr(0x1B):
                 break
+
+            #bras :
             elif value == "q":
                 self.goto_msg.pose.position.x -= 0.001
             elif value == "d":
@@ -69,10 +77,29 @@ class ArmTeleop(Node):
                 self.goto_msg.pose.position.z -= 0.005
             elif value == "e":
                 self.goto_msg.pose.position.z += 0.005
+                
             elif value == "h": #homing
                 self.goto_msg.pose.position.x = 0.0
                 self.goto_msg.pose.position.y = 0.13
+                self.goto_msg.pose.orientation.x = math.radians(90)
+                self.goto_msg.pose.orientation.y = 0.0
+                self.goto_msg.pose.orientation.z = 0.0
 
+            #poignet
+            elif value == "3":
+                self.goto_msg.pose.orientation.x += math.radians(5)
+            elif value == "1":
+                self.goto_msg.pose.orientation.x -= math.radians(5)
+            elif value == "8":
+                self.goto_msg.pose.orientation.y += math.radians(5)
+            elif value == "5":
+                self.goto_msg.pose.orientation.y -= math.radians(5)
+            elif value == "6":
+                self.goto_msg.pose.orientation.z += math.radians(5)
+            elif value == "4":
+                self.goto_msg.pose.orientation.z -= math.radians(5)
+
+            #rateaux
             elif value == "o" :
                 self.open_rakes_msg.data = True
                 publisherID=2
@@ -80,9 +107,10 @@ class ArmTeleop(Node):
                 self.open_rakes_msg.data = False
                 publisherID=2
 
+
             if publisherID == 1 :
                 self.get_logger().info(
-                    f"goto {self.goto_msg.pose.position.x} {self.goto_msg.pose.position.y} {self.goto_msg.pose.position.z}"
+                    f"goto ({self.goto_msg.pose.position.x} {self.goto_msg.pose.position.y} {self.goto_msg.pose.position.z}) ({self.goto_msg.pose.orientation.y}, {self.goto_msg.pose.orientation.x}, {self.goto_msg.pose.orientation.z})"
                 )
                 now = self.get_clock().now().to_msg()
                 self.goto_msg.header.stamp = now

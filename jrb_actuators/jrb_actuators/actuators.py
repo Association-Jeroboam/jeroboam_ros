@@ -17,7 +17,7 @@ from tf_transformations import (
 )
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
-
+import math
 
 def speed2rapportCyclique(speed):
     # speed entre -100 et 100
@@ -172,11 +172,14 @@ class Actuators(Node):
         z = 275 if z > 275 else z
 
 
-        self.get_logger().info(f"[GOTO] {side} ({x}, {y}, {z})")
+        msg.pose.orientation.x
+
+        self.get_logger().info(f"[GOTO] {side} ({x}, {y}, {z}) ({msg.pose.orientation.y}, {msg.pose.orientation.x}, {msg.pose.orientation.z})")
 
         # TODO : select arm
-        self.bras.setArmPosition(x * 1000, y * 1000)
+        self.bras.setArmPosition(x * 1000, y * 1000, math.degrees(msg.pose.orientation.y),math.degrees(msg.pose.orientation.x),math.degrees(msg.pose.orientation.z))
         self.bras.setSliderPosition_mm(z * 1000)
+
 
     def lookupTransform(
         self, target_frame, source_frame, time=rclpy.time.Time().to_msg()
