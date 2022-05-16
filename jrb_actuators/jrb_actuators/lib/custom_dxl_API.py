@@ -68,10 +68,11 @@ def getModel(DXL_ID):
 def resetTorque4All():
     time.sleep(0.01)
     for xl320 in connected_XL320 :
-        writeValue(portHandler, 1, xl320, 24, 0) #XL320
+        writeValue(portHandler, 1, xl320, 24, 0)
+        writeValue(portHandler, 1, xl320, 25, 7) #blanc
         time.sleep(0.005)
     for xl430 in connected_XL430 :
-        writeValue(portHandler, 1, xl430, 64, 0) #XL430
+        writeValue(portHandler, 1, xl430, 64, 0)
         time.sleep(0.005)
 
 def setGoalPosition(DXL_ID, POSITION):
@@ -166,14 +167,15 @@ def bitfield(n):
     return [1 if digit=='1' else 0 for digit in bin(n)[2:].zfill(8)]
 
 def getHardwareError(ID):  # a debug
-    if ID in XL320 :
-        hard_error=bitfield(readValue(portHandler,1,ID,50))
-        #return "Hardware error unknown (XL320)"
+    if XL320 :
+        if ID in XL320 :
+            return "Hardware error unknown (XL320)"
 
-    elif ID in XL430 :
-        hard_error=bitfield(readValue(portHandler,1,ID,70))
+    elif XL430 :
+        if ID in XL430 :
+            hard_error=bitfield(readValue(portHandler,1,ID,70))
 
-    print(hard_error)
+    #print(hard_error)
     errror_msg=""
     if hard_error[0] :
          errror_msg+=" Input Voltage Error"
@@ -224,13 +226,12 @@ def writeValue(portHandler, size, ID, address, value):
             if(error_msg == "[RxPacketError] The data value exceeds the limit value!"):
                 print("value :",value,"  size :",size)
 
-
             if(error_msg == "[RxPacketError] Hardware error occurred. Check the error at Control Table (Hardware Error Status)!"):
-                error_msg=getHardwareError(ID)
+                #error_msg=getHardwareError(ID)
+                pass
+            
             print(
-                "DXL error (",
-                dxl_error,
-                ")for ID",
+                "DXL error for ID",
                 ID,
                 " address",
                 address,
@@ -318,6 +319,7 @@ class XL320:
         self.CW_Angle_Limit = 512         #to avoid crach for undefine if getModel is not working (due to ping error)
         self.CCW_Angle_Limit = 512        #to avoid crach for undefine if getModel is not working (due to ping error)
         self.offset=0
+        self.torque=0
 
         if 350 == getModel(DXL_ID):
             self.model_number = 350
@@ -335,7 +337,7 @@ class XL320:
         self.setPunch(50)
         self.goalPosition = self.getPresentPosition()
 
-        self.setLED(2)
+        self.setLED(4)
 
         print("XL320 ", DXL_ID, " was well initialized (temp:",self.getPresentTemperature(),"°C  Voltage:",self.getPresentVoltage(),"V)")
 
@@ -349,7 +351,10 @@ class XL320:
     def setHomingOffset(self, offset):
         oldOffset = self.offset
         self.offset=offset
+        torque=self.torque
+        self.setTorque(0)
         self.setAngleLimits(self.CW_Angle_Limit-oldOffset,self.CCW_Angle_Limit-oldOffset)
+        self.setTorque(torque)
 
     def setAngleLimits(self, CW_Angle_Limit, CCW_Angle_Limit):
         CW_Angle_Limit+=self.offset
@@ -467,6 +472,9 @@ class XL320:
     def setTorque(self, VALUE):
         self.torque = VALUE
         writeValue(portHandler, 1, self.ID, 24, VALUE)
+        if VALUE : self.setLED(2)
+        else : self.setLED(7)
+
 
     def printTorqueEnable(self, debug=""):
         torqueEnable = readValue(portHandler, 1, self.ID, 24)
@@ -892,8 +900,8 @@ class rakes:
         self.gaucheB = XL320(ID_gauche_bas, 520 - 220, 500, 300)
         self.droitB = XL320(ID_droit_bas, 590, 570 + 220, 300)
 
-        self.gaucheH = XL320(ID_gauche_haut, mirrorAngle(520 - 220), mirrorAngle(500), 300)
-        self.droitH = XL320(ID_droit_haut, mirrorAngle(590), mirrorAngle(570 + 220), 300)
+        self.gaucheH = XL320(ID_gauche_haut, mirrorAngle(500), mirrorAngle(520 - 220), 300)
+        self.droitH = XL320(ID_droit_haut, mirrorAngle(570 + 220), mirrorAngle(590), 300)
 
         self.droitH.setHomingOffset(65)
 

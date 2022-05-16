@@ -109,9 +109,11 @@ class Actuators(Node):
         API.reboot(254)  # 254 for broadcast
         time.sleep(2)
 
-        self.bras = API.bras(16, 14, 22, 1, 8, 2)
+        self.bras = API.bras(16, 14, 22, 1, 8, 101) #gauche
+        #self.bras = API.bras(3, 4, 10, 9, 11, 100) #droit
+        #self.bras = API.bras(3, 4, 22, 1, 11, 101) #mixte des 2 bras
 
-        self.rateaux = API.rakes()
+        self.rateaux = API.rakes(7, 15, 5, 18)
 
         # centre reservoir : 112.75 ; -22.5
         x = 112.75
