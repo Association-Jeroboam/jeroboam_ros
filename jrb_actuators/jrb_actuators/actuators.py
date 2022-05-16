@@ -148,7 +148,6 @@ class Actuators(Node):
         #     self.stopVanneTimer.cancel()
 
     def rakes_cb(self, msg: Bool):
-        print("cb")
         if msg.data :
             self.rateaux.open()
         else :

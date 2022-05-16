@@ -229,7 +229,7 @@ def writeValue(portHandler, size, ID, address, value):
             if(error_msg == "[RxPacketError] Hardware error occurred. Check the error at Control Table (Hardware Error Status)!"):
                 #error_msg=getHardwareError(ID)
                 pass
-            
+
             print(
                 "DXL error for ID",
                 ID,
@@ -355,6 +355,7 @@ class XL320:
         self.setTorque(0)
         self.setAngleLimits(self.CW_Angle_Limit-oldOffset,self.CCW_Angle_Limit-oldOffset)
         self.setTorque(torque)
+        print("Homing offset set to", offset,"for ID",self.ID,"(CW=",self.CW_Angle_Limit,", CCW=",self.CCW_Angle_Limit,")")
 
     def setAngleLimits(self, CW_Angle_Limit, CCW_Angle_Limit):
         CW_Angle_Limit+=self.offset
@@ -449,7 +450,7 @@ class XL320:
 
     def getPresentPosition(self):
         dxl_present_position = readValue(portHandler, 2, self.ID, 37)
-        dxl_present_position+=self.offset
+        dxl_present_position-=self.offset
         return dxl_present_position
 
     def getPresentTemperature(self):
@@ -903,7 +904,7 @@ class rakes:
         self.gaucheH = XL320(ID_gauche_haut, mirrorAngle(500), mirrorAngle(520 - 220), 300)
         self.droitH = XL320(ID_droit_haut, mirrorAngle(570 + 220), mirrorAngle(590), 300)
 
-        self.droitH.setHomingOffset(65)
+        self.droitH.setHomingOffset(55)
 
     def setTorque(self, value):
         self.gaucheB.setTorque(value)
