@@ -81,23 +81,24 @@ class ArmTeleop(Node):
             elif value == "h": #homing
                 self.goto_msg.pose.position.x = 0.0
                 self.goto_msg.pose.position.y = 0.13
+                self.goto_msg.pose.position.z = 0.200
                 self.goto_msg.pose.orientation.x = math.radians(90)
                 self.goto_msg.pose.orientation.y = 0.0
                 self.goto_msg.pose.orientation.z = 0.0
 
             #poignet
-            elif value == "3":
-                self.goto_msg.pose.orientation.x += math.radians(5)
-            elif value == "1":
-                self.goto_msg.pose.orientation.x -= math.radians(5)
-            elif value == "8":
-                self.goto_msg.pose.orientation.y += math.radians(5)
-            elif value == "5":
-                self.goto_msg.pose.orientation.y -= math.radians(5)
             elif value == "6":
-                self.goto_msg.pose.orientation.z += math.radians(5)
+                self.goto_msg.pose.orientation.x -= math.radians(5)
             elif value == "4":
+                self.goto_msg.pose.orientation.x += math.radians(5)
+            elif value == "8":
+                self.goto_msg.pose.orientation.y -= math.radians(5)
+            elif value == "5":
+                self.goto_msg.pose.orientation.y += math.radians(5)
+            elif value == "9":
                 self.goto_msg.pose.orientation.z -= math.radians(5)
+            elif value == "7":
+                self.goto_msg.pose.orientation.z += math.radians(5)
 
             #rateaux
             elif value == "o" :

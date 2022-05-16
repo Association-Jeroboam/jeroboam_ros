@@ -320,6 +320,7 @@ class XL320:
         self.CCW_Angle_Limit = 512        #to avoid crach for undefine if getModel is not working (due to ping error)
         self.offset=0
         self.torque=0
+        self.reverseRotation=0
 
         if 350 == getModel(DXL_ID):
             self.model_number = 350
@@ -329,18 +330,23 @@ class XL320:
             return
         self.setTorque(0)
         self.setDriveMode(2)
-        self.setAngleLimits(CW_Angle_Limit, CCW_Angle_Limit)
         time.sleep(0.01)
         self.setMaxTorque(Max_Torque)
         time.sleep(0.01)
         self.setMaxSpeed(Moving_Speed)
         self.setPunch(50)
-        self.goalPosition = self.getPresentPosition()
 
+        self.setAngleLimits(CW_Angle_Limit, CCW_Angle_Limit)
+
+        self.goalPosition = self.getPresentPosition()
         self.setLED(4)
 
         print("XL320 ", DXL_ID, " was well initialized (temp:",self.getPresentTemperature(),"°C  Voltage:",self.getPresentVoltage(),"V)")
 
+    def setReverseRotation(self,value):
+        self.reverseRotation=value
+        self.setAngleLimits(self.CW_Angle_Limit, self.CCW_Angle_Limit)
+        print("XL320 with ID",self.ID,"has its rotation reversed.")
 
     def setPunch(self, punch):
         writeValue(portHandler, 2, self.ID, 51, punch)
@@ -358,8 +364,11 @@ class XL320:
         print("Homing offset set to", offset,"for ID",self.ID,"(CW=",self.CW_Angle_Limit,", CCW=",self.CCW_Angle_Limit,")")
 
     def setAngleLimits(self, CW_Angle_Limit, CCW_Angle_Limit):
+        torque=self.torque
+        self.setTorque(0)
         CW_Angle_Limit+=self.offset
         CCW_Angle_Limit+=self.offset
+
         if CW_Angle_Limit > CCW_Angle_Limit:
             print("Warning for ID", self.ID, ": CW_Angle_Limit>CCW_Angle_Limit (=> auto reverse)")
             tmp=CW_Angle_Limit
@@ -373,12 +382,23 @@ class XL320:
             print("Error for ID", self.ID, ": CCW_Angle_Limit>1023")
             CCW_Angle_Limit = 1023
 
+        self.CW_Angle_Limit = CW_Angle_Limit
+        self.CCW_Angle_Limit = CCW_Angle_Limit
+
+        if self.reverseRotation :
+            tmp=CW_Angle_Limit
+            CW_Angle_Limit=1023-CCW_Angle_Limit
+            CCW_Angle_Limit=1023-tmp
+
         writeValue(portHandler, 2, self.ID, 6, CW_Angle_Limit)
         time.sleep(0.005)
         writeValue(portHandler, 2, self.ID, 8, CCW_Angle_Limit)
 
-        self.CW_Angle_Limit = CW_Angle_Limit
-        self.CCW_Angle_Limit = CCW_Angle_Limit
+        self.setTorque(torque)
+
+
+
+
 
     def setMaxTorque(self, Max_Torque):
         if Max_Torque < 0:
@@ -420,6 +440,7 @@ class XL320:
 
     def setGoalPosition(self, POSITION):
         POSITION+=self.offset
+
         if self.CW_Angle_Limit > POSITION:
             print(
                 "Error for ID",
@@ -443,6 +464,8 @@ class XL320:
             )
             POSITION = self.CCW_Angle_Limit
         self.goalPosition = POSITION
+        if self.reverseRotation :
+            POSITION=1023-POSITION
         writeValue(portHandler, 2, self.ID, 30, int(POSITION))
         self.setTorque(
             self.torque
@@ -450,6 +473,8 @@ class XL320:
 
     def getPresentPosition(self):
         dxl_present_position = readValue(portHandler, 2, self.ID, 37)
+        if self.reverseRotation :
+            dxl_present_position=1023-dxl_present_position
         dxl_present_position-=self.offset
         return dxl_present_position
 
@@ -529,6 +554,7 @@ class XL430:
         self.setMaxSpeed(Moving_Speed)
         self.setDriveMode(driveMode)
         self.setPositionPID(640, 0, 4000)
+        self.setReverseRotation(0)
 
         print("XL430 ", DXL_ID, " was well initialized (temp:",self.getPresentTemperature(),"°C  Voltage:",self.getPresentVoltage(),"V)")
 
@@ -641,9 +667,19 @@ class XL430:
     def reboot(self):
         packetHandler.reboot(portHandler, self.ID)
 
-    def setDriveMode(self, MODE):
+    def setReverseRotation(self,value):
+        if value :
+            driveModeValue=5
+        else :
+            driveModeValue=4
+        writeValue(portHandler, 1, self.ID, 10, driveModeValue)        
+        self.reverseRotation = value
+        print("XL430 with ID",self.ID,"has its rotation reversed.")
+
+
+    def setDriveMode(self, MODE): #dans la doc c'est pas appelé driveMode mais operatingMode car driveMode est utilisé pour autre chose
         writeValue(
-            portHandler, 1, self.ID, 10, MODE
+            portHandler, 1, self.ID, 11, MODE
         )  # XL320 : 1: wheel mode   2: joint mode   // XL430 : 1:Velocity  3:Position  4:Extended position  16:PWM
         self.driveMode = MODE
 
@@ -675,14 +711,26 @@ class XL430:
 
 
 class bras:
-    def __init__(self, ID_A, ID_B, ID_C, ID_D, ID_E, ID_Slider):
+    def __init__(self, side, ID_A, ID_B, ID_C, ID_D, ID_E, ID_Slider):
+        if side != "left" and side != "right" :
+            print("Bras : side doit être ""left"" ou ""right""")
+            return
+
+        self.side=side
         self.joinA = XL320(ID_A, 360, 700, 160)
         self.joinB = XL320(ID_B, 512 - 333, 512 + 333, 250)
         self.joinC = XL320(ID_C, 160, 580, 450)
-        self.joinD = XL320(ID_D, 0, 1023, 500)
+        self.joinD = XL320(ID_D, 205, 819, 500)
         self.joinE = XL320(ID_E,0,1023,150)
 
         self.slider = XL430(ID_Slider)
+        self.slider.setAngleLimits(100, 8400)
+
+        if side=="right" :
+            self.joinC.setReverseRotation(1)
+            self.joinD.setReverseRotation(1)
+            self.joinE.setReverseRotation(1)
+            self.slider.setReverseRotation(1)
 
         self.slider.setDriveMode(4)
 
@@ -835,7 +883,9 @@ class bras:
             beta = formatAngle(beta)
             angle = (angle - alpha - beta) % 360
             angle = formatAngle(angle)
-            self.joinE.setGoalPosition(1023 - (angle * ratio + 512))
+            value=1023 - (angle * ratio + 512)
+            self.joinE.setGoalPosition(value)
+
         else:
             print("Join inconnu :", join)
 
@@ -865,19 +915,15 @@ class bras:
         speed_setup = self.slider.maxSpeed
         self.slider.setMaxSpeed(500)
 
-        self.slider.setHomingOffset(
-            0
-        )  # reset de l'offset pour avoir presentPosition=ActualPosition
+        self.slider.setHomingOffset(0)  # reset de l'offset pour avoir presentPosition=ActualPosition
         offset = self.slider.getPresentPosition()  # actual position
-        self.slider.setHomingOffset(
-            offset
-        )  # offset = actualPosition => presentPosition=0
+        self.slider.setHomingOffset(offset)  # offset = actualPosition => presentPosition=0
 
         self.slider.setTorque(1)
 
         self.slider.setGoalPosition(-10000)
 
-        self.slider.waitMoveEnd(10)
+        self.slider.waitMoveEnd(5)
 
         pos = self.slider.getPresentPosition()
         self.setTorque(0)

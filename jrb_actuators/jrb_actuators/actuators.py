@@ -70,7 +70,7 @@ class Actuators(Node):
 
     def on_state_publish_timer(self):
         now = self.get_clock().now().to_msg()
-        state = self.bras.getState()
+        state = self.left_arm.getState()
 
         self.actuator_state_msg.header.stamp = now
         self.actuator_state_msg.name = [
@@ -109,9 +109,8 @@ class Actuators(Node):
         API.reboot(254)  # 254 for broadcast
         time.sleep(2)
 
-        self.bras = API.bras(16, 14, 22, 1, 8, 101) #gauche
-        #self.bras = API.bras(3, 4, 10, 9, 11, 100) #droit
-        #self.bras = API.bras(3, 4, 22, 1, 11, 101) #mixte des 2 bras
+        self.left_arm = API.bras("left",16, 14, 22, 1, 8, 101) #gauche
+        self.right_arm = API.bras("right",3, 4, 10, 9, 11, 100) #droit
 
         self.rateaux = API.rakes(7, 15, 5, 18)
 
@@ -121,14 +120,17 @@ class Actuators(Node):
 
         # self.startPump()
         self.rateaux.setTorque(1)
-        #self.rateaux.close()
-        self.bras.setTorque(1)
-        self.bras.setArmPosition(20,120)
+        self.rateaux.close()
+        self.left_arm.setTorque(1)
+        self.right_arm.setTorque(1)
+        self.left_arm.setArmPosition(20,120)
+        self.right_arm.setArmPosition(-20,120)
         time.sleep(1)
-        self.bras.initSlider()
-        #self.bras.slider.setTorque(0)
-        self.bras.setTorque(1)
-        #self.rateaux.open()
+        self.left_arm.initSlider()
+        self.right_arm.initSlider()
+        self.left_arm.setTorque(1)
+        self.right_arm.setTorque(1)
+        self.rateaux.open()
         self.get_logger().info("init OK")
 
     def startPump(self):
@@ -167,18 +169,15 @@ class Actuators(Node):
         x = pos[0]
         y = pos[1]
         z = pos[2]
-
+       
         z = 0 if z < 0 else z
-        z = 275 if z > 275 else z
-
-
-        msg.pose.orientation.x
+        z = 0.230 if z > 0.230 else z
 
         self.get_logger().info(f"[GOTO] {side} ({x}, {y}, {z}) ({msg.pose.orientation.y}, {msg.pose.orientation.x}, {msg.pose.orientation.z})")
 
         # TODO : select arm
-        self.bras.setArmPosition(x * 1000, y * 1000, math.degrees(msg.pose.orientation.y),math.degrees(msg.pose.orientation.x),math.degrees(msg.pose.orientation.z))
-        self.bras.setSliderPosition_mm(z * 1000)
+        self.left_arm.setArmPosition(x * 1000, y * 1000, math.degrees(msg.pose.orientation.y),math.degrees(msg.pose.orientation.x),math.degrees(msg.pose.orientation.z))
+        self.left_arm.setSliderPosition_mm(z * 1000)
 
 
     def lookupTransform(
