@@ -492,7 +492,7 @@ class XL320:
     def setDriveMode(self, MODE):
         writeValue(
             portHandler, 1, self.ID, 11, MODE
-        )  # XL320 : 1: wheel mode   2: joint mode   // XL430 : 1:Velocity  3:Position  4:Extended position  16:PWM
+        )  # XL430 : 1:Velocity  3:Position  4:Extended position  16:PWM
         self.driveMode = MODE
 
     def setTorque(self, VALUE):
@@ -695,6 +695,14 @@ class XL430:
         packetHandler.reboot(portHandler, self.ID)
 
     def setHomingOffset(self, offset):
+        # if self.reverseRotation :
+        #     offset=1044479-offset
+        if offset > 1044479 :
+            print("Erreur : offset (",offset,") trop grand ( > 1044479 ) pour XL430 avec ID",self.ID)
+            return
+        elif offset < -1044479 :
+            print("Erreur : offset (",offset,") trop petit ( < -1044479 ) pour XL430 avec ID",self.ID)
+            return
         self.offset = offset
         writeValue(portHandler, 4, self.ID, 20, offset)
 
@@ -724,9 +732,10 @@ class bras:
         self.joinE = XL320(ID_E,0,1023,150)
 
         self.slider = XL430(ID_Slider)
-        self.slider.setAngleLimits(100, 8400)
 
         if side=="right" :
+            self.joinA.setAngleLimits(1023-self.joinA.CCW_Angle_Limit,1023-self.joinA.CW_Angle_Limit)
+            self.joinB.setAngleLimits(1023-self.joinB.CCW_Angle_Limit,1023-self.joinB.CW_Angle_Limit)
             self.joinC.setReverseRotation(1)
             self.joinD.setReverseRotation(1)
             self.joinE.setReverseRotation(1)
@@ -793,20 +802,28 @@ class bras:
         if self.isReachable("A", angle_A1) and self.isReachable("B", angle_B1):
             if self.isReachable("A", angle_A2) and self.isReachable("B", angle_B2):
                 # les 2 positions sont atteignable
-                if angle_A1 > angle_A2:
-                    angle_A = angle_A1
-                    angle_B = angle_B1
-                else:
-                    angle_A = angle_A2
-                    angle_B = angle_B2
+                if self.side=="left" :
+                    if angle_A1 > angle_A2:
+                        angle_A = angle_A1
+                        angle_B = angle_B1
+                    else:
+                        angle_A = angle_A2
+                        angle_B = angle_B2
+                
+                else :
+                    if angle_A1 > angle_A2:
+                        angle_A = angle_A2
+                        angle_B = angle_B2
+                    else:
+                        angle_A = angle_A1
+                        angle_B = angle_B1
+
 
             else:  # seulement position 1 atteignable
                 angle_A = angle_A1
                 angle_B = angle_B1
 
-        elif self.isReachable("A", angle_A2) and self.isReachable(
-            "B", angle_B2
-        ):  # seulement position 2 atteignable
+        elif self.isReachable("A", angle_A2) and self.isReachable("B", angle_B2):  # seulement position 2 atteignable
             angle_A = angle_A2
             angle_B = angle_B2
 
@@ -931,6 +948,8 @@ class bras:
         # print("Final Position=",self.slider.getPresentPosition())
 
         self.slider.setMaxSpeed(speed_setup)
+
+
 
     def setSliderPosition_mm(self, mm):
         value = int(-36.93191489 * mm + 8679)

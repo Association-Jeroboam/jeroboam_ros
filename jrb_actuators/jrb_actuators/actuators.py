@@ -176,8 +176,8 @@ class Actuators(Node):
         self.get_logger().info(f"[GOTO] {side} ({x}, {y}, {z}) ({msg.pose.orientation.y}, {msg.pose.orientation.x}, {msg.pose.orientation.z})")
 
         # TODO : select arm
-        self.left_arm.setArmPosition(x * 1000, y * 1000, math.degrees(msg.pose.orientation.y),math.degrees(msg.pose.orientation.x),math.degrees(msg.pose.orientation.z))
-        self.left_arm.setSliderPosition_mm(z * 1000)
+        self.right_arm.setArmPosition(x * 1000, y * 1000, math.degrees(msg.pose.orientation.y),math.degrees(msg.pose.orientation.x),math.degrees(msg.pose.orientation.z))
+        self.right_arm.setSliderPosition_mm(z * 1000)
 
 
     def lookupTransform(
