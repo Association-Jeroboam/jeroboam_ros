@@ -40,13 +40,17 @@ class ArmTeleop(Node):
         super().__init__("arm_teleop")
         self.get_logger().info("init")
 
-        self.pub_goto = self.create_publisher(PoseStamped, "left_arm_goto", 10)
+        self.pub_left_goto = self.create_publisher(PoseStamped, "left_arm_goto", 10)
+        self.pub_right_goto = self.create_publisher(PoseStamped, "right_arm_goto", 10)
+
         self.pub_rakes = self.create_publisher(Bool, "open_rakes",10)
-        self.pub_pump = self.create_publisher(Bool, "pump_left",10)
+
+        self.pub_left_pump = self.create_publisher(Bool, "pump_left",10)
+        self.pub_right_pump = self.create_publisher(Bool, "pump_right",10)
+
 
 
         self.goto_msg = PoseStamped()
-        self.goto_msg.header.frame_id = "left_arm_origin_link"
         self.goto_msg.pose.position.x = 0.0
         self.goto_msg.pose.position.y = 0.13
         self.goto_msg.pose.position.z = 0.22
@@ -60,6 +64,10 @@ class ArmTeleop(Node):
 
         self.pump_msg = Bool()
 
+        self.side="left"
+        self.goto_msg.header.frame_id = "left_arm_origin_link"
+
+
     def loop(self):
         self.get_logger().info("Press any key to continue! (or press ESC to quit!)")
         while rclpy.ok():
@@ -67,6 +75,17 @@ class ArmTeleop(Node):
             value = getch()
             if value == chr(0x1B):
                 break
+
+            elif value == "1" :
+                if self.side == "left" :
+                    self.side = "right"
+                    self.goto_msg.header.frame_id = "right_arm_origin_link" 
+                    
+                else :
+                    self.side = "left"
+                    self.goto_msg.header.frame_id = "left_arm_origin_link" 
+                print("Selected arm is :",self.side)
+                continue
 
             #bras :
             elif value == "q":
@@ -127,7 +146,10 @@ class ArmTeleop(Node):
                 )
                 now = self.get_clock().now().to_msg()
                 self.goto_msg.header.stamp = now
-                self.pub_goto.publish(self.goto_msg)
+                if self.side == "left" :
+                    self.pub_left_goto.publish(self.goto_msg)
+                else :
+                    self.pub_right_goto.publish(self.goto_msg)
 
             elif publisherID == 2 :
                 self.get_logger().info(
@@ -139,7 +161,10 @@ class ArmTeleop(Node):
                 self.get_logger().info(
                     f"Starting pump" if self.pump_msg.data else "Stopping pump"
                 )
-                self.pub_pump.publish(self.pump_msg)
+                if self.side == "left" :
+                    self.pub_left_pump.publish(self.pump_msg)
+                else :
+                    self.pub_right_pump.publish(self.pump_msg)                    
 
         self.get_logger().info("Node stopped cleanly")
 

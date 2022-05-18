@@ -173,7 +173,7 @@ class Actuators(Node):
         self.serial_actionBoard.write(("valve "+side+" 0\r").encode('utf-8'))
 
     def pump_cb(self, side: str, msg: Bool):
-        print("cb")
+        print("cb",side)
         if msg.data :
             self.startPump(side)
         else :
@@ -189,12 +189,13 @@ class Actuators(Node):
         #print("cb")
         pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1])
 
-        if msg.header.frame_id != "left_arm_origin_link":
+        if msg.header.frame_id != "left_arm_origin_link" and msg.header.frame_id != "right_arm_origin_link" :
             transform = self.lookupTransform(
-                "left_arm_origin_link", msg.header.frame_id, rclpy.time.Time().to_msg()
+                side+"_arm_origin_link", msg.header.frame_id, rclpy.time.Time().to_msg()
             )
             pos = transform.dot(pos)
-            # print(pos)
+
+        
 
         x = pos[0]
         y = pos[1]
@@ -205,9 +206,12 @@ class Actuators(Node):
 
         self.get_logger().info(f"[GOTO] {side} ({x}, {y}, {z}) ({msg.pose.orientation.y}, {msg.pose.orientation.x}, {msg.pose.orientation.z})")
 
-        # TODO : select arm
-        self.right_arm.setArmPosition(x * 1000, y * 1000, math.degrees(msg.pose.orientation.y),math.degrees(msg.pose.orientation.x),math.degrees(msg.pose.orientation.z))
-        self.right_arm.setSliderPosition_mm(z * 1000)
+        if side =="right" :
+            self.right_arm.setArmPosition(x * 1000, y * 1000, math.degrees(msg.pose.orientation.y),math.degrees(msg.pose.orientation.x),math.degrees(msg.pose.orientation.z))
+            self.right_arm.setSliderPosition_mm(z * 1000)
+        elif side =="left" :
+            self.left_arm.setArmPosition(x * 1000, y * 1000, math.degrees(msg.pose.orientation.y),math.degrees(msg.pose.orientation.x),math.degrees(msg.pose.orientation.z))
+            self.left_arm.setSliderPosition_mm(z * 1000)
 
 
     def lookupTransform(
