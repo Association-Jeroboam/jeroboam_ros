@@ -42,6 +42,8 @@ class ArmTeleop(Node):
 
         self.pub_goto = self.create_publisher(PoseStamped, "left_arm_goto", 10)
         self.pub_rakes = self.create_publisher(Bool, "open_rakes",10)
+        self.pub_pump = self.create_publisher(Bool, "pump_left",10)
+
 
         self.goto_msg = PoseStamped()
         self.goto_msg.header.frame_id = "left_arm_origin_link"
@@ -55,6 +57,8 @@ class ArmTeleop(Node):
         self.goto_msg.pose.orientation.w = 0.0
 
         self.open_rakes_msg = Bool()
+
+        self.pump_msg = Bool()
 
     def loop(self):
         self.get_logger().info("Press any key to continue! (or press ESC to quit!)")
@@ -108,6 +112,14 @@ class ArmTeleop(Node):
                 self.open_rakes_msg.data = False
                 publisherID=2
 
+            #pompe
+            elif value == "2" :
+                self.pump_msg.data = True
+                publisherID=3
+            elif value == "3" :
+                self.pump_msg.data = False
+                publisherID=3
+
 
             if publisherID == 1 :
                 self.get_logger().info(
@@ -123,6 +135,11 @@ class ArmTeleop(Node):
                 )
                 self.pub_rakes.publish(self.open_rakes_msg)
 
+            elif publisherID == 3 :
+                self.get_logger().info(
+                    f"Starting pump" if self.pump_msg.data else "Stopping pump"
+                )
+                self.pub_pump.publish(self.pump_msg)
 
         self.get_logger().info("Node stopped cleanly")
 

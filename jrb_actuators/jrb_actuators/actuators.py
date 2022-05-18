@@ -25,9 +25,9 @@ def speed2rapportCyclique(speed):
     return 0.025 * speed + 7
 
 
-channel_pompe = 12
-channel_vanne = 35
-frequence = 50
+# channel_pompe = 12
+# channel_vanne = 35
+# frequence = 50
 
 
 class Actuators(Node):
@@ -35,7 +35,8 @@ class Actuators(Node):
         super().__init__("actuators")
         self.get_logger().info("init")
 
-        self.init_gpio()
+        #self.init_gpio()
+        self.init_serial()
         self.init_actuators()
 
         # Tf subscriber
@@ -54,6 +55,13 @@ class Actuators(Node):
             Bool, "open_rakes", self.rakes_cb, 10
         )
 
+        self.pump_left = self.create_subscription(
+            Bool, "pump_left", partial(self.pump_cb, "left"), 10
+        )
+        self.pump_right = self.create_subscription(
+            Bool, "pump_right", partial(self.pump_cb, "right"), 10
+        )
+
         self.pub_actuator_state = self.create_publisher(
             JointState, "actuator_state", 10
         )
@@ -67,6 +75,9 @@ class Actuators(Node):
 
     def __del__(self):
         API.resetTorque4All()
+        self.stopPump("left")
+        self.stopPump("right") 
+        self.serial_actionBoard.close()
 
     def on_state_publish_timer(self):
         now = self.get_clock().now().to_msg()
@@ -85,16 +96,16 @@ class Actuators(Node):
 
         self.pub_actuator_state.publish(self.actuator_state_msg)
 
-    def init_gpio(self):
-        GPIO.setmode(GPIO.BOARD)
-        GPIO.setup(channel_pompe, GPIO.OUT)
-        GPIO.setup(channel_vanne, GPIO.OUT)
+    # def init_gpio(self):
+    #     GPIO.setmode(GPIO.BOARD)
+    #     GPIO.setup(channel_pompe, GPIO.OUT)
+    #     GPIO.setup(channel_vanne, GPIO.OUT)
 
-        self.pPompe = GPIO.PWM(channel_pompe, frequence)
-        self.pVanne = GPIO.PWM(channel_vanne, frequence)
+    #     self.pPompe = GPIO.PWM(channel_pompe, frequence)
+    #     self.pVanne = GPIO.PWM(channel_vanne, frequence)
 
-        self.pPompe.start(speed2rapportCyclique(0))
-        self.pVanne.start(speed2rapportCyclique(0))
+    #     self.pPompe.start(speed2rapportCyclique(0))
+    #     self.pVanne.start(speed2rapportCyclique(0))
 
     def init_actuators(self):
         # Protocol version
@@ -102,7 +113,7 @@ class Actuators(Node):
 
         # Default setting
         BAUDRATE = 57600  # Dynamixel default baudrate : 57600
-        DEVICENAME = "/dev/ttyACM0"  # Check which port is being used on your controller
+        DEVICENAME = "/dev/ttyACM1"  # Check which port is being used on your controller
         # ex) Windows: "COM1"   Linux: "/dev/ttyUSB0" Mac: "/dev/tty.usbserial-*"
 
         API.initHandlers(DEVICENAME, BAUDRATE, PROTOCOL_VERSION)
@@ -118,9 +129,10 @@ class Actuators(Node):
         x = 112.75
         y = -22.5
 
-        # self.startPump()
+        self.startPump("left")
         self.rateaux.setTorque(1)
         self.rateaux.close()
+        self.stopPump("left")
         self.left_arm.setTorque(1)
         self.right_arm.setTorque(1)
         self.left_arm.setArmPosition(20,120)
@@ -133,21 +145,39 @@ class Actuators(Node):
         self.rateaux.open()
         self.get_logger().info("init OK")
 
-    def startPump(self):
-        self.pPompe.ChangeDutyCycle(speed2rapportCyclique(100))
-        self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
+    def init_serial(self):
+        import serial
+        self.serial_actionBoard = serial.Serial('/dev/ttyACM0')  # open serial port
+        #todo : check if good device (not DXL board)
 
-    def stopPump(self):
-        self.pPompe.ChangeDutyCycle(speed2rapportCyclique(0))
-        self.pVanne.ChangeDutyCycle(speed2rapportCyclique(100))
-        time.sleep(1)
-        self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
+    def startPump(self, side):
+        # self.pPompe.ChangeDutyCycle(speed2rapportCyclique(100))
+        # self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
+        self.serial_actionBoard.write(("pump "+side+" 1\r").encode('utf-8'))
+
+
+    def stopPump(self, side):
+        # self.pPompe.ChangeDutyCycle(speed2rapportCyclique(0))
+        # self.pVanne.ChangeDutyCycle(speed2rapportCyclique(100))
+        # time.sleep(1)
+        # self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
 
         # self.stopVanneTimer = self.create_timer(1, lambda: time.sleep(0.5))
 
         # def stopVanne():
         #     self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
         #     self.stopVanneTimer.cancel()
+        self.serial_actionBoard.write(("valve "+side+" 1\r").encode('utf-8'))
+        self.serial_actionBoard.write(("pump "+side+" 0\r").encode('utf-8'))
+        time.sleep(0.1)
+        self.serial_actionBoard.write(("valve "+side+" 0\r").encode('utf-8'))
+
+    def pump_cb(self, side: str, msg: Bool):
+        print("cb")
+        if msg.data :
+            self.startPump(side)
+        else :
+            self.stopPump(side)
 
     def rakes_cb(self, msg: Bool):
         if msg.data :
