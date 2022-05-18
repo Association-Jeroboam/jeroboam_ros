@@ -88,7 +88,16 @@ class CanBridge : public rclcpp::Node
       right_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("right_valve_status", 10);
 
       twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
-      "cmd_vel", 50, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
+        "cmd_vel", 50, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
+
+      left_pump_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
+        "left_pump_status", 4, std::bind(&CanBridge::pumpLeftCB, this, std::placeholders::_1));
+      right_pump_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
+        "right_pump_status", 4, std::bind(&CanBridge::pumpRightCB, this, std::placeholders::_1));
+      left_valve_sub = this->create_subscription<jrb_msgs::msg::ValveStatus>(
+        "left_valve_status", 4, std::bind(&CanBridge::valveLeftCB, this, std::placeholders::_1));
+      right_valve_sub = this->create_subscription<jrb_msgs::msg::ValveStatus>(
+        "right_valve_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
     }
 
   
@@ -192,14 +201,123 @@ class CanBridge : public rclcpp::Node
         }
 
     }
-    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr      odom_pub;
-    rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr      left_pid_pub;
-    rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr      right_pid_pub;
+
+    void pumpLeftCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) const {
+        static CanardTransferID transfer_id = 0;
+        jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 pumpStatus;
+        pumpStatus.status.ID = CAN_PROTOCOL_PUMP_LEFT_ID;
+        pumpStatus.status.enabled.value = msg->enabled;
+
+        size_t buf_size = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+        uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+        jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_serialize_(&pumpStatus, buffer, &buf_size);
+
+        CanardTransferMetadata metadata;
+        metadata.priority = CanardPriorityNominal,
+        metadata.transfer_kind = CanardTransferKindMessage,
+        metadata.port_id = ACTION_PUMP_SET_STATUS_ID,
+        metadata.remote_node_id = CANARD_NODE_ID_UNSET,
+        metadata.transfer_id = transfer_id,
+
+        transfer_id++;
+
+        bool success = pushQueue(&metadata, buf_size, buffer);
+        if (!success ) {
+            printf("Queue push failed\n");
+        }
+    }
+
+    void pumpRightCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) const {
+        static CanardTransferID transfer_id = 0;
+        jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 pumpStatus;
+        pumpStatus.status.ID = CAN_PROTOCOL_PUMP_RIGHT_ID;
+        pumpStatus.status.enabled.value = msg->enabled;
+
+        size_t buf_size = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+        uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+        jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_serialize_(&pumpStatus, buffer, &buf_size);
+
+        CanardTransferMetadata metadata;
+        metadata.priority = CanardPriorityNominal,
+        metadata.transfer_kind = CanardTransferKindMessage,
+        metadata.port_id = ACTION_PUMP_SET_STATUS_ID,
+        metadata.remote_node_id = CANARD_NODE_ID_UNSET,
+                metadata.transfer_id = transfer_id,
+
+                transfer_id++;
+
+        bool success = pushQueue(&metadata, buf_size, buffer);
+        if (!success ) {
+            printf("Queue push failed\n");
+        }
+    }
+
+    void valveLeftCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) const {
+        static CanardTransferID transfer_id = 0;
+
+        jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 valveStatus;
+        valveStatus.status.ID = CAN_PROTOCOL_VALVE_LEFT_ID;
+        valveStatus.status.enabled.value = msg->enabled;
+
+        size_t buf_size = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+        uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+        jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_serialize_(&valveStatus, buffer, &buf_size);
+
+        CanardTransferMetadata metadata;
+        metadata.priority = CanardPriorityNominal,
+        metadata.transfer_kind = CanardTransferKindMessage,
+        metadata.port_id = ACTION_VALVE_SET_STATUS_ID,
+        metadata.remote_node_id = CANARD_NODE_ID_UNSET,
+        metadata.transfer_id = transfer_id,
+        transfer_id++;
+
+        bool success = pushQueue(&metadata, buf_size, buffer);
+        if (!success ) {
+            printf("Queue push failed\n");
+        }
+    }
+
+    void valveRightCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) const {
+        static CanardTransferID transfer_id = 0;
+
+        jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 valveStatus;
+        valveStatus.status.ID = CAN_PROTOCOL_VALVE_LEFT_ID;
+        valveStatus.status.enabled.value = msg->enabled;
+
+        size_t buf_size = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+        uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+        jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_serialize_(&valveStatus, buffer, &buf_size);
+
+        CanardTransferMetadata metadata;
+        metadata.priority = CanardPriorityNominal,
+        metadata.transfer_kind = CanardTransferKindMessage,
+        metadata.port_id = ACTION_VALVE_SET_STATUS_ID,
+        metadata.remote_node_id = CANARD_NODE_ID_UNSET,
+        metadata.transfer_id = transfer_id,
+        transfer_id++;
+
+        bool success = pushQueue(&metadata, buf_size, buffer);
+        if (!success ) {
+            printf("Queue push failed\n");
+        }
+    }
+
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr       odom_pub;
+    rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       left_pid_pub;
+    rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       right_pid_pub;
     rclcpp::Publisher<jrb_msgs::msg::PumpStatus>::SharedPtr     left_pump_pub;
     rclcpp::Publisher<jrb_msgs::msg::PumpStatus>::SharedPtr     right_pump_pub;
     rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    left_valve_pub;
     rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    right_valve_pub;
-    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr twist_sub;
+    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr  twist_sub;
+    rclcpp::Subscription<jrb_msgs::msg::PumpStatus>::SharedPtr  left_pump_sub;
+    rclcpp::Subscription<jrb_msgs::msg::PumpStatus>::SharedPtr  right_pump_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ValveStatus>::SharedPtr left_valve_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ValveStatus>::SharedPtr right_valve_sub;
 
 };
 
