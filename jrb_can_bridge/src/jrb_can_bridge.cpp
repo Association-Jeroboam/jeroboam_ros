@@ -254,7 +254,7 @@ class CanBridge : public rclcpp::Node
         }
     }
 
-    void valveLeftCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) const {
+    void valveLeftCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg) const {
         static CanardTransferID transfer_id = 0;
 
         jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 valveStatus;
@@ -280,11 +280,11 @@ class CanBridge : public rclcpp::Node
         }
     }
 
-    void valveRightCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) const {
+    void valveRightCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg) const {
         static CanardTransferID transfer_id = 0;
 
         jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 valveStatus;
-        valveStatus.status.ID = CAN_PROTOCOL_VALVE_LEFT_ID;
+        valveStatus.status.ID = CAN_PROTOCOL_VALVE_RIGHT_ID;
         valveStatus.status.enabled.value = msg->enabled;
 
         size_t buf_size = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
@@ -596,7 +596,7 @@ bool check_parameter(char * iface, char * name, size_t n) {
 
 void initCanard(void) {
     instance = canardInit(canardSpecificAlloc, canardSpecificFree);
-    instance.node_id = EMBEDDED_COMPUTER_ID; // Embedded computer Node ID
+    instance.node_id = CAN_PROTOCOL_EMBEDDED_COMPUTER_ID; // Embedded computer Node ID
     queue = canardTxInit(100, MAX_FRAME_SIZE);
 }
 
