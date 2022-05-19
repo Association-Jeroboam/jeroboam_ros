@@ -145,6 +145,10 @@ class Actuators(Node):
         self.rateaux.open()
         self.get_logger().info("init OK")
 
+        self.storeArm("left")
+        self.storeArm("right")
+
+
     def init_serial(self):
         import serial
         self.serial_actionBoard = serial.Serial('/dev/ttyACM0')  # open serial port
@@ -154,7 +158,6 @@ class Actuators(Node):
         # self.pPompe.ChangeDutyCycle(speed2rapportCyclique(100))
         # self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
         self.serial_actionBoard.write(("pump "+side+" 1\r").encode('utf-8'))
-
 
     def stopPump(self, side):
         # self.pPompe.ChangeDutyCycle(speed2rapportCyclique(0))
@@ -173,7 +176,6 @@ class Actuators(Node):
         self.serial_actionBoard.write(("valve "+side+" 0\r").encode('utf-8'))
 
     def pump_cb(self, side: str, msg: Bool):
-        print("cb",side)
         if msg.data :
             self.startPump(side)
         else :
@@ -186,17 +188,14 @@ class Actuators(Node):
             self.rateaux.close()
 
     def arm_goto_cb(self, side: str, msg: PoseStamped):
-        #print("cb")
         pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1])
 
-        if msg.header.frame_id != "left_arm_origin_link" and msg.header.frame_id != "right_arm_origin_link" :
+        if msg.header.frame_id != side+"_arm_origin_link" :
             transform = self.lookupTransform(
                 side+"_arm_origin_link", msg.header.frame_id, rclpy.time.Time().to_msg()
             )
             pos = transform.dot(pos)
-
         
-
         x = pos[0]
         y = pos[1]
         z = pos[2]
@@ -212,6 +211,27 @@ class Actuators(Node):
         elif side =="left" :
             self.left_arm.setArmPosition(x * 1000, y * 1000, math.degrees(msg.pose.orientation.y),math.degrees(msg.pose.orientation.x),math.degrees(msg.pose.orientation.z))
             self.left_arm.setSliderPosition_mm(z * 1000)
+
+    def stackSample(self,side):
+        #todo : hauteur du slider selon nombre de sample dans le reservoir
+        #todo : aligner E pour orienter l'echantillon comme il faut selon la camera
+        if side == "left" :
+            self.left_arm.setArmPosition(112.75, -22.5, 0,90,0)
+        else :
+            self.right_arm.setArmPosition(-112.75, -22.5, 0,90,0)
+        time.sleep(2)
+        self.stopPump(side)
+        self.storeArm(side)
+
+    def storeArm(self,side):
+        if side == "left" :
+            self.left_arm.setArmPosition(-88, 47, 0,-90,0)
+            time.sleep(0.8)
+            self.left_arm.setArmPosition(-88, 47, 90,-90,0)
+        else :
+            self.right_arm.setArmPosition(88, 47, 0,-90,0)
+            time.sleep(0.8)
+            self.right_arm.setArmPosition(88, 47, 90,-90,0)
 
 
     def lookupTransform(

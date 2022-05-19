@@ -738,7 +738,7 @@ class bras:
             self.joinB.setAngleLimits(1023-self.joinB.CCW_Angle_Limit,1023-self.joinB.CW_Angle_Limit)
             self.joinC.setReverseRotation(1)
             self.joinD.setReverseRotation(1)
-            self.joinE.setReverseRotation(1)
+            # self.joinE.setReverseRotation(1)
             self.slider.setReverseRotation(1)
 
         self.slider.setDriveMode(4)
@@ -752,7 +752,8 @@ class bras:
         self.joinD.setPositionPID(120, 30, 0)
         self.joinE.setPositionPID(70, 30, 0)
 
-    def setArmPosition(self, x_sucker, y_sucker, angle_C=0, angle_D=90, angle_E=0):
+
+    def xy2angles(self,x_sucker,y_sucker):
         h1 = 54  # entraxe A et B
         h2 = 91  # entraxe B et ventouse
         if math.sqrt(x_sucker**2 + y_sucker**2) > (h1 + h2):
@@ -763,13 +764,16 @@ class bras:
                 y_sucker,
                 ")",
             )
-            return
+            return []
 
         a = 2 * x_sucker
         b = 2 * y_sucker
         c = h1**2 - h2**2 + x_sucker**2 + y_sucker**2
         d = (2 * a * c) ** 2 - 4 * (a**2 + b**2) * (c**2 - b**2 * h1**2)
 
+        if d < 0 :
+            print("Erreur : d<0 donc sqrt impossible. a=",a,"  b=",b,"  c=",c,"  d=",d,"  x_sucker=",x_sucker,"  y_sucker=",y_sucker)
+            return []
         xB1 = (2 * a * c - math.sqrt(d)) / (2 * (a**2 + b**2))
         xB2 = (2 * a * c + math.sqrt(d)) / (2 * (a**2 + b**2))
 
@@ -790,17 +794,8 @@ class bras:
         angle_B1 = formatAngle(math.degrees(angle_B1))
         angle_B2 = formatAngle(math.degrees(angle_B2))
 
-        # print("xB1:",xB1)
-        # print("yB1:",yB1)
-        # print("Angle_A1:",angle_A1)
-        # print("Angle_B1:",angle_B1)
-        # print("xB2:",xB2)
-        # print("yB2:",yB2)
-        # print("Angle_A2:",angle_A2)
-        # print("Angle_B2:",angle_B2)
-
-        if self.isReachable("A", angle_A1) and self.isReachable("B", angle_B1):
-            if self.isReachable("A", angle_A2) and self.isReachable("B", angle_B2):
+        if self.isReachableAngle("A", angle_A1) and self.isReachableAngle("B", angle_B1):
+            if self.isReachableAngle("A", angle_A2) and self.isReachableAngle("B", angle_B2):
                 # les 2 positions sont atteignable
                 if self.side=="left" :
                     if angle_A1 > angle_A2:
@@ -823,7 +818,7 @@ class bras:
                 angle_A = angle_A1
                 angle_B = angle_B1
 
-        elif self.isReachable("A", angle_A2) and self.isReachable("B", angle_B2):  # seulement position 2 atteignable
+        elif self.isReachableAngle("A", angle_A2) and self.isReachableAngle("B", angle_B2):  # seulement position 2 atteignable
             angle_A = angle_A2
             angle_B = angle_B2
 
@@ -835,19 +830,17 @@ class bras:
                 y_sucker,
                 ")",
             )
-            return
+            return []
+        return [angle_A,angle_B]
 
-        # print("Angle_A:",angle_A)
-        # print("Angle_B:",angle_B)
-        # print("Angle_C:",angle_C)
-        # print("Angle_D:",angle_D)
-
-        self.goToAngle("A", angle_A)
-        self.goToAngle("B", angle_B)
-        self.goToAngle("C", angle_C)
-        self.goToAngle("D", angle_D)
-        self.goToAngle("E", angle_E)
-
+    def setArmPosition(self, x_sucker, y_sucker, angle_C=0, angle_D=90, angle_E=0):
+        angles=self.xy2angles(x_sucker, y_sucker)
+        if angles :        
+            self.goToAngle("A", angles[0])
+            self.goToAngle("B", angles[1])
+            self.goToAngle("C", angle_C)
+            self.goToAngle("D", angle_D)
+            self.goToAngle("E", angle_E)
 
     def setTorque(self, value):
         self.joinA.setTorque(value)
@@ -885,28 +878,22 @@ class bras:
             self.joinC.setGoalPosition(angle * ratio + (512 - 307))
         elif join == "D":
             self.joinD.setGoalPosition(angle * ratio + 512)
-        # elif join =='E' :
-        #     alpha=180-((self.joinA.getPresentPosition()-(512-307))/ratio)
-        #     beta=((self.joinB.getPresentPosition()-512)/ratio)
-        #     if alpha > 180 : alpha=alpha-360
-        #     if beta > 180 : beta=beta-360
-        #     angle=(angle-alpha-beta)%360
-        #     if angle > 180 : angle=angle-360
-        #     self.joinE.setGoalPosition(1023-(angle*ratio+512))
         elif join == "E":
-            alpha = 180 - ((self.joinA.goalPosition - (512 - 307)) / ratio)
-            beta = (self.joinB.goalPosition - 512) / ratio
-            alpha = formatAngle(alpha)
-            beta = formatAngle(beta)
-            angle = (angle - alpha - beta) % 360
-            angle = formatAngle(angle)
-            value=1023 - (angle * ratio + 512)
-            self.joinE.setGoalPosition(value)
+        #     alpha = 180 - ((self.joinA.goalPosition - (512 - 307)) / ratio)
+        #     beta = (self.joinB.goalPosition - 512) / ratio
+        #     alpha = formatAngle(alpha)
+        #     beta = formatAngle(beta)
+        #     angle = (angle - alpha - beta) % 360
+        #     angle = formatAngle(angle)
+        #     value=1023 - (angle * ratio + 512+307)
+        #     self.joinE.setGoalPosition(value)
+            self.joinE.setGoalPosition(angle)
+
 
         else:
             print("Join inconnu :", join)
 
-    def isReachable(self, join, angle):
+    def isReachableAngle(self, join, angle):
         ratio = 614 / 180
         if join == "A":
             value = 1023 - (angle * ratio + (512 - 307))
