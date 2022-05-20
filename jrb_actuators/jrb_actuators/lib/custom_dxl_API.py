@@ -703,7 +703,9 @@ class XL430:
         elif offset < -1044479 :
             print("Erreur : offset (",offset,") trop petit ( < -1044479 ) pour XL430 avec ID",self.ID)
             return
+
         self.offset = offset
+
         writeValue(portHandler, 4, self.ID, 20, offset)
 
     def waitMoveEnd(self,timeout):
@@ -751,7 +753,6 @@ class bras:
         self.joinC.setPositionPID(70, 30, 0)
         self.joinD.setPositionPID(120, 30, 0)
         self.joinE.setPositionPID(70, 30, 0)
-
 
     def xy2angles(self,x_sucker,y_sucker):
         h1 = 54  # entraxe A et B
@@ -887,7 +888,7 @@ class bras:
         #     angle = formatAngle(angle)
         #     value=1023 - (angle * ratio + 512+307)
         #     self.joinE.setGoalPosition(value)
-            self.joinE.setGoalPosition(angle)
+            self.joinE.setGoalPosition(angle * ratio + 512)
 
 
         else:
@@ -920,7 +921,9 @@ class bras:
         self.slider.setMaxSpeed(500)
 
         self.slider.setHomingOffset(0)  # reset de l'offset pour avoir presentPosition=ActualPosition
+        print("reset offset done")
         offset = self.slider.getPresentPosition()  # actual position
+        print("actual position =",offset)
         self.slider.setHomingOffset(offset)  # offset = actualPosition => presentPosition=0
 
         self.slider.setTorque(1)
@@ -930,7 +933,9 @@ class bras:
         self.slider.waitMoveEnd(5)
 
         pos = self.slider.getPresentPosition()
+        print("final pos =",pos)
         self.setTorque(0)
+        print("calculated offset=",(positionEnButeeHaute - (pos - offset)))
         self.slider.setHomingOffset(positionEnButeeHaute - (pos - offset))
         # print("Final Position=",self.slider.getPresentPosition())
 

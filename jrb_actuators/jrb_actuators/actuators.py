@@ -2,6 +2,7 @@ import traceback
 from rclpy.node import Node
 import rclpy
 from geometry_msgs.msg import PoseStamped
+from jrb_msgs.msg import StackSample
 from std_msgs.msg import Bool
 from .lib import custom_dxl_API as API
 from dynamixel_sdk import *  # Uses Dynamixel SDK library
@@ -55,11 +56,15 @@ class Actuators(Node):
             Bool, "open_rakes", self.rakes_cb, 10
         )
 
-        self.pump_left = self.create_subscription(
+        self.sub_pump_left = self.create_subscription(
             Bool, "pump_left", partial(self.pump_cb, "left"), 10
         )
-        self.pump_right = self.create_subscription(
+        self.sub_pump_right = self.create_subscription(
             Bool, "pump_right", partial(self.pump_cb, "right"), 10
+        )
+
+        self.sub_stack_sample = self.create_subscription(
+            StackSample, "stack_sample", self.stackSample_cb, 10
         )
 
         self.pub_actuator_state = self.create_publisher(
@@ -152,6 +157,7 @@ class Actuators(Node):
     def init_serial(self):
         import serial
         self.serial_actionBoard = serial.Serial('/dev/ttyACM0')  # open serial port
+        print("Serial port : "+self.serial_actionBoard.name)
         #todo : check if good device (not DXL board)
 
     def startPump(self, side):
@@ -176,6 +182,7 @@ class Actuators(Node):
         self.serial_actionBoard.write(("valve "+side+" 0\r").encode('utf-8'))
 
     def pump_cb(self, side: str, msg: Bool):
+        print("pump_cb")
         if msg.data :
             self.startPump(side)
         else :
@@ -212,16 +219,30 @@ class Actuators(Node):
             self.left_arm.setArmPosition(x * 1000, y * 1000, math.degrees(msg.pose.orientation.y),math.degrees(msg.pose.orientation.x),math.degrees(msg.pose.orientation.z))
             self.left_arm.setSliderPosition_mm(z * 1000)
 
-    def stackSample(self,side):
+    def stackSample_cb(self, msg: StackSample):
+        self.stackSample(msg.side, msg.sample_index)
+
+    def stackSample(self,side,sample_index):
         #todo : hauteur du slider selon nombre de sample dans le reservoir
-        #todo : aligner E pour orienter l'echantillon comme il faut selon la camera
+        #todo : aligner E pour orienter l'echantillon comme il faut selon la camera => on va le faire au moment de la saisie, pas au moment de la dépose
+
+        z= 55 + 10 + ( 15 * (sample_index + 1))
+
         if side == "left" :
-            self.left_arm.setArmPosition(112.75, -22.5, 0,90,0)
+            self.left_arm.setSliderPosition_mm(z)
+            self.left_arm.slider.waitMoveEnd(10)
+            self.rateaux.open()
+            self.left_arm.setArmPosition(112.75, -22.5, 0,90,-65)
         else :
-            self.right_arm.setArmPosition(-112.75, -22.5, 0,90,0)
-        time.sleep(2)
+            self.right_arm.setSliderPosition_mm(z)
+            self.right_arm.slider.waitMoveEnd(10)
+            self.rateaux.open()
+            self.right_arm.setArmPosition(-112.75, -22.5, 0,90,-65)
+        time.sleep(1)
+
         self.stopPump(side)
         self.storeArm(side)
+        self.rateaux.close()
 
     def storeArm(self,side):
         if side == "left" :
