@@ -8,7 +8,6 @@ RUN apt-get update && apt-get install -y \
     tar \
     python3-pip \
     git \
-    cmake \
     python3-numpy \
     sudo \
     software-properties-common \
