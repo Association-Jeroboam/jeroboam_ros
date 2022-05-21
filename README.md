@@ -1,7 +1,9 @@
 # jeroboam_ros
 
 ## Installation
+
 ### ROS
+
 ```shell
 # source : https://docs.ros.org/en/galactic/Installation/Ubuntu-Install-Debians.html
 sudo apt install software-properties-common
@@ -23,6 +25,7 @@ ros2 run demo_nodes_py listener
 ```
 
 ### Development tools and ROS tools
+
 ```shell
 # source: https://docs.ros.org/en/galactic/Installation/Ubuntu-Development-Setup.html#install-development-tools-and-ros-tools
 sudo apt update && sudo apt install -y \
@@ -56,6 +59,7 @@ python3 -m pip install -U \
 ```
 
 ### Direnv
+
 ```shell
 sudo apt install -y direnv
 echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
@@ -68,6 +72,7 @@ direnv allow
 ```
 
 ### Project dependencies
+
 ```shell
 # Missing keys from rosdep
 sudo apt install -y python3-pip
@@ -87,12 +92,14 @@ rosdep_install
 ```
 
 ## Launch
+
 ```shell
 # In project for direnv to load
 ros2 launch jrb_bringup robotrouge.launch.py
 ```
 
 ## Development aliases
+
 ```shell
 # Build
 b
@@ -102,4 +109,28 @@ c
 
 # Install rosdep dependencies
 rosdep_install
+```
+
+## Cross compile
+
+### Linux
+
+Install docker desktop https://docs.docker.com/desktop/linux/install/
+Install qemu, source: https://devopstales.github.io/home/running_and_building_multi_arch_containers/
+
+```bash
+# Install the qemu packages
+sudo apt-get install -y qemu binfmt-support qemu-user-static
+
+# This step will execute the registering scripts
+docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
+# Testing the emulation environment
+docker run --rm -t arm64v8/ubuntu uname -m
+```
+
+Use buildkit, source: https://www.padok.fr/en/blog/docker-arm-architectures#Building_ARM_images_is_way_easier
+
+```bash
+export DOCKER_BUILDKIT=1
 ```
