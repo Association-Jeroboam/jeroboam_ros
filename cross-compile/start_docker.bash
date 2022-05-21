@@ -17,8 +17,8 @@ echo "Building docker image..."
 docker build --platform linux/arm64 -t rpi_cross_compile -f Dockerfile .
 
 echo "Building packages..."
-docker run -it \
+docker run --platform linux/arm64 -it \
   -v $SCRIPT_PATH/ros2_ws:/home/ubuntu/ros2_ws \
   -v $SCRIPT_PATH/../:/home/ubuntu/ros2_ws/src/jeroboam_ros \
   rpi_cross_compile \
-  /bin/bash -c "direnv allow && b && bash"
+  /bin/bash -c "direnv allow && bash"
