@@ -2,6 +2,8 @@ import traceback
 from rclpy.node import Node
 import rclpy
 from geometry_msgs.msg import PoseStamped
+from jrb_msgs.msg import StackSample
+from std_msgs.msg import Bool
 from .lib import custom_dxl_API as API
 from dynamixel_sdk import *  # Uses Dynamixel SDK library
 import RPi.GPIO as GPIO
@@ -16,7 +18,7 @@ from tf_transformations import (
 )
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
-
+import math
 
 def speed2rapportCyclique(speed):
     # speed entre -100 et 100
@@ -24,9 +26,9 @@ def speed2rapportCyclique(speed):
     return 0.025 * speed + 7
 
 
-channel_pompe = 12
-channel_vanne = 35
-frequence = 50
+# channel_pompe = 12
+# channel_vanne = 35
+# frequence = 50
 
 
 class Actuators(Node):
@@ -34,7 +36,8 @@ class Actuators(Node):
         super().__init__("actuators")
         self.get_logger().info("init")
 
-        self.init_gpio()
+        #self.init_gpio()
+        self.init_serial()
         self.init_actuators()
 
         # Tf subscriber
@@ -47,6 +50,21 @@ class Actuators(Node):
 
         self.sub_right_arm = self.create_subscription(
             PoseStamped, "right_arm_goto", partial(self.arm_goto_cb, "right"), 10
+        )
+
+        self.sub_rakes = self.create_subscription(
+            Bool, "open_rakes", self.rakes_cb, 10
+        )
+
+        self.sub_pump_left = self.create_subscription(
+            Bool, "pump_left", partial(self.pump_cb, "left"), 10
+        )
+        self.sub_pump_right = self.create_subscription(
+            Bool, "pump_right", partial(self.pump_cb, "right"), 10
+        )
+
+        self.sub_stack_sample = self.create_subscription(
+            StackSample, "stack_sample", self.stackSample_cb, 10
         )
 
         self.pub_actuator_state = self.create_publisher(
@@ -62,10 +80,13 @@ class Actuators(Node):
 
     def __del__(self):
         API.resetTorque4All()
+        self.stopPump("left")
+        self.stopPump("right") 
+        self.serial_actionBoard.close()
 
     def on_state_publish_timer(self):
         now = self.get_clock().now().to_msg()
-        state = self.bras.getState()
+        state = self.left_arm.getState()
 
         self.actuator_state_msg.header.stamp = now
         self.actuator_state_msg.name = [
@@ -80,16 +101,16 @@ class Actuators(Node):
 
         self.pub_actuator_state.publish(self.actuator_state_msg)
 
-    def init_gpio(self):
-        GPIO.setmode(GPIO.BOARD)
-        GPIO.setup(channel_pompe, GPIO.OUT)
-        GPIO.setup(channel_vanne, GPIO.OUT)
+    # def init_gpio(self):
+    #     GPIO.setmode(GPIO.BOARD)
+    #     GPIO.setup(channel_pompe, GPIO.OUT)
+    #     GPIO.setup(channel_vanne, GPIO.OUT)
 
-        self.pPompe = GPIO.PWM(channel_pompe, frequence)
-        self.pVanne = GPIO.PWM(channel_vanne, frequence)
+    #     self.pPompe = GPIO.PWM(channel_pompe, frequence)
+    #     self.pVanne = GPIO.PWM(channel_vanne, frequence)
 
-        self.pPompe.start(speed2rapportCyclique(0))
-        self.pVanne.start(speed2rapportCyclique(0))
+    #     self.pPompe.start(speed2rapportCyclique(0))
+    #     self.pVanne.start(speed2rapportCyclique(0))
 
     def init_actuators(self):
         # Protocol version
@@ -97,73 +118,142 @@ class Actuators(Node):
 
         # Default setting
         BAUDRATE = 57600  # Dynamixel default baudrate : 57600
-        DEVICENAME = "/dev/ttyACM0"  # Check which port is being used on your controller
+        DEVICENAME = "/dev/ttyACM1"  # Check which port is being used on your controller
         # ex) Windows: "COM1"   Linux: "/dev/ttyUSB0" Mac: "/dev/tty.usbserial-*"
 
         API.initHandlers(DEVICENAME, BAUDRATE, PROTOCOL_VERSION)
         API.reboot(254)  # 254 for broadcast
         time.sleep(2)
 
-        self.bras = API.bras(16, 14, 22, 1, 8, 2)
+        self.left_arm = API.bras("left",16, 14, 22, 1, 8, 101) #gauche
+        self.right_arm = API.bras("right",3, 4, 10, 9, 11, 100) #droit
 
-        self.rateaux = API.rakes()
+        self.rateaux = API.rakes(7, 15, 5, 18)
 
         # centre reservoir : 112.75 ; -22.5
         x = 112.75
         y = -22.5
 
-        # self.startPump()
+        self.startPump("left")
         self.rateaux.setTorque(1)
-        #self.rateaux.close()
-        self.bras.setTorque(1)
-        self.bras.setArmPosition(20,120)
+        self.rateaux.close()
+        self.stopPump("left")
+        self.left_arm.setTorque(1)
+        self.right_arm.setTorque(1)
+        self.left_arm.setArmPosition(20,120)
+        self.right_arm.setArmPosition(-20,120)
         time.sleep(1)
-        self.bras.initSlider()
-        #self.bras.slider.setTorque(0)
-        self.bras.setTorque(1)
-        #self.rateaux.open()
+        self.left_arm.initSlider()
+        self.right_arm.initSlider()
+        self.left_arm.setTorque(1)
+        self.right_arm.setTorque(1)
+        self.rateaux.open()
         self.get_logger().info("init OK")
 
-    def startPump(self):
-        self.pPompe.ChangeDutyCycle(speed2rapportCyclique(100))
-        self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
+        self.storeArm("left")
+        self.storeArm("right")
 
-    def stopPump(self):
-        self.pPompe.ChangeDutyCycle(speed2rapportCyclique(0))
-        self.pVanne.ChangeDutyCycle(speed2rapportCyclique(100))
-        time.sleep(1)
-        self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
+
+    def init_serial(self):
+        import serial
+        self.serial_actionBoard = serial.Serial('/dev/ttyACM0')  # open serial port
+        print("Serial port : "+self.serial_actionBoard.name)
+        #todo : check if good device (not DXL board)
+
+    def startPump(self, side):
+        # self.pPompe.ChangeDutyCycle(speed2rapportCyclique(100))
+        # self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
+        self.serial_actionBoard.write(("pump "+side+" 1\r").encode('utf-8'))
+
+    def stopPump(self, side):
+        # self.pPompe.ChangeDutyCycle(speed2rapportCyclique(0))
+        # self.pVanne.ChangeDutyCycle(speed2rapportCyclique(100))
+        # time.sleep(1)
+        # self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
 
         # self.stopVanneTimer = self.create_timer(1, lambda: time.sleep(0.5))
 
         # def stopVanne():
         #     self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
         #     self.stopVanneTimer.cancel()
+        self.serial_actionBoard.write(("valve "+side+" 1\r").encode('utf-8'))
+        self.serial_actionBoard.write(("pump "+side+" 0\r").encode('utf-8'))
+        time.sleep(0.1)
+        self.serial_actionBoard.write(("valve "+side+" 0\r").encode('utf-8'))
+
+    def pump_cb(self, side: str, msg: Bool):
+        print("pump_cb")
+        if msg.data :
+            self.startPump(side)
+        else :
+            self.stopPump(side)
+
+    def rakes_cb(self, msg: Bool):
+        if msg.data :
+            self.rateaux.open()
+        else :
+            self.rateaux.close()
 
     def arm_goto_cb(self, side: str, msg: PoseStamped):
-        print("cb")
         pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1])
 
-        if msg.header.frame_id != "left_arm_origin_link":
+        if msg.header.frame_id != side+"_arm_origin_link" :
             transform = self.lookupTransform(
-                "left_arm_origin_link", msg.header.frame_id, rclpy.time.Time().to_msg()
+                side+"_arm_origin_link", msg.header.frame_id, rclpy.time.Time().to_msg()
             )
             pos = transform.dot(pos)
-            # print(pos)
-
+        
         x = pos[0]
         y = pos[1]
         z = pos[2]
-
+       
         z = 0 if z < 0 else z
-        z = 275 if z > 275 else z
+        z = 0.230 if z > 0.230 else z
 
+        self.get_logger().info(f"[GOTO] {side} ({x}, {y}, {z}) ({msg.pose.orientation.y}, {msg.pose.orientation.x}, {msg.pose.orientation.z})")
 
-        self.get_logger().info(f"[GOTO] {side} ({x}, {y}, {z})")
+        if side =="right" :
+            self.right_arm.setArmPosition(x * 1000, y * 1000, math.degrees(msg.pose.orientation.y),math.degrees(msg.pose.orientation.x),math.degrees(msg.pose.orientation.z))
+            self.right_arm.setSliderPosition_mm(z * 1000)
+        elif side =="left" :
+            self.left_arm.setArmPosition(x * 1000, y * 1000, math.degrees(msg.pose.orientation.y),math.degrees(msg.pose.orientation.x),math.degrees(msg.pose.orientation.z))
+            self.left_arm.setSliderPosition_mm(z * 1000)
 
-        # TODO : select arm
-        self.bras.setArmPosition(x * 1000, y * 1000)
-        self.bras.setSliderPosition_mm(z * 1000)
+    def stackSample_cb(self, msg: StackSample):
+        self.stackSample(msg.side, msg.sample_index)
+
+    def stackSample(self,side,sample_index):
+        #todo : hauteur du slider selon nombre de sample dans le reservoir
+        #todo : aligner E pour orienter l'echantillon comme il faut selon la camera => on va le faire au moment de la saisie, pas au moment de la dépose
+
+        z= 55 + 10 + ( 15 * (sample_index + 1))
+
+        if side == "left" :
+            self.left_arm.setSliderPosition_mm(z)
+            self.left_arm.slider.waitMoveEnd(10)
+            self.rateaux.open()
+            self.left_arm.setArmPosition(112.75, -22.5, 0,90,-65)
+        else :
+            self.right_arm.setSliderPosition_mm(z)
+            self.right_arm.slider.waitMoveEnd(10)
+            self.rateaux.open()
+            self.right_arm.setArmPosition(-112.75, -22.5, 0,90,-65)
+        time.sleep(1)
+
+        self.stopPump(side)
+        self.storeArm(side)
+        self.rateaux.close()
+
+    def storeArm(self,side):
+        if side == "left" :
+            self.left_arm.setArmPosition(-88, 47, 0,-90,0)
+            time.sleep(0.8)
+            self.left_arm.setArmPosition(-88, 47, 90,-90,0)
+        else :
+            self.right_arm.setArmPosition(88, 47, 0,-90,0)
+            time.sleep(0.8)
+            self.right_arm.setArmPosition(88, 47, 90,-90,0)
+
 
     def lookupTransform(
         self, target_frame, source_frame, time=rclpy.time.Time().to_msg()
