@@ -1,5 +1,6 @@
 from __future__ import division, print_function
-from math import pi, sqrt, cos, atan2
+from math import pi, sqrt, cos, atan2, radians
+from .speed_limiter import SpeedLimiter
 
 
 class Pose2D:
@@ -33,15 +34,25 @@ class GoalController:
         self.kP = 3
         self.kA = 8
         self.kB = -1.5
-        self.max_linear_speed = 1e9
+        self.max_linear_speed = 1.0
         self.min_linear_speed = 0
-        self.max_angular_speed = 1e9
+        self.max_angular_speed = 2 * pi
         self.min_angular_speed = 0
         self.max_linear_acceleration = 1e9
         self.max_angular_acceleration = 1e9
+        self.max_linear_jerk = 1e9
+        self.max_angular_jerk = 1e9
         self.linear_tolerance = 0.025  # 2.5cm
         self.angular_tolerance = 3 / 180 * pi  # 3 degrees
         self.forward_movement_only = False
+        self.linear_speed_limiter = SpeedLimiter(
+            self.max_linear_speed, self.max_linear_acceleration, self.max_linear_jerk
+        )
+        self.angular_speed_limiter = SpeedLimiter(
+            self.max_angular_speed, self.max_angular_acceleration, self.max_angular_jerk
+        )
+        self.last_linear_speed_cmd = [0.0, 0.0]
+        self.last_angular_speed_cmd = [0.0, 0.0]
 
     def set_constants(self, kP, kA, kB):
         self.kP = kP
@@ -49,22 +60,28 @@ class GoalController:
         self.kB = kB
 
     def set_max_linear_speed(self, speed):
-        self.max_linear_speed = speed
+        self.linear_speed_limiter.max_velocity = speed
 
     def set_min_linear_speed(self, speed):
         self.min_linear_speed = speed
 
     def set_max_angular_speed(self, speed):
-        self.max_angular_speed = speed
+        self.angular_speed_limiter.max_velocity = speed
 
     def set_min_angular_speed(self, speed):
         self.min_angular_speed = speed
 
     def set_max_linear_acceleration(self, accel):
-        self.max_linear_acceleration = accel
+        self.linear_speed_limiter.max_acceleration = accel
 
     def set_max_angular_acceleration(self, accel):
-        self.max_angular_acceleration = accel
+        self.angular_speed_limiter.max_acceleration = accel
+
+    def set_max_linear_jerk(self, jerk):
+        self.linear_speed_limiter.max_jerk = jerk
+
+    def set_max_angular_jerk(self, jerk):
+        self.angular_speed_limiter.max_jerk = jerk
 
     def set_linear_tolerance(self, tolerance):
         self.linear_tolerance = tolerance
@@ -101,9 +118,6 @@ class GoalController:
         theta = self.normalize_pi(cur.theta - goal.theta)
         b = -theta - a
 
-        # rospy.loginfo('cur=%f goal=%f a=%f b=%f', cur.theta, goal_heading,
-        #               a, b)
-
         d = self.get_goal_distance(cur, goal)
         if self.forward_movement_only:
             direction = 1
@@ -114,8 +128,6 @@ class GoalController:
             a = self.normalize_half_pi(a)
             b = self.normalize_half_pi(b)
 
-        # rospy.loginfo('After normalization, a=%f b=%f', a, b)
-
         if abs(d) < self.linear_tolerance:
             desired.xVel = 0
             desired.thetaVel = self.kB * theta
@@ -123,30 +135,40 @@ class GoalController:
             desired.xVel = self.kP * d * direction
             desired.thetaVel = self.kA * a + self.kB * b
 
-        # Adjust velocities if X velocity is too high.
-        if abs(desired.xVel) > self.max_linear_speed:
-            ratio = self.max_linear_speed / abs(desired.xVel)
-            desired.xVel *= ratio
-            desired.thetaVel *= ratio
+        # Limit speed, acceleration, jerk
+        linear_ratio = self.linear_speed_limiter.limit(
+            desired.xVel,
+            self.last_linear_speed_cmd[0],
+            self.last_linear_speed_cmd[1],
+            dT,
+        )
+        desired.xVel *= linear_ratio
+        desired.thetaVel *= linear_ratio
 
-        # Adjust velocities if turning velocity too high.
-        if abs(desired.thetaVel) > self.max_angular_speed:
-            ratio = self.max_angular_speed / abs(desired.thetaVel)
-            desired.xVel *= ratio
-            desired.thetaVel *= ratio
-
-        # TBD: Adjust velocities if linear or angular acceleration
-        # too high.
+        angular_ratio = self.angular_speed_limiter.limit(
+            desired.thetaVel,
+            self.last_angular_speed_cmd[0],
+            self.last_angular_speed_cmd[1],
+            dT,
+        )
+        desired.xVel *= angular_ratio
+        desired.thetaVel *= angular_ratio
 
         # Adjust velocities if too low, so robot does not stall.
-        if abs(desired.xVel) > 0 and abs(desired.xVel) < self.min_linear_speed:
-            ratio = self.min_linear_speed / abs(desired.xVel)
-            desired.xVel *= ratio
-            desired.thetaVel *= ratio
-        elif desired.xVel == 0 and abs(desired.thetaVel) < self.min_angular_speed:
-            ratio = self.min_angular_speed / abs(desired.thetaVel)
-            desired.xVel *= ratio
-            desired.thetaVel *= ratio
+        # if abs(desired.xVel) > 0 and abs(desired.xVel) < self.min_linear_speed:
+        #     ratio = self.min_linear_speed / abs(desired.xVel)
+        #     desired.xVel *= ratio
+        #     desired.thetaVel *= ratio
+        # elif desired.xVel == 0 and abs(desired.thetaVel) < self.min_angular_speed:
+        #     ratio = self.min_angular_speed / abs(desired.thetaVel)
+        #     desired.xVel *= ratio
+        #     desired.thetaVel *= ratio
+
+        self.last_linear_speed_cmd[1] = self.last_linear_speed_cmd[0]
+        self.last_linear_speed_cmd[0] = desired.xVel
+
+        self.last_angular_speed_cmd[1] = self.last_angular_speed_cmd[0]
+        self.last_angular_speed_cmd[0] = desired.thetaVel
 
         return desired
 

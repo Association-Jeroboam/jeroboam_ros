@@ -26,6 +26,7 @@ def generate_launch_description():
     is_raspi = LaunchConfiguration("is_raspi", default=is_raspi_)
     camera_param_path = LaunchConfiguration("camera_param_path")
     lidar_param_path = LaunchConfiguration("lidar_param_path")
+    sim_motionboard = LaunchConfiguration("sim_motionboard")
 
     return LaunchDescription(
         [
@@ -47,6 +48,11 @@ def generate_launch_description():
                 default_value=PathJoinSubstitution(
                     [this_pkg, "param", "lidar_param.yaml"]
                 ),
+            ),
+            DeclareLaunchArgument(
+                "sim_motionboard",
+                description="Simulate motionboard with a perfect Twist command to Odometry state",
+                default_value="True",
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
@@ -88,6 +94,12 @@ def generate_launch_description():
                 package="jrb_control",
                 executable="go_to_goal",
                 output="screen",
+            ),
+            Node(
+                package="jrb_control",
+                executable="simulated_motionboard",
+                output="screen",
+                condition=IfCondition(sim_motionboard),
             ),
             Node(
                 package="rplidar_ros2",

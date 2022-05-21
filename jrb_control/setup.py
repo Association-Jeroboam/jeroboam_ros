@@ -23,6 +23,8 @@ setup(
     entry_points={
         "console_scripts": [
             "go_to_goal = jrb_control.go_to_goal:main",
+            "simulated_motionboard = jrb_control.simulated_motionboard:main",
+            "base_teleop = jrb_control.base_teleop:main",
         ],
     },
 )

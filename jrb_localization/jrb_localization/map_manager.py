@@ -52,10 +52,10 @@ class MapManager(Node):
 
         # Tf publisher
         self.tf_broadcaster = TransformBroadcaster(self)
-        self.tf_publish_rate = self.get_parameter("tf_publish_rate").value  # Hz
-        self.tf_publish_timer = self.create_timer(
-            1 / self.tf_publish_rate, self.on_publish_tf_timer
-        )
+        # self.tf_publish_rate = self.get_parameter("tf_publish_rate").value  # Hz
+        # self.tf_publish_timer = self.create_timer(
+        #     1 / self.tf_publish_rate, self.on_publish_tf_timer
+        # )
 
         # Map marker msg
         self.map_marker_msg = Marker()
@@ -80,40 +80,36 @@ class MapManager(Node):
         self.map_marker_msg.mesh_resource = "file://" + os.path.join(
             DATA_PATH, "meshes/table.dae"
         )
-
         self.map_marker_msg.mesh_use_embedded_materials = True
-        self.on_map_publish_map_marker_timer()
+
+        self.map_marker_publisher.publish(self.map_marker_msg)
 
         # Transform msg
         self.tf_msg = TransformStamped()
-        self.tf_msg.header.frame_id = "odom"
-        self.tf_msg.child_frame_id = "base_footprint"
-
-        self.on_publish_tf_timer()
 
         self.add_on_set_parameters_callback(self.on_update_parameters)
 
     def on_update_parameters(self, params):
-        for param in params:
-            if param.name == "tf_publish_rate":
-                self.tf_publish_rate = param.value
-                self.tf_publish_timer.timer_period_ns = 1 / self.tf_publish_rate * 1e9
+        # for param in params:
+        #     if param.name == "tf_publish_rate":
+        #         self.tf_publish_rate = param.value
+        #         self.tf_publish_timer.timer_period_ns = 1 / self.tf_publish_rate * 1e9
 
         self.get_logger().info("Params updated")
 
         return SetParametersResult(successful=True)
 
-    def on_map_publish_map_marker_timer(self):
-        self.map_marker_publisher.publish(self.map_marker_msg)
-
-    def on_publish_tf_timer(self):
-        self.tf_msg.header.stamp = self.get_clock().now().to_msg()
-        self.tf_broadcaster.sendTransform(self.tf_msg)
-
     def on_odometry(self, msg: Odometry):
-        self.tf_msg.transform.translation = msg.pose.pose.position
+        self.tf_msg.header = msg.header
+        self.tf_msg.child_frame_id = msg.child_frame_id
+
+        position = msg.pose.pose.position
+        self.tf_msg.transform.translation.x = position.x
+        self.tf_msg.transform.translation.y = position.y
+        self.tf_msg.transform.translation.z = position.z
         self.tf_msg.transform.rotation = msg.pose.pose.orientation
-        self.on_publish_tf_timer()
+
+        self.tf_broadcaster.sendTransform(self.tf_msg)
 
 
 def main(args=None):

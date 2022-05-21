@@ -59,7 +59,7 @@ class GoToGoalNode(Node):
         )
         self.goal_sub = self.create_subscription(
             PoseStamped,
-            "goal_pose",
+            "/goal_pose",
             self.on_goal,
             10,
         )
@@ -131,7 +131,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "max_linear_speed",
-            0.2,
+            0.5,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -141,19 +141,8 @@ class GoToGoalNode(Node):
         )
 
         self.declare_parameter(
-            "min_linear_speed",
-            0.0,
-            descriptor=ParameterDescriptor(
-                type=ParameterType.PARAMETER_DOUBLE,
-                floating_point_range=[
-                    FloatingPointRange(from_value=0.0, to_value=0.1, step=0.001)
-                ],
-            ),
-        )
-
-        self.declare_parameter(
             "max_angular_speed",
-            45.0,
+            90.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -163,34 +152,45 @@ class GoToGoalNode(Node):
         )
 
         self.declare_parameter(
-            "min_angular_speed",
-            0.0,
-            descriptor=ParameterDescriptor(
-                type=ParameterType.PARAMETER_DOUBLE,
-                floating_point_range=[
-                    FloatingPointRange(from_value=0.0, to_value=10.0, step=0.01)
-                ],
-            ),
-        )
-
-        self.declare_parameter(
             "max_linear_acceleration",
-            0.1,
+            1.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
-                    FloatingPointRange(from_value=0.01, to_value=2.0, step=0.01)
+                    FloatingPointRange(from_value=0.1, to_value=5.0, step=0.1)
                 ],
             ),
         )
 
         self.declare_parameter(
             "max_angular_acceleration",
-            20.0,
+            180.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
-                    FloatingPointRange(from_value=0.01, to_value=1440.0, step=0.01)
+                    FloatingPointRange(from_value=1.0, to_value=1440.0, step=1.0)
+                ],
+            ),
+        )
+
+        self.declare_parameter(
+            "max_linear_jerk",
+            1.0,
+            descriptor=ParameterDescriptor(
+                type=ParameterType.PARAMETER_DOUBLE,
+                floating_point_range=[
+                    FloatingPointRange(from_value=0.1, to_value=10.0, step=0.1)
+                ],
+            ),
+        )
+
+        self.declare_parameter(
+            "max_angular_jerk",
+            90.0,
+            descriptor=ParameterDescriptor(
+                type=ParameterType.PARAMETER_DOUBLE,
+                floating_point_range=[
+                    FloatingPointRange(from_value=1.0, to_value=2880.0, step=1.0)
                 ],
             ),
         )
@@ -219,20 +219,23 @@ class GoToGoalNode(Node):
         self.controller.set_max_linear_speed(
             self.get_parameter("max_linear_speed").value
         )
-        self.controller.set_min_linear_speed(
-            self.get_parameter("min_linear_speed").value
-        )
+
         self.controller.set_max_angular_speed(
             radians(self.get_parameter("max_angular_speed").value)
         )
-        self.controller.set_min_angular_speed(
-            radians(self.get_parameter("min_angular_speed").value)
-        )
+
         self.controller.set_max_linear_acceleration(
             self.get_parameter("max_linear_acceleration").value
         )
+
         self.controller.set_max_angular_acceleration(
             radians(self.get_parameter("max_angular_acceleration").value)
+        )
+
+        self.controller.set_max_linear_jerk(self.get_parameter("max_linear_jerk").value)
+
+        self.controller.set_max_angular_jerk(
+            radians(self.get_parameter("max_angular_jerk").value)
         )
 
         self.controller.set_forward_movement_only(
@@ -244,17 +247,15 @@ class GoToGoalNode(Node):
         self.init_pose()
 
     def on_update_parameters(self, params):
-        self.get_logger().info("Params updated")
-
         for param in params:
             if param.name == "rate":
                 self.rate = param.value
                 self.dT = 1 / self.rate
             elif param.name == "kP":
-                self.kP = self.get_parameter("kp").value
+                self.kP = param.value
                 self.controller.set_constants(self.kP, self.kA, self.kB)
             elif param.name == "kA":
-                self.kA = self.get_parameter("kA").value
+                self.kA = param.value
                 self.controller.set_constants(self.kP, self.kA, self.kB)
             elif param.name == "kB":
                 self.kB = self.get_parameter("kB").value
@@ -265,18 +266,20 @@ class GoToGoalNode(Node):
                 self.controller.set_angular_tolerance(radians(param.value))
             elif param.name == "max_linear_speed":
                 self.controller.set_max_linear_speed(param.value)
-            elif param.name == "min_linear_speed":
-                self.controller.set_min_linear_speed(param.value)
             elif param.name == "max_angular_speed":
                 self.controller.set_max_angular_speed(radians(param.value))
-            elif param.name == "min_angular_speed":
-                self.controller.set_min_angular_speed(radians(param.value))
             elif param.name == "max_linear_acceleration":
                 self.controller.set_max_linear_acceleration(param.value)
             elif param.name == "max_angular_acceleration":
                 self.controller.set_max_angular_acceleration(radians(param.value))
+            elif param.name == "max_linear_jerk":
+                self.controller.set_max_linear_jerk(param.value)
+            elif param.name == "max_angular_jerk":
+                self.controller.set_max_angular_jerk(radians(param.value))
             elif param.name == "forwardMovementOnly":
                 self.controller.set_forward_movement_only(param.value)
+
+        self.get_logger().info("Params updated")
 
         return SetParametersResult(successful=True)
 
@@ -335,6 +338,8 @@ class GoToGoalNode(Node):
 
             if goal_handle.is_cancel_requested:
                 self.send_velocity(0.0, 0.0)
+                self.controller.last_linear_speed_cmd = [0.0, 0.0]
+                self.controller.last_angular_speed_cmd = [0.0, 0.0]
                 success = False
                 break
 
@@ -370,13 +375,15 @@ class GoToGoalNode(Node):
         # Forget the goal if achieved.
         if self.controller.at_goal(self.pose, self.goal):
             self.get_logger().info("Goal achieved")
+            self.controller.last_linear_speed_cmd = [0.0, 0.0]
+            self.controller.last_angular_speed_cmd = [0.0, 0.0]
             self.goal = None
             self.goal_achieved_pub.publish(Bool(data=True))
 
     def send_velocity(self, xVel, thetaVel):
         twist = Twist()
-        twist.linear.x = xVel
-        twist.angular.z = thetaVel
+        twist.linear.x = float(xVel)
+        twist.angular.z = float(thetaVel)
         self.twist_pub.publish(twist)
 
     def on_odometry(self, newPose):
