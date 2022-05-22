@@ -192,7 +192,7 @@ class CanBridge : public rclcpp::Node
         metadata.port_id = ROBOT_TWIST_GOAL_ID,
         metadata.remote_node_id = CANARD_NODE_ID_UNSET,
         metadata.transfer_id = transfer_id,
-        
+
         transfer_id++;
         bool success = pushQueue(&metadata, buf_size, buffer);
         if (!success ) {
@@ -415,11 +415,16 @@ void* checkTxQueue(void*) {
 }
 
 void* checkRxMsg(void*) {
+//  auto lastReceiveTS = std::chrono::high_resolution_clock::now();
+//  uint32_t count = 0;
   while (true) {
     if(canIFace !=0) {
       struct can_frame rx_frame;
       //this is blocking
       int nbytes = read(canIFace, &rx_frame, sizeof(struct can_frame));
+//        auto receiveTS = std::chrono::high_resolution_clock::now();
+//        auto dt = receiveTS - lastReceiveTS;
+//        lastReceiveTS = receiveTS;
 
       if (nbytes >= 0) {
         const CanardMicrosecond timestamp = 0;
@@ -434,20 +439,30 @@ void* checkRxMsg(void*) {
         if(ret == 1) {
           //success
 
+//          auto receiveTS = std::chrono::high_resolution_clock::now();
+//          auto dt = receiveTS - lastReceiveTS;
+//          lastReceiveTS = receiveTS;
           // process message
           publishReceivedMessage(&transfer);
           //then
           instance.memory_free(&instance, transfer.payload);
 
+//            printf("did complete %u ------------------\n", count);
+//            count = 0;
+
         } else if (ret == 0) {
+//            printf("not complete %u\n", count);
+//            count ++;
             // rejected because not subscribed or transfer not complete
         }else {
             //error
             printf("frame error %i\n", ret);
         }
-      }
-    } else {
+
+      } else {
           printf("What?");
+      }
+//        std::cout << "dt: " << std::chrono::duration_cast<std::chrono::microseconds>(dt).count() << "µs\n";
     }
   }
 }
@@ -471,9 +486,18 @@ void createSubscriptions(void) {
 }
 
 void publishReceivedMessage(CanardRxTransfer * transfer) {
+  static uint32_t last_transfer_id =                    0;
+  static uint64_t frameCount = 0;
+  static uint64_t frameErrorCount = 0;
   switch (transfer->metadata.port_id)
   {
     case ROBOT_CURRENT_STATE_ID:{
+        frameCount++;
+      if((last_transfer_id +1) % 32 != transfer->metadata.transfer_id) {
+          frameErrorCount++;
+          printf("Transfer lost! %u %u. rate %.4f\n", last_transfer_id, transfer->metadata.transfer_id, (float)frameErrorCount/(float)frameCount);
+      }
+      last_transfer_id = transfer->metadata.transfer_id;
       reg_udral_physics_kinematics_cartesian_State_0_1 state;
       reg_udral_physics_kinematics_cartesian_State_0_1_deserialize_(&state,
                                                                   (uint8_t *)transfer->payload,
