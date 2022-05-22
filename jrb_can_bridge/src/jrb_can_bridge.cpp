@@ -103,7 +103,6 @@ class CanBridge : public rclcpp::Node
   
     void publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 * state)
     {
-      printf("publish current state\r\n");
       auto state_msg = nav_msgs::msg::Odometry();
       state_msg.header.frame_id = "odom";
       state_msg.child_frame_id = "base_footprint";
@@ -367,6 +366,13 @@ int main(int argc, char * argv[])
   pthread_create(&rxThread, NULL, &checkRxMsg, NULL);
   rclcpp::spin(canBridge);
   rclcpp::shutdown();
+  pthread_cancel(txThread);
+  pthread_cancel(rxThread);
+  void* retval;
+  pthread_join(txThread, &retval);
+  pthread_join(rxThread, &retval);
+  (void)retval;
+  close(canIFace);
   return 0;
 }
 
@@ -441,7 +447,7 @@ void* checkRxMsg(void*) {
         }
       }
     } else {
-      usleep(10);
+          printf("What?");
     }
   }
 }
@@ -511,8 +517,11 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
       }
       break;
     }
+    case uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_:
+        // Heartbeat
+        break;
     default:
-      printf("Accepted a non handled CAN message! Please fix me!\n");
+      printf("Accepted a non handled CAN message(ID %u)! Please fix me!\n", transfer->metadata.port_id);
       break;
   }
 }
