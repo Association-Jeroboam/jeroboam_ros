@@ -3,6 +3,8 @@
 .envrc
 .direnv/
 cross-compile/ros2_ws/*
+install/
+log/
 !cross-compile/ros2_ws/.dockerignore
 
 # MacOS
