@@ -13,7 +13,7 @@ find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(jrb_msgs REQUIRED)
 
-include_directories(libcanard/libcanard)
+include_directories(CanProtocol/Cyphal/libcanard/libcanard)
 include_directories(CanProtocol/)
 include_directories(CanProtocol/Cyphal/includes/jeroboam_datatypes)
 include_directories(CanProtocol/Cyphal/includes/jeroboam_datatypes/actuators)
@@ -111,7 +111,8 @@ include_directories(CanProtocol/Cyphal/includes/uavcan/si/unit/volumetric_flow_r
 include_directories(CanProtocol/Cyphal/includes/uavcan/time)
 
 add_executable(jrb_can_bridge src/jrb_can_bridge.cpp
-    libcanard/libcanard/canard.c)
+        CanProtocol/Cyphal/libcanard/libcanard/canard.c
+        )
 ament_target_dependencies(jrb_can_bridge rclcpp std_msgs nav_msgs geometry_msgs jrb_msgs)
 target_include_directories(jrb_can_bridge PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -119,12 +120,8 @@ target_include_directories(jrb_can_bridge PUBLIC
 target_compile_features(jrb_can_bridge PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
 
-add_executable(listener src/subscriber_member_function.cpp)
-ament_target_dependencies(listener rclcpp std_msgs nav_msgs geometry_msgs)
-
 install(TARGETS
   jrb_can_bridge
-  listener
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
@@ -137,5 +134,7 @@ if(BUILD_TESTING)
   #set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+
 
 ament_package()
