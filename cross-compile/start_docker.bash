@@ -18,6 +18,7 @@ docker build --platform linux/arm64 -t rpi_cross_compile -f Dockerfile .
 
 echo "Building packages..."
 docker run --platform linux/arm64 -it \
+  --cpus="6" \
   -v $SCRIPT_PATH/ros2_ws:/home/ubuntu/ros2_ws \
   -v $SCRIPT_PATH/../:/home/ubuntu/ros2_ws/src/jeroboam_ros \
   rpi_cross_compile \
