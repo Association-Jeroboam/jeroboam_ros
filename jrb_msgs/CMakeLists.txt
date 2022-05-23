@@ -25,6 +25,8 @@ set(msg_files
   "msg/PumpStatus.msg"
   "msg/SampleDetected.msg"
   "msg/SampleDetectedArray.msg"
+  "msg/ServoAngle.msg"
+  "msg/ServoConfig.msg"
   "msg/ValveStatus.msg"
   "action/GoToPose.action"
 )
