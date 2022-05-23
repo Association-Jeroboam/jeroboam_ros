@@ -105,6 +105,9 @@ class CanBridge : public rclcpp::Node
       left_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("left_valve_status", 10);
       right_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("right_valve_status", 10);
 
+      servo_status_pub = this->create_publisher<jrb_msgs::msg::ServoStatus>("servo_status", 10);
+      slider_status_pub = this->create_publisher<jrb_msgs::msg::SliderStatus>("slider_status", 10);
+
       twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
         "cmd_vel", 50, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
 
@@ -200,6 +203,17 @@ class CanBridge : public rclcpp::Node
       status_msg.enabled = status->status.enabled.value;
 
       right_valve_pub->publish(status_msg);
+    }
+    void publishServoStatus(jeroboam_datatypes_actuators_servo_ServoStatus_0_1 * status) {
+      auto status_msg = jrb_msgs::msg::ServoStatus();
+      status_msg.id = status->ID;
+      status_msg.angle = status->angle.radian;
+      status_msg.speed = status->speed.meter_per_second;
+      status_msg.torque = status->_torque;
+      status_msg.load = status->load;
+      status_msg.temperature = status->temperature.kelvin;
+
+      servo_status_pub->publish(status_msg);
     }
   private:
     static void send_can_msg(CanardPortID portID, CanardTransferID* transferID, void* buffer, size_t buf_size) {
@@ -447,6 +461,8 @@ class CanBridge : public rclcpp::Node
     rclcpp::Publisher<jrb_msgs::msg::PumpStatus>::SharedPtr     right_pump_pub;
     rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    left_valve_pub;
     rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    right_valve_pub;
+    rclcpp::Publisher<jrb_msgs::msg::ServoStatus>::SharedPtr    servo_status_pub;
+    rclcpp::Publisher<jrb_msgs::msg::SliderStatus>::SharedPtr   slider_status_pub;
 
   
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr          twist_sub;
@@ -627,7 +643,10 @@ void createSubscriptions(void) {
             jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_EXTENT_BYTES_);
   subscribe(CanardTransferKindMessage,
             ACTION_VALVE_STATUS_ID,
-            jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_EXTENT_BYTES_); 
+            jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_EXTENT_BYTES_);
+  subscribe(CanardTransferKindMessage,
+            ACTION_SERVO_CURRENT_ANGLE_ID,
+            jeroboam_datatypes_actuators_servo_ServoStatus_0_1_EXTENT_BYTES_); 
 }
 
 void publishReceivedMessage(CanardRxTransfer * transfer) {
@@ -679,11 +698,19 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
       jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_deserialize_(&status,
                                                                     (uint8_t *)transfer->payload,
                                                                     &transfer->payload_size);
-      if(status.status.ID == 0) {
+      if(status.status.ID == CAN_PROTOCOL_VALVE_LEFT_ID) {
         canBridge.get()->publishLeftValveStatus(&status);
       } else {
         canBridge.get()->publishRightValveStatus(&status);
       }
+      break;
+    }
+    case ACTION_SERVO_CURRENT_ANGLE_ID:{
+      jeroboam_datatypes_actuators_servo_ServoStatus_0_1 status;
+      jeroboam_datatypes_actuators_servo_ServoStatus_0_1_deserialize_(&status,
+                                                                    (uint8_t *)transfer->payload,
+                                                                    &transfer->payload_size);
+      canBridge.get()->publishServoStatus(&status);
       break;
     }
     case uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_:
