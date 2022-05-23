@@ -4,7 +4,13 @@ from rclpy.node import Node
 
 from jrb_msgs.msg import SampleDetectedArray
 from geometry_msgs.msg import PoseStamped
+import math
 
+def sym_XY(x,y):
+    return [x,3000-y]
+
+def sym_angle(angle):
+    return 2*math.pi-angle
 
 class ArmToSample(Node):
     def __init__(self):

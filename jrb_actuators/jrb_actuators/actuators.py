@@ -4,7 +4,9 @@ import rclpy
 from geometry_msgs.msg import PoseStamped
 from jrb_msgs.msg import StackSample
 from std_msgs.msg import Bool
-from .lib import custom_dxl_API as API
+#from .lib import custom_dxl_API as API
+import dxl_bridge as API
+
 from dynamixel_sdk import *  # Uses Dynamixel SDK library
 import RPi.GPIO as GPIO
 import time
@@ -121,9 +123,9 @@ class Actuators(Node):
         DEVICENAME = "/dev/ttyACM1"  # Check which port is being used on your controller
         # ex) Windows: "COM1"   Linux: "/dev/ttyUSB0" Mac: "/dev/tty.usbserial-*"
 
-        API.initHandlers(DEVICENAME, BAUDRATE, PROTOCOL_VERSION)
-        API.reboot(254)  # 254 for broadcast
-        time.sleep(2)
+        #API.initHandlers(DEVICENAME, BAUDRATE, PROTOCOL_VERSION)
+        #API.reboot(254)  # 254 for broadcast
+        #time.sleep(2)
 
         self.left_arm = API.bras("left",16, 14, 22, 1, 8, 101) #gauche
         self.right_arm = API.bras("right",3, 4, 10, 9, 11, 100) #droit

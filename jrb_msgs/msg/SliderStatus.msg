@@ -1,5 +1,6 @@
 uint8   id
 float32 angle
+float32 position
 float32 speed
 uint16  torque
 float32 load
