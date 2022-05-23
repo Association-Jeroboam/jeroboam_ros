@@ -1,7 +1,14 @@
-*.pyc
+.gitignore*.pyc
 .vscode
 .envrc
 .direnv/
+cross-compile/ros2_ws/*
+install/
+log/
+!cross-compile/ros2_ws/.dockerignore
+
+# MacOS
+**/.DS_STORE
 
 # Source : https://github.com/github/gitignore/blob/main/Python.gitignore
 

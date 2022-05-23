@@ -2,3 +2,6 @@
 	path = extern/rpilidar_ros
 	url = git@github.com:Slamtec/rplidar_ros.git
 	branch = ros2
+[submodule "jrb_can_bridge/CanProtocol"]
+	path = jrb_can_bridge/CanProtocol
+	url = git@github.com:Association-Jeroboam/CanProtocol.git
