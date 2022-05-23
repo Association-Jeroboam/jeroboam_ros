@@ -17,7 +17,10 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
 set(msg_files
+  "msg/AdaptativePIDConfig.msg"
   "msg/MotionBoardDataFrame.msg"
+  "msg/MotionConfig.msg"
+  "msg/PIDConfig.msg"
   "msg/PIDState.msg"
   "msg/PumpStatus.msg"
   "msg/SampleDetected.msg"
