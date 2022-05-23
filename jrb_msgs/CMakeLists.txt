@@ -27,6 +27,10 @@ set(msg_files
   "msg/SampleDetectedArray.msg"
   "msg/ServoAngle.msg"
   "msg/ServoConfig.msg"
+  "msg/ServoStatus.msg"
+  "msg/SliderPosition.msg"
+  "msg/SliderConfig.msg"
+  "msg/SliderStatus.msg"
   "msg/ValveStatus.msg"
   "action/GoToPose.action"
 )
