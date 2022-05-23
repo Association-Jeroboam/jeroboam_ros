@@ -21,6 +21,12 @@
 #include "jrb_msgs/msg/pid_config.hpp"
 #include "jrb_msgs/msg/adaptative_pid_config.hpp"
 #include "jrb_msgs/msg/motion_config.hpp"
+#include "jrb_msgs/msg/servo_angle.hpp"
+#include "jrb_msgs/msg/servo_config.hpp"
+#include "jrb_msgs/msg/servo_status.hpp"
+#include "jrb_msgs/msg/slider_position.hpp"
+#include "jrb_msgs/msg/slider_config.hpp"
+#include "jrb_msgs/msg/slider_status.hpp"
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -38,6 +44,12 @@
 #include "PIDConfig_0_1.h"
 #include "AdaptativePIDConfig_0_1.h"
 #include "MotionConfig_0_1.h"
+#include "ServoAngle_0_1.h"
+#include "ServoConfig_0_1.h"
+#include "ServoStatus_0_1.h"
+#include "SliderPosition_0_1.h"
+#include "SliderConfig_0_1.h"
+#include "SliderStatus_0_1.h"
 
 using namespace std::chrono_literals;
 
@@ -107,9 +119,17 @@ class CanBridge : public rclcpp::Node
       left_adpat_pid_conf_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
         "left_adapt_pid_conf", 4, std::bind(&CanBridge::leftAdpatPidConfCB, this, std::placeholders::_1));
       right_adpat_pid_conf_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
-        "left_adapt_pid_conf", 4, std::bind(&CanBridge::adpatPidConfCB, this, std::placeholders::_1));
+        "right_adapt_pid_conf", 4, std::bind(&CanBridge::adpatPidConfCB, this, std::placeholders::_1));
       motion_config_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
         "motion_config", 4, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
+      servo_angle_sub = this->create_subscription<jrb_msgs::msg::ServoAngle>(
+        "servo_angle_target", 4, std::bind(&CanBridge::servoAngleCB, this, std::placeholders::_1));
+      servo_config_sub = this->create_subscription<jrb_msgs::msg::ServoConfig>(
+        "servo_config", 4, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
+      slider_position_sub = this->create_subscription<jrb_msgs::msg::SliderPosition>(
+        "slider_position_target", 4, std::bind(&CanBridge::sliderPositionCB, this, std::placeholders::_1));
+      slider_config_sub = this->create_subscription<jrb_msgs::msg::SliderConfig>(
+        "slider_config", 4, std::bind(&CanBridge::sliderConfigCB, this, std::placeholders::_1));
     }
 
   
@@ -343,6 +363,82 @@ class CanBridge : public rclcpp::Node
       send_can_msg(MOTION_SET_MOTION_CONFIG_ID, &transfer_id, buffer, buf_size);
     }
 
+    void servoAngleCB(const jrb_msgs::msg::ServoAngle msg) const {
+      static CanardTransferID transfer_id = 0;
+
+      jeroboam_datatypes_actuators_servo_ServoAngle_0_1 servoAngle;
+      
+      servoAngle.ID =  msg.id;
+      servoAngle.angle.radian = msg.radian;
+
+      size_t buf_size = jeroboam_datatypes_actuators_servo_ServoAngle_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+      uint8_t buffer[jeroboam_datatypes_actuators_servo_ServoAngle_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+      jeroboam_datatypes_actuators_servo_ServoAngle_0_1_serialize_(&servoAngle, buffer, &buf_size);
+
+      send_can_msg(MOTION_SET_MOTION_CONFIG_ID, &transfer_id, buffer, buf_size);
+    }
+
+    void servoConfigCB(const jrb_msgs::msg::ServoConfig msg) const {
+      static CanardTransferID transfer_id = 0;
+
+      jeroboam_datatypes_actuators_servo_ServoConfig_0_1 servoConfig;
+      
+      servoConfig.ID = msg.id;
+      servoConfig._torque_limit = msg.torque_limit;
+      servoConfig.moving_speed = msg.moving_speed;
+      for(uint8_t coef_idx = 0; coef_idx < 3; coef_idx++){
+        servoConfig.pid.pid[coef_idx] = msg.pid.pid[coef_idx];
+      }
+      servoConfig.pid.bias = msg.pid.bias;
+      
+
+      size_t buf_size = jeroboam_datatypes_actuators_servo_ServoConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+      uint8_t buffer[jeroboam_datatypes_actuators_servo_ServoConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+      jeroboam_datatypes_actuators_servo_ServoConfig_0_1_serialize_(&servoConfig, buffer, &buf_size);
+
+      send_can_msg(MOTION_SET_MOTION_CONFIG_ID, &transfer_id, buffer, buf_size);
+    }
+
+    void sliderPositionCB(const jrb_msgs::msg::SliderPosition msg) const {
+      static CanardTransferID transfer_id = 0;
+
+      jeroboam_datatypes_actuators_servo_SliderPosition_0_1 sliderPosition;
+      sliderPosition.ID = msg.id;
+      sliderPosition.position.meter = msg.position;
+      
+      size_t buf_size = jeroboam_datatypes_actuators_servo_SliderPosition_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+      uint8_t buffer[jeroboam_datatypes_actuators_servo_SliderPosition_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+      jeroboam_datatypes_actuators_servo_SliderPosition_0_1_serialize_(&sliderPosition, buffer, &buf_size);
+
+      send_can_msg(MOTION_SET_MOTION_CONFIG_ID, &transfer_id, buffer, buf_size);
+    }
+
+    void sliderConfigCB(const jrb_msgs::msg::SliderConfig msg) const {
+      static CanardTransferID transfer_id = 0;
+
+      jeroboam_datatypes_actuators_servo_SliderConfig_0_1 sliderConfig;
+
+      sliderConfig.ID = msg.id;
+      sliderConfig.feedforward_gains[0] = msg.feedforward_gains[0];
+      sliderConfig.feedforward_gains[1] = msg.feedforward_gains[1];
+      for(uint8_t coef_idx = 0; coef_idx < 3; coef_idx++){
+        sliderConfig.speed_pi.pid[coef_idx] = msg.speed_pi.pid[coef_idx];
+        sliderConfig.position_pid.pid[coef_idx] = msg.position_pid.pid[coef_idx];
+      }
+      sliderConfig.speed_pi.bias = msg.speed_pi.bias;
+      sliderConfig.position_pid.bias = msg.position_pid.bias;
+
+      size_t buf_size = jeroboam_datatypes_actuators_servo_SliderConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+      uint8_t buffer[jeroboam_datatypes_actuators_servo_SliderConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+      jeroboam_datatypes_actuators_servo_SliderConfig_0_1_serialize_(&sliderConfig, buffer, &buf_size);
+
+      send_can_msg(MOTION_SET_MOTION_CONFIG_ID, &transfer_id, buffer, buf_size);
+    }
+
 
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr       odom_pub;
     rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       left_pid_pub;
@@ -353,14 +449,18 @@ class CanBridge : public rclcpp::Node
     rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    right_valve_pub;
 
   
-    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr  twist_sub;
-    rclcpp::Subscription<jrb_msgs::msg::PumpStatus>::SharedPtr  left_pump_sub;
-    rclcpp::Subscription<jrb_msgs::msg::PumpStatus>::SharedPtr  right_pump_sub;
-    rclcpp::Subscription<jrb_msgs::msg::ValveStatus>::SharedPtr left_valve_sub;
-    rclcpp::Subscription<jrb_msgs::msg::ValveStatus>::SharedPtr right_valve_sub;
+    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr          twist_sub;
+    rclcpp::Subscription<jrb_msgs::msg::PumpStatus>::SharedPtr          left_pump_sub;
+    rclcpp::Subscription<jrb_msgs::msg::PumpStatus>::SharedPtr          right_pump_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ValveStatus>::SharedPtr         left_valve_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ValveStatus>::SharedPtr         right_valve_sub;
     rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr left_adpat_pid_conf_sub;
     rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr right_adpat_pid_conf_sub;
-    rclcpp::Subscription<jrb_msgs::msg::MotionConfig>::SharedPtr motion_config_sub;
+    rclcpp::Subscription<jrb_msgs::msg::MotionConfig>::SharedPtr        motion_config_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ServoAngle>::SharedPtr          servo_angle_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ServoConfig>::SharedPtr         servo_config_sub;
+    rclcpp::Subscription<jrb_msgs::msg::SliderPosition>::SharedPtr      slider_position_sub;
+    rclcpp::Subscription<jrb_msgs::msg::SliderConfig>::SharedPtr        slider_config_sub;
 
 
 };
