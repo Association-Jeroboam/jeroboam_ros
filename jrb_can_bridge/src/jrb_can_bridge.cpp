@@ -12,6 +12,7 @@
 #include <stdbool.h>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rcl_interfaces/msg/set_parameters_result.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/twist.hpp"
@@ -38,6 +39,7 @@
 #include "PIDConfig_0_1.h"
 #include "AdaptativePIDConfig_0_1.h"
 #include "MotionConfig_0_1.h"
+#include "jrb_can_bridge/param_utils.hpp"
 
 using namespace std::chrono_literals;
 
@@ -83,8 +85,9 @@ class CanBridge : public rclcpp::Node
 {
   public:
     CanBridge()
-    : Node("Can_RX_Publisher")
+    : Node("can_bridge")
     {
+      // Publishers
       odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("robot_current_state", 50);
       left_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("left_pid_state", 10);
       right_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("right_pid_state", 10);
@@ -93,6 +96,7 @@ class CanBridge : public rclcpp::Node
       left_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("left_valve_status", 10);
       right_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("right_valve_status", 10);
 
+      // Subscribers
       twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
         "cmd_vel", 50, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
 
@@ -110,8 +114,28 @@ class CanBridge : public rclcpp::Node
         "right_adapt_pid_conf", 4, std::bind(&CanBridge::adaptPidConfCB, this, std::placeholders::_1));
       motion_config_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
         "motion_config", 4, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
+
+      // Parameters
+      ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/left/p"), rclcpp::ParameterValue(0.001), (ros2_utils::floating_point_range){ 0.0, 10.0, 0.0001 }, std::string("left pid motor proportional coef"), std::string(""), false);
+      param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
     }
 
+    rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters) {
+      for (const auto &parameter : parameters) {
+        auto name = parameter.get_name();
+        if (name == "pid/left/p") {
+          auto value = parameter.as_double();
+        }
+      }
+
+      rcl_interfaces::msg::SetParametersResult result;
+      result.successful = true;
+      result.reason = "success";
+
+      RCLCPP_INFO(this->get_logger(), "Params updated");
+
+      return result;
+    }
   
     void publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 * state)
     {
@@ -351,7 +375,6 @@ class CanBridge : public rclcpp::Node
     rclcpp::Publisher<jrb_msgs::msg::PumpStatus>::SharedPtr     right_pump_pub;
     rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    left_valve_pub;
     rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    right_valve_pub;
-
   
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr  twist_sub;
     rclcpp::Subscription<jrb_msgs::msg::PumpStatus>::SharedPtr  left_pump_sub;
@@ -362,7 +385,7 @@ class CanBridge : public rclcpp::Node
     rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr right_adapt_pid_conf_sub;
     rclcpp::Subscription<jrb_msgs::msg::MotionConfig>::SharedPtr motion_config_sub;
 
-
+    OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
 };
 
 std::shared_ptr<CanBridge> canBridge;

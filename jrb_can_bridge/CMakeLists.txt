@@ -110,15 +110,25 @@ include_directories(CanProtocol/Cyphal/includes/uavcan/si/unit/volume)
 include_directories(CanProtocol/Cyphal/includes/uavcan/si/unit/volumetric_flow_rate)
 include_directories(CanProtocol/Cyphal/includes/uavcan/time)
 
-add_executable(jrb_can_bridge src/jrb_can_bridge.cpp
-        CanProtocol/Cyphal/libcanard/libcanard/canard.c
-        )
+include_directories(
+  include
+)
+
+add_executable(jrb_can_bridge
+  src/jrb_can_bridge.cpp
+  src/param_utils.cpp
+  CanProtocol/Cyphal/libcanard/libcanard/canard.c
+)
 ament_target_dependencies(jrb_can_bridge rclcpp std_msgs nav_msgs geometry_msgs jrb_msgs)
 target_include_directories(jrb_can_bridge PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 target_compile_features(jrb_can_bridge PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
+
+install(DIRECTORY include/
+  DESTINATION include/
+)
 
 install(TARGETS
   jrb_can_bridge
