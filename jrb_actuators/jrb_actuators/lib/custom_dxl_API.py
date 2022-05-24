@@ -742,14 +742,11 @@ class XL430:
 
     def waitMoveEnd(self,timeout):
         t_speed = time.time() + timeout  # timeout en secondes
-        speed = 0
-        lastspeed = 1
+        speed = 1
+        lastspeed = 0
         while t_speed > time.time() :
             if speed == 0 and lastspeed != 0:  #arret après un front descendant sur speed
-                if abs(self.getPresentLoad()) > 900 :
-                    return 1
-                else :
-                    continue
+                return 1
             else :
                 lastspeed = speed
                 speed = self.getPresentVelocity()
