@@ -17,23 +17,7 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
 set(msg_files
-  "msg/AdaptativePIDConfig.msg"
-  "msg/MotionBoardDataFrame.msg"
-  "msg/MotionConfig.msg"
-  "msg/PIDConfig.msg"
-  "msg/PIDState.msg"
-  "msg/PumpStatus.msg"
   "msg/SampleDetected.msg"
-  "msg/SampleDetectedArray.msg"
-  "msg/ServoAngle.msg"
-  "msg/ServoConfig.msg"
-  "msg/ServoStatus.msg"
-  "msg/SliderPosition.msg"
-  "msg/SliderConfig.msg"
-  "msg/SliderStatus.msg"
-  "msg/ValveStatus.msg"
-  "msg/StackSample.msg"
-  "action/GoToPose.action"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

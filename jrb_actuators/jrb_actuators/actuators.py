@@ -2,7 +2,7 @@ import traceback
 from rclpy.node import Node
 import rclpy
 from geometry_msgs.msg import PoseStamped
-from jrb_msgs.msg import StackSample
+from jrb_msgs.msg import StackSample, PumpStatus, ValveStatus
 from std_msgs.msg import Bool
 from .lib import custom_dxl_API as API
 from dynamixel_sdk import *  # Uses Dynamixel SDK library
@@ -37,11 +37,30 @@ class Actuators(Node):
 
         #self.init_gpio()
         #self.init_serial()
-        self.init_actuators()
 
         # Tf subscriber
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
+
+        self.pub_actuator_state = self.create_publisher(
+            JointState, "actuator_state", 10
+        )
+
+        self.pub_pump_left = self.create_publisher(
+            PumpStatus, "left_pump_status", 10
+        )
+
+        self.pub_pump_right = self.create_publisher(
+            PumpStatus, "right_pump_status", 10
+        )
+
+        self.pub_valve_left = self.create_publisher(
+            ValveStatus, "left_valve_status", 10
+        )
+
+        self.pub_valve_right = self.create_publisher(
+            ValveStatus, "right_valve_status", 10
+        )
 
         self.sub_left_arm = self.create_subscription(
             PoseStamped, "left_arm_goto", partial(self.arm_goto_cb, "left"), 10
@@ -66,25 +85,7 @@ class Actuators(Node):
             StackSample, "stack_sample", self.stackSample_cb, 10
         )
 
-        self.pub_actuator_state = self.create_publisher(
-            JointState, "actuator_state", 10
-        )
-
-        self.pub_pump_left = self.create_publisher(
-            PumpStatus, "left_pump_status", 10
-        )
-
-        self.pub_pump_right = self.create_publisher(
-            PumpStatus, "right_pump_status", 10
-        )
-
-        self.pub_valve_left = self.create_publisher(
-            ValveStatus, "left_valve_status", 10
-        )
-
-        self.pub_valve_right = self.create_publisher(
-            ValveStatus, "right_valve_status", 10
-        )
+        self.init_actuators()
 
         publish_state_rate = 1 / 6  # Hz
         self.state_publish_timer = self.create_timer(
@@ -102,7 +103,6 @@ class Actuators(Node):
     def on_state_publish_timer(self):
         now = self.get_clock().now().to_msg()
         state = self.left_arm.getState()
-
         self.actuator_state_msg.header.stamp = now
         self.actuator_state_msg.name = [
             "left_arm_joint",
@@ -133,7 +133,7 @@ class Actuators(Node):
 
         # Default setting
         BAUDRATE = 57600  # Dynamixel default baudrate : 57600
-        DEVICENAME = "/dev/ttyACM1"  # Check which port is being used on your controller
+        DEVICENAME = "/dev/ttyACM0"  # Check which port is being used on your controller
         # ex) Windows: "COM1"   Linux: "/dev/ttyUSB0" Mac: "/dev/tty.usbserial-*"
 
         API.initHandlers(DEVICENAME, BAUDRATE, PROTOCOL_VERSION)
@@ -178,7 +178,7 @@ class Actuators(Node):
     def startPump(self, side):
         #self.serial_actionBoard.write(("pump "+side+" 1\r").encode('utf-8'))
         pump_msg=PumpStatus()
-        pump_msg.enable=True
+        pump_msg.enabled=True
         if side == "left" :
             self.pub_pump_left.publish(pump_msg)
         else :
@@ -191,8 +191,8 @@ class Actuators(Node):
         #self.serial_actionBoard.write(("valve "+side+" 0\r").encode('utf-8'))
         pump_msg=PumpStatus()
         valve_msg=ValveStatus()
-        pump_msg.enable=True
-        valve_msg.enable=True
+        pump_msg.enabled=False
+        valve_msg.enabled=True
         if side == "left" :
             self.pub_pump_left.publish(pump_msg)
             self.pub_valve_left.publish(valve_msg)
