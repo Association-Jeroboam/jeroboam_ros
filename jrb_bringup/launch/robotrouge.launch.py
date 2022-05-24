@@ -26,6 +26,7 @@ def generate_launch_description():
     is_raspi = LaunchConfiguration("is_raspi", default=is_raspi_)
     camera_param_path = LaunchConfiguration("camera_param_path")
     lidar_param_path = LaunchConfiguration("lidar_param_path")
+    can_bridge_param_path = LaunchConfiguration("can_bridge_param_path")
     sim_motionboard = LaunchConfiguration("sim_motionboard")
 
     return LaunchDescription(
@@ -47,6 +48,13 @@ def generate_launch_description():
                 description="Full path to camera parameter file to load",
                 default_value=PathJoinSubstitution(
                     [this_pkg, "param", "lidar_param.yaml"]
+                ),
+            ),
+            DeclareLaunchArgument(
+                "can_bridge_param_path",
+                description="Full path to can_bridge parameter file to load",
+                default_value=PathJoinSubstitution(
+                    [this_pkg, "param", "lrobotrouge_can_bridge_param.yaml"]
                 ),
             ),
             DeclareLaunchArgument(
@@ -117,6 +125,12 @@ def generate_launch_description():
                 executable="raspi_gpio",
                 output="screen",
                 condition=IfCondition(is_raspi),
+            ),
+            Node(
+                package="jrb_can_bridge",
+                executable="jrb_can_bridge",
+                output="screen",
+                parameters=[can_bridge_param_path],
             ),
         ],
     )

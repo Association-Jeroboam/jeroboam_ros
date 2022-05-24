@@ -119,11 +119,27 @@ class CanBridge : public rclcpp::Node
 
       for (auto const& side : sides) {
         for (auto const& threshold : thresholds) {
+          double value;
+
           ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/p"), rclcpp::ParameterValue(0.001), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor proportional coef"), std::string(""), false);
+          value = this->get_parameter("pid/"+side+"/"+threshold+"/p").as_double();
+          setAdaptPidParam(side, threshold, "p", value);
+
           ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/i"), rclcpp::ParameterValue(0.0001), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor integral coef"), std::string(""), false);
+          value = this->get_parameter("pid/"+side+"/"+threshold+"/i").as_double();
+          setAdaptPidParam(side, threshold, "i", value);
+
           ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/d"), rclcpp::ParameterValue(0.0), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor derivative coef"), std::string(""), false);
+          value = this->get_parameter("pid/"+side+"/"+threshold+"/d").as_double();
+          setAdaptPidParam(side, threshold, "d", value);
+
           ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/bias"), rclcpp::ParameterValue(0.0), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor bias"), std::string(""), false);
+          value = this->get_parameter("pid/"+side+"/"+threshold+"/bias").as_double();
+          setAdaptPidParam(side, threshold, "bias", value);
+
           ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/threshold"), rclcpp::ParameterValue(0.01), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " velocity threshlod"), std::string(""), false);
+          value = this->get_parameter("pid/"+side+"/"+threshold+"/threshold").as_double();
+          setAdaptPidParam(side, threshold, "threshold", value);
         }
       }
 
@@ -132,6 +148,42 @@ class CanBridge : public rclcpp::Node
       // CAN messages
       leftAdaptConfig.ID = CAN_PROTOCOL_LEFT_SPEED_PID_ID;
       rightAdaptConfig.ID = CAN_PROTOCOL_RIGHT_SPEED_PID_ID;
+    }
+
+    void setAdaptPidParam(std::string side, std::string threshold, std::string param_name, double value) {
+        jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1* adaptConfig;
+
+        if (side == "left") {
+          adaptConfig = &leftAdaptConfig;
+        } else {
+          adaptConfig = &rightAdaptConfig;
+        }
+
+        size_t conf_idx = 0;
+        if (threshold == "low") {
+          conf_idx = 0; 
+        } else if (threshold == "medium") {
+          conf_idx = 1;
+        } else {
+          conf_idx = 2;
+        }
+
+        if (param_name == "bias") {
+          adaptConfig->configs[conf_idx].bias = value;
+        } else {
+          size_t pid_idx = 0;
+          if (param_name == "p") {
+            pid_idx = 0; 
+          } else if (param_name == "i") {
+            pid_idx = 1;
+          } else {
+            pid_idx = 2;
+          }
+
+          adaptConfig->configs[conf_idx].pid[pid_idx] = value;
+        }
+
+        sendAdaptPidConfig(side);
     }
 
     rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters) {
@@ -151,42 +203,9 @@ class CanBridge : public rclcpp::Node
           side = parts[1];
           threshold = parts[2];
           param_name = parts[3];
-
           auto value = parameter.as_double();
 
-          jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1* adaptConfig;
-
-          if (side == "left") {
-            adaptConfig = &leftAdaptConfig;
-          } else {
-            adaptConfig = &rightAdaptConfig;
-          }
-
-          size_t conf_idx = 0;
-          if (threshold == "low") {
-            conf_idx = 0; 
-          } else if (threshold == "medium") {
-            conf_idx = 1;
-          } else {
-            conf_idx = 2;
-          }
-
-          if (param_name == "bias") {
-            adaptConfig->configs[conf_idx].bias = value;
-          } else {
-            size_t pid_idx = 0;
-            if (param_name == "p") {
-              pid_idx = 0; 
-            } else if (param_name == "i") {
-              pid_idx = 1;
-            } else {
-              pid_idx = 2;
-            }
-
-            adaptConfig->configs[conf_idx].pid[pid_idx] = value;
-          }
-
-          sendAdaptPidConfig(side);
+          setAdaptPidParam(side, threshold, param_name, value);
         }
       }
 
