@@ -32,6 +32,7 @@ set(msg_files
   "msg/SliderConfig.msg"
   "msg/SliderStatus.msg"
   "msg/ValveStatus.msg"
+  "msg/StackSample.msg"
   "action/GoToPose.action"
 )
 
