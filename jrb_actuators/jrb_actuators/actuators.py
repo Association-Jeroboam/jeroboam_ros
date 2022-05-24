@@ -30,14 +30,13 @@ def speed2rapportCyclique(speed):
 # channel_vanne = 35
 # frequence = 50
 
-
 class Actuators(Node):
     def __init__(self):
         super().__init__("actuators")
         self.get_logger().info("init")
 
         #self.init_gpio()
-        self.init_serial()
+        #self.init_serial()
         self.init_actuators()
 
         # Tf subscriber
@@ -69,6 +68,22 @@ class Actuators(Node):
 
         self.pub_actuator_state = self.create_publisher(
             JointState, "actuator_state", 10
+        )
+
+        self.pub_pump_left = self.create_publisher(
+            PumpStatus, "left_pump_status", 10
+        )
+
+        self.pub_pump_right = self.create_publisher(
+            PumpStatus, "right_pump_status", 10
+        )
+
+        self.pub_valve_left = self.create_publisher(
+            ValveStatus, "left_valve_status", 10
+        )
+
+        self.pub_valve_right = self.create_publisher(
+            ValveStatus, "right_valve_status", 10
         )
 
         publish_state_rate = 1 / 6  # Hz
@@ -161,25 +176,29 @@ class Actuators(Node):
         #todo : check if good device (not DXL board)
 
     def startPump(self, side):
-        # self.pPompe.ChangeDutyCycle(speed2rapportCyclique(100))
-        # self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
-        self.serial_actionBoard.write(("pump "+side+" 1\r").encode('utf-8'))
+        #self.serial_actionBoard.write(("pump "+side+" 1\r").encode('utf-8'))
+        pump_msg=PumpStatus()
+        pump_msg.enable=True
+        if side == "left" :
+            self.pub_pump_left.publish(pump_msg)
+        else :
+            self.pub_pump_right.publish(pump_msg)
 
     def stopPump(self, side):
-        # self.pPompe.ChangeDutyCycle(speed2rapportCyclique(0))
-        # self.pVanne.ChangeDutyCycle(speed2rapportCyclique(100))
-        # time.sleep(1)
-        # self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
-
-        # self.stopVanneTimer = self.create_timer(1, lambda: time.sleep(0.5))
-
-        # def stopVanne():
-        #     self.pVanne.ChangeDutyCycle(speed2rapportCyclique(0))
-        #     self.stopVanneTimer.cancel()
-        self.serial_actionBoard.write(("valve "+side+" 1\r").encode('utf-8'))
-        self.serial_actionBoard.write(("pump "+side+" 0\r").encode('utf-8'))
-        time.sleep(0.1)
-        self.serial_actionBoard.write(("valve "+side+" 0\r").encode('utf-8'))
+        #self.serial_actionBoard.write(("valve "+side+" 1\r").encode('utf-8'))
+        #self.serial_actionBoard.write(("pump "+side+" 0\r").encode('utf-8'))
+        #time.sleep(0.1)
+        #self.serial_actionBoard.write(("valve "+side+" 0\r").encode('utf-8'))
+        pump_msg=PumpStatus()
+        valve_msg=ValveStatus()
+        pump_msg.enable=True
+        valve_msg.enable=True
+        if side == "left" :
+            self.pub_pump_left.publish(pump_msg)
+            self.pub_valve_left.publish(valve_msg)
+        else :
+            self.pub_pump_right.publish(pump_msg)
+            self.pub_valve_right.publish(valve_msg)
 
     def pump_cb(self, side: str, msg: Bool):
         print("pump_cb")
