@@ -168,7 +168,6 @@ class CanBridge : public rclcpp::Node
         } else if (threshold == "medium") {
           conf_idx = 1;
         } else {
-        RCLCPP_INFO(this->get_logger(), "MUMUXE");
           conf_idx = 2;
         }
 
@@ -735,6 +734,7 @@ int send_can_frame(struct can_frame * frame) {
         perror("Write ERROR");
         return 1;
     }
+    std::this_thread::sleep_for(10ms);
     return 0;
 }
 
