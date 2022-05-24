@@ -8,6 +8,32 @@ import math
 connected_XL430=[]
 connected_XL320=[]
 
+def toSigned(n,base):
+    if base == 32 :
+        n1 = n & 0xffffffff
+        n2 = n1 | (-(n1 & 0x80000000))
+    elif base == 16 :
+        n1 = n & 0xffff
+        n2 = n1 | (-(n1 & 0x8000))
+    elif base == 8 :
+        n1 = n & 0xffff
+        n2 = n1 | (-(n1 & 0x8000))
+    else :
+        print("error base",base)
+
+    #print("to signed : ",n,"=>",n2)
+    return n2
+
+
+
+
+def toUnsigned(n,base):
+    if(n<0) : n2 = (n+2**base)
+    else : n2=n
+    #print("to unsigned : ",n,"=>",n2)
+    return n2
+
+
 def initHandlers(DEVICENAME, BAUDRATE, PROTOCOL_VERSION):
     # Initialize PortHandler instance
     # Set the port pathsudo ap
@@ -191,7 +217,7 @@ def getHardwareError(ID):  # a debug
 
 def writeValue(portHandler, size, ID, address, value):
     if ( ID in connected_XL320 ) or ( ID in connected_XL430 ) or ID==254:
-
+        value=toUnsigned(value,size*8)
         if size == 1:
             dxl_comm_result, dxl_error = packetHandler.write1ByteTxRx(
                 portHandler, ID, address, value
@@ -299,6 +325,7 @@ def readValue(portHandler, size, ID, address):
                 ": %s" % packetHandler.getRxPacketError(dxl_error),
             )
         else:
+            value = toSigned(value,size*8)
             return value
     return -1
 
@@ -664,6 +691,11 @@ class XL430:
         dxl_present_velocity = readValue(portHandler, 4, self.ID, 128)
         return dxl_present_velocity
 
+    def getPresentLoad(self):
+        dxl_present_load = readValue(portHandler, 2, self.ID, 126)
+        print("load=",dxl_present_load)
+        return dxl_present_load
+
     def reboot(self):
         packetHandler.reboot(portHandler, self.ID)
 
@@ -711,11 +743,16 @@ class XL430:
     def waitMoveEnd(self,timeout):
         t_speed = time.time() + timeout  # timeout en secondes
         speed = 0
+        lastspeed = 1
         while t_speed > time.time() :
-            lastspeed = speed
-            speed = self.getPresentVelocity()
-            if speed == 0 and lastspeed != 0:
-                return 1  # arret après un front descendant sur speed
+            if speed == 0 and lastspeed != 0:  #arret après un front descendant sur speed
+                if abs(self.getPresentLoad()) > 900 :
+                    return 1
+                else :
+                    continue
+            else :
+                lastspeed = speed
+                speed = self.getPresentVelocity()
             time.sleep(0.1)
         return 0
 
@@ -926,11 +963,9 @@ class bras:
         print("actual position =",offset)
         self.slider.setHomingOffset(offset)  # offset = actualPosition => presentPosition=0
 
-        self.slider.setTorque(1)
-
-        self.slider.setGoalPosition(-10000)
-
-        self.slider.waitMoveEnd(5)
+        #self.slider.setTorque(1)
+        #self.slider.setGoalPosition(-10000)
+        #self.slider.waitMoveEnd(5)
 
         pos = self.slider.getPresentPosition()
         print("final pos =",pos)
