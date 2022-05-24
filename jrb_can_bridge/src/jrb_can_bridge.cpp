@@ -119,6 +119,9 @@ class CanBridge : public rclcpp::Node
           printf("\nqueue mutex init failed\n");
       }
 
+      pthread_create(&txThread, NULL, &checkTxQueue, NULL);
+      pthread_create(&rxThread, NULL, &checkRxMsg, NULL);
+
       // Parameters
       const auto sides = std::array<std::string, 2>({"left", "right"});
       const auto thresholds = std::array<std::string, 3>({"low", "medium", "high"});
@@ -174,6 +177,16 @@ class CanBridge : public rclcpp::Node
         "right_valve_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
       motion_config_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
         "motion_config", 4, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
+    }
+
+    ~CanBridge::CanBridge() {
+      pthread_cancel(txThread);
+      pthread_cancel(rxThread);
+      void* retval;
+      pthread_join(txThread, &retval);
+      pthread_join(rxThread, &retval);
+      (void)retval;
+      close(canIFace); 
     }
 
     void setAdaptPidParam(std::string side, std::string threshold, std::string param_name, double value) {
@@ -474,17 +487,9 @@ int main(int argc, char * argv[])
 
   rclcpp::init(argc, argv);
   canBridge = std::make_shared<CanBridge>();
-  pthread_create(&txThread, NULL, &checkTxQueue, NULL);
-  pthread_create(&rxThread, NULL, &checkRxMsg, NULL);
   rclcpp::spin(canBridge);
   rclcpp::shutdown();
-  pthread_cancel(txThread);
-  pthread_cancel(rxThread);
-  void* retval;
-  pthread_join(txThread, &retval);
-  pthread_join(rxThread, &retval);
-  (void)retval;
-  close(canIFace);
+
   return 0;
 }
 
