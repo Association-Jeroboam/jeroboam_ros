@@ -136,16 +136,20 @@ export DOCKER_BUILDKIT=1
 ```
 
 Run docker container
+
 ```bash
 ./start_docker.bash
 ```
+
 `
 Inside docker container, build project
+
 ```bash
 b
 ```
 
 Exit (Ctrl+D) and run the following command to install it on the pi :
+
 ```bash
-rsync --verbose -r -z --links ./ros2_ws/{install,build} robotrouge:/home/ubuntu/ros2_ws
+rsync --verbose -r -z --links --exclude '*.STL' --exclude '*.dae' --exclude '*.png' ./ros2_ws/{install,build} robotrouge:/home/ubuntu/ros2_ws
 ```
