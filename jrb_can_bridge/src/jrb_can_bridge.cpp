@@ -104,10 +104,10 @@ class CanBridge : public rclcpp::Node
         "left_valve_status", 4, std::bind(&CanBridge::valveLeftCB, this, std::placeholders::_1));
       right_valve_sub = this->create_subscription<jrb_msgs::msg::ValveStatus>(
         "right_valve_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
-      left_adpat_pid_conf_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
-        "left_adapt_pid_conf", 4, std::bind(&CanBridge::leftAdpatPidConfCB, this, std::placeholders::_1));
-      right_adpat_pid_conf_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
-        "left_adapt_pid_conf", 4, std::bind(&CanBridge::adpatPidConfCB, this, std::placeholders::_1));
+      left_adapt_pid_conf_sub = this->create_subscription<jrb_msgs::msg::AdaptativePIDConfig>(
+        "left_adapt_pid_conf", 4, std::bind(&CanBridge::leftAdaptPidConfCB, this, std::placeholders::_1));
+      right_adapt_pid_conf_sub = this->create_subscription<jrb_msgs::msg::AdaptativePIDConfig>(
+        "right_adapt_pid_conf", 4, std::bind(&CanBridge::adaptPidConfCB, this, std::placeholders::_1));
       motion_config_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
         "motion_config", 4, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
     }
@@ -277,7 +277,7 @@ class CanBridge : public rclcpp::Node
     }
 
 
-    void leftAdpatPidConfCB( const jrb_msgs::msg::AdaptativePIDConfig msg) const {
+    void leftAdaptPidConfCB( const jrb_msgs::msg::AdaptativePIDConfig msg) const {
       static CanardTransferID transfer_id = 0;
 
       jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1 adaptConfig;
@@ -299,7 +299,7 @@ class CanBridge : public rclcpp::Node
       send_can_msg(MOTION_SET_ADAPTATIVE_PID_ID, &transfer_id, buffer, buf_size);
     }
     
-    void adpatPidConfCB( const jrb_msgs::msg::AdaptativePIDConfig msg) const {
+    void adaptPidConfCB( const jrb_msgs::msg::AdaptativePIDConfig msg) const {
       static CanardTransferID transfer_id = 0;
 
       jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1 adaptConfig;
@@ -358,8 +358,8 @@ class CanBridge : public rclcpp::Node
     rclcpp::Subscription<jrb_msgs::msg::PumpStatus>::SharedPtr  right_pump_sub;
     rclcpp::Subscription<jrb_msgs::msg::ValveStatus>::SharedPtr left_valve_sub;
     rclcpp::Subscription<jrb_msgs::msg::ValveStatus>::SharedPtr right_valve_sub;
-    rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr left_adpat_pid_conf_sub;
-    rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr right_adpat_pid_conf_sub;
+    rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr left_adapt_pid_conf_sub;
+    rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr right_adapt_pid_conf_sub;
     rclcpp::Subscription<jrb_msgs::msg::MotionConfig>::SharedPtr motion_config_sub;
 
 
