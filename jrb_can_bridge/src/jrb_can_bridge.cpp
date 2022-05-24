@@ -10,6 +10,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <sstream>
+#include <vector>
 
 #include "rclcpp/rclcpp.hpp"
 #include "rcl_interfaces/msg/set_parameters_result.hpp"
@@ -108,23 +110,83 @@ class CanBridge : public rclcpp::Node
         "left_valve_status", 4, std::bind(&CanBridge::valveLeftCB, this, std::placeholders::_1));
       right_valve_sub = this->create_subscription<jrb_msgs::msg::ValveStatus>(
         "right_valve_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
-      left_adapt_pid_conf_sub = this->create_subscription<jrb_msgs::msg::AdaptativePIDConfig>(
-        "left_adapt_pid_conf", 4, std::bind(&CanBridge::leftAdaptPidConfCB, this, std::placeholders::_1));
-      right_adapt_pid_conf_sub = this->create_subscription<jrb_msgs::msg::AdaptativePIDConfig>(
-        "right_adapt_pid_conf", 4, std::bind(&CanBridge::adaptPidConfCB, this, std::placeholders::_1));
       motion_config_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
         "motion_config", 4, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
 
       // Parameters
-      ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/left/p"), rclcpp::ParameterValue(0.001), (ros2_utils::floating_point_range){ 0.0, 10.0, 0.0001 }, std::string("left pid motor proportional coef"), std::string(""), false);
+      const auto sides = std::array<std::string, 2>({"left", "right"});
+      const auto thresholds = std::array<std::string, 3>({"low", "medium", "high"});
+
+      for (auto const& side : sides) {
+        for (auto const& threshold : thresholds) {
+          ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/p"), rclcpp::ParameterValue(0.001), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor proportional coef"), std::string(""), false);
+          ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/i"), rclcpp::ParameterValue(0.0001), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor integral coef"), std::string(""), false);
+          ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/d"), rclcpp::ParameterValue(0.0), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor derivative coef"), std::string(""), false);
+          ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/bias"), rclcpp::ParameterValue(0.0), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor bias"), std::string(""), false);
+          ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/threshold"), rclcpp::ParameterValue(0.01), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " velocity threshlod"), std::string(""), false);
+        }
+      }
+
       param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
+
+      // CAN messages
+      leftAdaptConfig.ID = CAN_PROTOCOL_LEFT_SPEED_PID_ID;
+      rightAdaptConfig.ID = CAN_PROTOCOL_RIGHT_SPEED_PID_ID;
     }
 
     rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters) {
       for (const auto &parameter : parameters) {
         auto name = parameter.get_name();
-        if (name == "pid/left/p") {
+
+        if (name.rfind("pid/", 0) == 0) {
+          std::string side, threshold, param_name;
+          std::stringstream s(name);
+          std::string part;
+          std::vector<std::string> parts;
+
+          while (std::getline(s, part, '/')) {
+            parts.push_back(part);
+          }
+
+          side = parts[0];
+          threshold = parts[1];
+          param_name = parts[2];
+
           auto value = parameter.as_double();
+
+          std::shared_ptr<jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1> adaptConfig;
+
+          if (side == "left") {
+            adaptConfig = std::make_shared<jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1>(leftAdaptConfig);
+          } else {
+            adaptConfig = std::make_shared<jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1>(rightAdaptConfig);
+          }
+
+          size_t conf_idx = 0;
+          if (threshold == "low") {
+            conf_idx = 0; 
+          } else if (threshold == "medium") {
+            conf_idx = 1;
+          } else {
+            conf_idx = 2;
+          }
+
+          if (param_name == "bias") {
+            adaptConfig->configs[conf_idx].bias = value;
+          } else {
+            size_t pid_idx = 0;
+            if (param_name == "p") {
+              pid_idx = 0; 
+            } else if (param_name == "i") {
+              pid_idx = 1;
+            } else {
+              pid_idx = 2;
+            }
+
+            adaptConfig->configs[conf_idx].pid[pid_idx] = value;
+          }
+
+          sendAdaptPidConfig(side);
         }
       }
 
@@ -300,47 +362,16 @@ class CanBridge : public rclcpp::Node
         send_can_msg(ACTION_VALVE_SET_STATUS_ID, &transfer_id, buffer, buf_size);
     }
 
-
-    void leftAdaptPidConfCB( const jrb_msgs::msg::AdaptativePIDConfig msg) const {
+    void sendAdaptPidConfig(std::string side) {
       static CanardTransferID transfer_id = 0;
-
-      jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1 adaptConfig;
-      adaptConfig.ID = msg.id;
-      for(uint8_t conf_idx = 0; conf_idx < 3; conf_idx++) {
-        for(uint8_t pid_idx = 0; pid_idx < 3; pid_idx++) {
-          adaptConfig.configs[conf_idx].pid[pid_idx] = msg.configs[conf_idx].pid[pid_idx];
-        }
-        adaptConfig.configs[conf_idx].bias = msg.configs[conf_idx].bias;
-        adaptConfig.thresholds[conf_idx] = msg.thresholds[conf_idx];
-      }
-      
-
       size_t buf_size = jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
       uint8_t buffer[jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-      jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_serialize_(&adaptConfig, buffer, &buf_size);
-
-      send_can_msg(MOTION_SET_ADAPTATIVE_PID_ID, &transfer_id, buffer, buf_size);
-    }
-    
-    void adaptPidConfCB( const jrb_msgs::msg::AdaptativePIDConfig msg) const {
-      static CanardTransferID transfer_id = 0;
-
-      jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1 adaptConfig;
-      adaptConfig.ID = msg.id;
-      for(uint8_t conf_idx = 0; conf_idx < 3; conf_idx++) {
-        for(uint8_t pid_idx = 0; pid_idx < 3; pid_idx++) {
-          adaptConfig.configs[conf_idx].pid[pid_idx] = msg.configs[conf_idx].pid[pid_idx];
-        }
-        adaptConfig.configs[conf_idx].bias = msg.configs[conf_idx].bias;
-        adaptConfig.thresholds[conf_idx] = msg.thresholds[conf_idx];
-      }
-      
-
-      size_t buf_size = jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
-      uint8_t buffer[jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
-
-      jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_serialize_(&adaptConfig, buffer, &buf_size);
+       if (side == "left") {
+         jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_serialize_(&leftAdaptConfig, buffer, &buf_size);
+       } else {
+         jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_serialize_(&rightAdaptConfig, buffer, &buf_size);
+       }
 
       send_can_msg(MOTION_SET_ADAPTATIVE_PID_ID, &transfer_id, buffer, buf_size);
     }
@@ -386,6 +417,9 @@ class CanBridge : public rclcpp::Node
     rclcpp::Subscription<jrb_msgs::msg::MotionConfig>::SharedPtr motion_config_sub;
 
     OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
+
+    jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1 leftAdaptConfig;
+    jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1 rightAdaptConfig;
 };
 
 std::shared_ptr<CanBridge> canBridge;
