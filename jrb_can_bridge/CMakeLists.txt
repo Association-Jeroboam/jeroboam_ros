@@ -110,6 +110,8 @@ include_directories(CanProtocol/Cyphal/includes/uavcan/si/unit/volume)
 include_directories(CanProtocol/Cyphal/includes/uavcan/si/unit/volumetric_flow_rate)
 include_directories(CanProtocol/Cyphal/includes/uavcan/time)
 
+# add_compile_definitions(CANARD_ASSERT (void))
+
 include_directories(
   include
 )

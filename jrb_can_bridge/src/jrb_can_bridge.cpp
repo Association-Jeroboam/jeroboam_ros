@@ -113,6 +113,14 @@ class CanBridge : public rclcpp::Node
       motion_config_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
         "motion_config", 4, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
 
+      // param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
+
+      // CAN messages
+      leftAdaptConfig.ID = CAN_PROTOCOL_LEFT_SPEED_PID_ID;
+      rightAdaptConfig.ID = CAN_PROTOCOL_RIGHT_SPEED_PID_ID;
+    }
+
+    void init() {
       // Parameters
       const auto sides = std::array<std::string, 2>({"left", "right"});
       const auto thresholds = std::array<std::string, 3>({"low", "medium", "high"});
@@ -142,16 +150,11 @@ class CanBridge : public rclcpp::Node
           setAdaptPidParam(side, threshold, "threshold", value);
         }
       }
-
-      param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
-
-      // CAN messages
-      leftAdaptConfig.ID = CAN_PROTOCOL_LEFT_SPEED_PID_ID;
-      rightAdaptConfig.ID = CAN_PROTOCOL_RIGHT_SPEED_PID_ID;
     }
 
     void setAdaptPidParam(std::string side, std::string threshold, std::string param_name, double value) {
         jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1* adaptConfig;
+        RCLCPP_INFO(this->get_logger(), "%s %s %s %f", side.c_str(), threshold.c_str(), param_name.c_str(), value);
 
         if (side == "left") {
           adaptConfig = &leftAdaptConfig;
@@ -165,11 +168,14 @@ class CanBridge : public rclcpp::Node
         } else if (threshold == "medium") {
           conf_idx = 1;
         } else {
+        RCLCPP_INFO(this->get_logger(), "MUMUXE");
           conf_idx = 2;
         }
 
         if (param_name == "bias") {
           adaptConfig->configs[conf_idx].bias = value;
+        } else if (param_name == "threshold") {
+          adaptConfig->thresholds[conf_idx] = value;
         } else {
           size_t pid_idx = 0;
           if (param_name == "p") {
@@ -445,23 +451,7 @@ std::shared_ptr<CanBridge> canBridge;
 
 int main(int argc, char * argv[])
 {
-    rclcpp::TimerBase::SharedPtr timer_;
-  if(argc != 2) {
-        print_usage();
-        return 1;
-  }
-  char canName[] = "can";
-  char vcanName[] = "vcan";
-  bool hardware = check_parameter(argv[1], canName, 3);
-  bool emulated = check_parameter(argv[1], vcanName, 4);
-
-
-  if(!hardware && !emulated) {
-      print_usage();
-      return 2;
-  }
-
-  char * iface = argv[1];
+  char iface[] = "can0";
 
   initCAN(iface);
   initCanard();
@@ -480,11 +470,15 @@ int main(int argc, char * argv[])
       return 1;
   }
 
-
   rclcpp::init(argc, argv);
+  
+
   canBridge = std::make_shared<CanBridge>();
+  std::this_thread::sleep_for(100ms);
   pthread_create(&txThread, NULL, &checkTxQueue, NULL);
   pthread_create(&rxThread, NULL, &checkRxMsg, NULL);
+  std::this_thread::sleep_for(100ms);
+  canBridge.get()->init();
   rclcpp::spin(canBridge);
   rclcpp::shutdown();
   pthread_cancel(txThread);
@@ -751,7 +745,7 @@ bool check_parameter(char * iface, char * name, size_t n) {
 void initCanard(void) {
     instance = canardInit(canardSpecificAlloc, canardSpecificFree);
     instance.node_id = CAN_PROTOCOL_EMBEDDED_COMPUTER_ID; // Embedded computer Node ID
-    queue = canardTxInit(100, MAX_FRAME_SIZE);
+    queue = canardTxInit(10000, MAX_FRAME_SIZE);
 }
 
 void * canardSpecificAlloc(CanardInstance * instance, size_t amount) {
