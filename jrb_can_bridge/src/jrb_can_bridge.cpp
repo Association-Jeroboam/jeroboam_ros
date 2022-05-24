@@ -148,18 +148,18 @@ class CanBridge : public rclcpp::Node
             parts.push_back(part);
           }
 
-          side = parts[0];
-          threshold = parts[1];
-          param_name = parts[2];
+          side = parts[1];
+          threshold = parts[2];
+          param_name = parts[3];
 
           auto value = parameter.as_double();
 
-          std::shared_ptr<jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1> adaptConfig;
+          jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1* adaptConfig;
 
           if (side == "left") {
-            adaptConfig = std::make_shared<jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1>(leftAdaptConfig);
+            adaptConfig = &leftAdaptConfig;
           } else {
-            adaptConfig = std::make_shared<jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1>(rightAdaptConfig);
+            adaptConfig = &rightAdaptConfig;
           }
 
           size_t conf_idx = 0;
