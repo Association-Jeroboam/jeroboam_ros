@@ -66,10 +66,6 @@ bool subscribe(CanardTransferKind transfer_kind, CanardPortID port_id, size_t ex
 void publishReceivedMessage(CanardRxTransfer * transfer);
 void createSubscriptions(void);
 
-void print_usage(void) {
-    printf("usage:\n\tchyphal_demo can_interface (can0, vcan0...)\n");
-}
-
 int canIFace;
 
 pthread_mutex_t queue_lock;
@@ -89,29 +85,39 @@ class CanBridge : public rclcpp::Node
     CanBridge()
     : Node("can_bridge")
     {
-      // Publishers
-      odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("robot_current_state", 50);
-      left_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("left_pid_state", 10);
-      right_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("right_pid_state", 10);
-      left_pump_pub = this->create_publisher<jrb_msgs::msg::PumpStatus>("left_pump_status", 10);
-      right_pump_pub = this->create_publisher<jrb_msgs::msg::PumpStatus>("right_pump_status", 10);
-      left_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("left_valve_status", 10);
-      right_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("right_valve_status", 10);
+      // Setup CAN interface
+      ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("can_interface"), rclcpp::ParameterValue("vcan0"), std::string("Can interface (e.g vcan0 for simulated, can0 for hardware)"), std::string(""), true);
+      char* canInterface = (char*)this->get_parameter("can_interface").as_string().c_str();
+      printf("interface : %s\n", canInterface);
 
-      // Subscribers
-      twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
-        "cmd_vel", 50, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
+      // CAN messages
+      leftAdaptConfig.ID = CAN_PROTOCOL_LEFT_SPEED_PID_ID;
+      rightAdaptConfig.ID = CAN_PROTOCOL_RIGHT_SPEED_PID_ID;
 
-      left_pump_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
-        "left_pump_status", 4, std::bind(&CanBridge::pumpLeftCB, this, std::placeholders::_1));
-      right_pump_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
-        "right_pump_status", 4, std::bind(&CanBridge::pumpRightCB, this, std::placeholders::_1));
-      left_valve_sub = this->create_subscription<jrb_msgs::msg::ValveStatus>(
-        "left_valve_status", 4, std::bind(&CanBridge::valveLeftCB, this, std::placeholders::_1));
-      right_valve_sub = this->create_subscription<jrb_msgs::msg::ValveStatus>(
-        "right_valve_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
-      motion_config_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
-        "motion_config", 4, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
+      char canName[] = "can";
+      char vcanName[] = "vcan";
+      bool hardware = check_parameter(canInterface, canName, 3);
+      bool emulated = check_parameter(canInterface, vcanName, 4);
+
+
+      if(!hardware && !emulated) {
+          printf("big problem");
+      }
+
+      initCAN(canInterface);
+      initCanard();
+      createSubscriptions();
+
+
+      if (pthread_mutex_init(&tx_exec_lock, NULL) != 0)
+      {
+          printf("\nexecution  mutex init failed\n");
+      }
+
+      if (pthread_mutex_init(&queue_lock, NULL) != 0)
+      {
+          printf("\nqueue mutex init failed\n");
+      }
 
       // Parameters
       const auto sides = std::array<std::string, 2>({"left", "right"});
@@ -145,9 +151,29 @@ class CanBridge : public rclcpp::Node
 
       param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
 
-      // CAN messages
-      leftAdaptConfig.ID = CAN_PROTOCOL_LEFT_SPEED_PID_ID;
-      rightAdaptConfig.ID = CAN_PROTOCOL_RIGHT_SPEED_PID_ID;
+      // Publishers
+      odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("robot_current_state", 50);
+      left_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("left_pid_state", 10);
+      right_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("right_pid_state", 10);
+      left_pump_pub = this->create_publisher<jrb_msgs::msg::PumpStatus>("left_pump_status", 10);
+      right_pump_pub = this->create_publisher<jrb_msgs::msg::PumpStatus>("right_pump_status", 10);
+      left_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("left_valve_status", 10);
+      right_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("right_valve_status", 10);
+
+      // Subscribers
+      twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
+        "cmd_vel", 50, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
+
+      left_pump_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
+        "left_pump_status", 4, std::bind(&CanBridge::pumpLeftCB, this, std::placeholders::_1));
+      right_pump_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
+        "right_pump_status", 4, std::bind(&CanBridge::pumpRightCB, this, std::placeholders::_1));
+      left_valve_sub = this->create_subscription<jrb_msgs::msg::ValveStatus>(
+        "left_valve_status", 4, std::bind(&CanBridge::valveLeftCB, this, std::placeholders::_1));
+      right_valve_sub = this->create_subscription<jrb_msgs::msg::ValveStatus>(
+        "right_valve_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
+      motion_config_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
+        "motion_config", 4, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
     }
 
     void setAdaptPidParam(std::string side, std::string threshold, std::string param_name, double value) {
@@ -297,7 +323,7 @@ class CanBridge : public rclcpp::Node
 
 
         bool success = pushQueue(&metadata, buf_size, buffer);
-        if (!success ) {
+        if (!success) {
             printf("Queue push failed\n");
         }
         (*transferID)++;
@@ -445,41 +471,6 @@ std::shared_ptr<CanBridge> canBridge;
 
 int main(int argc, char * argv[])
 {
-    rclcpp::TimerBase::SharedPtr timer_;
-  if(argc != 2) {
-        print_usage();
-        return 1;
-  }
-  char canName[] = "can";
-  char vcanName[] = "vcan";
-  bool hardware = check_parameter(argv[1], canName, 3);
-  bool emulated = check_parameter(argv[1], vcanName, 4);
-
-
-  if(!hardware && !emulated) {
-      print_usage();
-      return 2;
-  }
-
-  char * iface = argv[1];
-
-  initCAN(iface);
-  initCanard();
-  createSubscriptions();
-
-
-  if (pthread_mutex_init(&tx_exec_lock, NULL) != 0)
-  {
-      printf("\nexecution  mutex init failed\n");
-      return 1;
-  }
-
-  if (pthread_mutex_init(&queue_lock, NULL) != 0)
-  {
-      printf("\nqueue mutex init failed\n");
-      return 1;
-  }
-
 
   rclcpp::init(argc, argv);
   canBridge = std::make_shared<CanBridge>();
@@ -683,6 +674,11 @@ bool pushQueue(const CanardTransferMetadata* const metadata,
     pthread_mutex_unlock(&tx_exec_lock);
     
     success = (0 <= res);
+
+    if (!success) {
+      printf("res: %i\n", res);
+    }
+
     return success;
 }
 
@@ -709,6 +705,10 @@ bool subscribe(CanardTransferKind transfer_kind, CanardPortID port_id, size_t ex
         subCnt++;
     }
     return res;
+}
+
+bool check_parameter(char * iface, char * name, size_t n) {
+    return memcmp(iface, name, n) == 0;
 }
 
 void initCAN(char * iface) {
@@ -744,14 +744,10 @@ int send_can_frame(struct can_frame * frame) {
     return 0;
 }
 
-bool check_parameter(char * iface, char * name, size_t n) {
-    return memcmp(iface, name, n) == 0;
-}
-
 void initCanard(void) {
     instance = canardInit(canardSpecificAlloc, canardSpecificFree);
     instance.node_id = CAN_PROTOCOL_EMBEDDED_COMPUTER_ID; // Embedded computer Node ID
-    queue = canardTxInit(100, MAX_FRAME_SIZE);
+    queue = canardTxInit(10000, MAX_FRAME_SIZE);
 }
 
 void * canardSpecificAlloc(CanardInstance * instance, size_t amount) {

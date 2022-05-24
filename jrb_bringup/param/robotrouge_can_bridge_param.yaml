@@ -1,5 +1,7 @@
 /can_bridge:
   ros__parameters:
+    can_interface: can0
+    
     pid/left/high/bias: 0.0
     pid/left/high/p: 0.001
     pid/left/high/i: 0.0001
