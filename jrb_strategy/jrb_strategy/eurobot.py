@@ -1,7 +1,7 @@
 import traceback
 import threading
 import time
-from math import pi, atan2
+from math import pi, atan2, radians
 
 import rclpy
 from rclpy.node import Node
@@ -12,7 +12,7 @@ from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
 from rclpy.task import Future
 
 from std_msgs.msg import Bool, String, Empty
-from geometry_msgs.msg import PoseStamped, PoseArray
+from geometry_msgs.msg import PoseStamped, PoseArray, PoseWithCovarianceStamped
 from nav_msgs.msg import Odometry
 
 from tf_transformations import quaternion_from_euler, euler_from_quaternion
@@ -43,6 +43,10 @@ class EurobotStrategyNode(Node):
         )
 
         self.pub_end_match = self.create_publisher(Empty, "strategy/end_match", 1)
+
+        self.pub_initialpose = self.create_publisher(
+            PoseWithCovarianceStamped, "/initialpose", 10
+        )
 
         self.goto_action_client = ActionClient(
             self, GoToPose, "diff_drive_go_to_goal", callback_group=self.cb_group
@@ -240,6 +244,22 @@ class EurobotStrategyNode(Node):
 
         rclpy.spin_until_future_complete(self, goal_finished_future)
 
+    def set_initialpose(self, x_, y_, theta_):
+        x, y, theta = self.get_pose(x_, y_, theta_)
+        q = quaternion_from_euler(0, 0, theta)
+
+        initialpose_msg = PoseWithCovarianceStamped()
+        initialpose_msg.header.stamp = self.get_clock().now().to_msg()
+        initialpose_msg.header.frame_id = "odom"
+        initialpose_msg.pose.pose.position.x = x
+        initialpose_msg.pose.pose.position.y = y
+        initialpose_msg.pose.pose.orientation.x = q[0]
+        initialpose_msg.pose.pose.orientation.y = q[1]
+        initialpose_msg.pose.pose.orientation.z = q[2]
+        initialpose_msg.pose.pose.orientation.w = q[3]
+
+        self.pub_initialpose.publish(initialpose_msg)
+
     def loop(self):
         self.get_logger().info("Init strategy. Wait for start...")
 
@@ -253,10 +273,15 @@ class EurobotStrategyNode(Node):
         )
 
         ######### Strategy here, written for YELLOW TEAM #########
-        self.goto(1.100, 0.650)
-        self.goto(1.100, 1.300)
-        self.goto(0.670, 1.300)
-        self.goto(0.670, 0.400)
+
+        self.set_initialpose(0.865, 0.1, radians(90))
+
+        self.goto(1.118, 0.9441, radians(104.6))
+
+        self.goto(0.69, 1.378, radians(-90))
+
+        self.goto(0.69, 0.3077, radians(-90))
+
         ######### End strategy ##########
 
         self.get_logger().info("Strategy finished !")

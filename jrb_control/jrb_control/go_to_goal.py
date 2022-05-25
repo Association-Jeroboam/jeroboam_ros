@@ -2,12 +2,14 @@ import traceback
 
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType, FloatingPointRange
 import rclpy
-from rclpy.time import Duration
+import rclpy.time
 import time
 from rclpy.node import Node
 from rclpy.action import ActionServer, ActionClient, GoalResponse, CancelResponse
 from rclpy.action.server import ServerGoalHandle
 from rcl_interfaces.msg import SetParametersResult
+from visualization_msgs.msg import Marker
+from builtin_interfaces.msg import Duration
 from math import pi, radians
 from tf_transformations import euler_from_quaternion
 from geometry_msgs.msg import Twist, PoseStamped, Quaternion
@@ -53,6 +55,9 @@ class GoToGoalNode(Node):
         self.dist_pub = self.create_publisher(Float32, "distance_to_goal", 10)
         self.twist_pub = self.create_publisher(Twist, "cmd_vel", 10)
         self.goal_achieved_pub = self.create_publisher(Bool, "goal_achieved", 1)
+        self.pub_debug_current_goal = self.create_publisher(
+            Marker, "debug/current_goal", 1
+        )
 
         self.odom_sub = self.create_subscription(
             Odometry, "odometry", self.on_odometry, 10
@@ -246,6 +251,30 @@ class GoToGoalNode(Node):
 
         self.init_pose()
 
+    def publish_marker(self, stamp, pose):
+        self.current_goal_marker_msg = Marker()
+
+        self.current_goal_marker_msg.header.frame_id = "odom"
+        self.current_goal_marker_msg.header.stamp = stamp
+
+        self.current_goal_marker_msg.lifetime = Duration()
+
+        self.current_goal_marker_msg.type = Marker.ARROW
+        self.current_goal_marker_msg.action = Marker.ADD
+        self.current_goal_marker_msg.id = 0
+
+        self.current_goal_marker_msg.pose = pose
+        self.current_goal_marker_msg.scale.x = 0.3
+        self.current_goal_marker_msg.scale.y = 0.05
+        self.current_goal_marker_msg.scale.z = 0.05
+
+        self.current_goal_marker_msg.color.a = 1.0
+        self.current_goal_marker_msg.color.r = 0.0
+        self.current_goal_marker_msg.color.g = 0.0
+        self.current_goal_marker_msg.color.b = 1.0
+
+        self.pub_debug_current_goal.publish(self.current_goal_marker_msg)
+
     def on_update_parameters(self, params):
         for param in params:
             if param.name == "rate":
@@ -309,9 +338,13 @@ class GoToGoalNode(Node):
             f"Goal: ({self.goal.x}, {self.goal.y}, ${self.goal.theta})"
         )
 
+        self.publish_marker(
+            self.get_clock().now().to_msg(), goal_handle.request.pose.pose
+        )
+
         success = True
         while rclpy.ok() and self.goal is not None:
-            nextWork = self.get_clock().now() + Duration(seconds=self.dT)
+            nextWork = self.get_clock().now() + rclpy.time.Duration(seconds=self.dT)
 
             # Work
             self.publish()
