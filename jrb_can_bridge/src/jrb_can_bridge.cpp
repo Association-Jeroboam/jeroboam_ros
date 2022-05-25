@@ -18,6 +18,7 @@
 #include "std_msgs/msg/string.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 #include "jrb_msgs/msg/pid_state.hpp"
 #include "jrb_msgs/msg/pump_status.hpp"
 #include "jrb_msgs/msg/valve_status.hpp"
@@ -101,6 +102,9 @@ class CanBridge : public rclcpp::Node
       // Subscribers
       twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
         "cmd_vel", 50, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
+
+      initialpose_sub = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+        "initialpose", 50, std::bind(&CanBridge::initialpose_cb, this, std::placeholders::_1));
 
       left_pump_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
         "left_pump_status", 4, std::bind(&CanBridge::pumpLeftCB, this, std::placeholders::_1));
@@ -307,6 +311,7 @@ class CanBridge : public rclcpp::Node
         }
         (*transferID)++;
     }
+
     void robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr msg) const {
         static CanardTransferID transfer_id = 0;
         reg_udral_physics_kinematics_cartesian_Twist_0_1 twist;
@@ -324,6 +329,27 @@ class CanBridge : public rclcpp::Node
         reg_udral_physics_kinematics_cartesian_Twist_0_1_serialize_(&twist, buffer, &buf_size);
 
         send_can_msg(ROBOT_TWIST_GOAL_ID, &transfer_id, buffer, buf_size);
+    }
+
+    void initialpose_cb(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) const {
+        static CanardTransferID transfer_id = 0;
+        reg_udral_physics_kinematics_cartesian_Pose_0_1 pose;
+
+        pose.position.value.meter[0] = msg->pose.pose.position.x;
+        pose.position.value.meter[1] = msg->pose.pose.position.y;
+        pose.position.value.meter[2] = 0;
+
+        pose.orientation.wxyz[0] = msg->pose.pose.orientation.w;
+        pose.orientation.wxyz[1] = msg->pose.pose.orientation.x;
+        pose.orientation.wxyz[2] = msg->pose.pose.orientation.y;
+        pose.orientation.wxyz[3] = msg->pose.pose.orientation.z;
+
+        size_t buf_size = reg_udral_physics_kinematics_cartesian_Pose_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+        uint8_t buffer[reg_udral_physics_kinematics_cartesian_Pose_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+        reg_udral_physics_kinematics_cartesian_Pose_0_1_serialize_(&pose, buffer, &buf_size);
+
+        send_can_msg(ROBOT_SET_CURRENT_POSE_ID, &transfer_id, buffer, buf_size);
     }
 
     void pumpLeftCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) const {
@@ -432,6 +458,7 @@ class CanBridge : public rclcpp::Node
     rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    right_valve_pub;
   
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr  twist_sub;
+    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initialpose_sub;
     rclcpp::Subscription<jrb_msgs::msg::PumpStatus>::SharedPtr  left_pump_sub;
     rclcpp::Subscription<jrb_msgs::msg::PumpStatus>::SharedPtr  right_pump_sub;
     rclcpp::Subscription<jrb_msgs::msg::ValveStatus>::SharedPtr left_valve_sub;
