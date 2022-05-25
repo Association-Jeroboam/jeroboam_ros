@@ -1,3 +1,4 @@
 /rplidar_scan_publisher:
   ros__parameters:
+    serial_port: "/dev/rplidar"
     frame_id: "laser_link"
