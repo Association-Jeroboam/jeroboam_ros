@@ -141,7 +141,7 @@ class EurobotStrategyNode(Node):
         self.strategy = msg.data
 
     def on_obstacle_detected(self, msg: PoseArray):
-        if msg.poses.length > 0:
+        if len(msg.poses) > 0:
             self.get_logger().warn("Obstacle detected ! Cancelling all goals")
             self.goto_cancel()
 
