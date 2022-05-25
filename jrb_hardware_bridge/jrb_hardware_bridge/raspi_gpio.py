@@ -8,9 +8,9 @@ from rcl_interfaces.msg import ParameterDescriptor, ParameterType, FloatingPoint
 from rcl_interfaces.msg import SetParametersResult
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
 
-STARTER_PIN = 18
-TEAM_PIN = 23
-STRATEGY_PIN = 24
+STARTER_PIN = 12
+TEAM_PIN = 16
+STRATEGY_PIN = 18
 
 
 class RaspiGpio(Node):
