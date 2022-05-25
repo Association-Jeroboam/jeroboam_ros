@@ -60,7 +60,7 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "sim_motionboard",
                 description="Simulate motionboard with a perfect Twist command to Odometry state",
-                default_value="True",
+                default_value="False",
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
