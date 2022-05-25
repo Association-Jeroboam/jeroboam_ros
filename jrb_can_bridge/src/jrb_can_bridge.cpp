@@ -230,6 +230,7 @@ class CanBridge : public rclcpp::Node
     void publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 * state)
     {
       auto state_msg = nav_msgs::msg::Odometry();
+      state_msg.header.stamp = get_clock()->now();
       state_msg.header.frame_id = "odom";
       state_msg.child_frame_id = "base_footprint";
       
