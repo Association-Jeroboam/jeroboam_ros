@@ -78,11 +78,11 @@ def generate_launch_description():
             #     parameters=[camera_param_path],
             #     output="screen",
             # ),
-            Node(
-                package="jrb_sensors",
-                executable="sample_detector",
-                output="screen",
-            ),
+            # Node(
+            #     package="jrb_sensors",
+            #     executable="sample_detector",
+            #     output="screen",
+            # ),
             # Node(
             #     package="jrb_actuators",
             #     executable="actuators",
