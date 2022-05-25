@@ -92,7 +92,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "kA",
-            16.0,
+            18.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -103,7 +103,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "kB",
-            -3.0,
+            -6.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[

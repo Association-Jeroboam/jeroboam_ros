@@ -140,7 +140,7 @@ class CanBridge : public rclcpp::Node
           value = this->get_parameter("pid/"+side+"/"+threshold+"/p").as_double();
           setAdaptPidParam(side, threshold, "p", value);
 
-          ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/i"), rclcpp::ParameterValue(0.0001), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor integral coef"), std::string(""), false);
+          ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/i"), rclcpp::ParameterValue(0.0005), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor integral coef"), std::string(""), false);
           value = this->get_parameter("pid/"+side+"/"+threshold+"/i").as_double();
           setAdaptPidParam(side, threshold, "i", value);
 
