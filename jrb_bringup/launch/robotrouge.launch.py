@@ -71,23 +71,23 @@ def generate_launch_description():
                     "use_gui": "False",
                 }.items(),
             ),
-            Node(
-                package="usb_cam",
-                executable="usb_cam_node_exe",
-                name="camera",
-                parameters=[camera_param_path],
-                output="screen",
-            ),
+            # Node(
+            #     package="usb_cam",
+            #     executable="usb_cam_node_exe",
+            #     name="camera",
+            #     parameters=[camera_param_path],
+            #     output="screen",
+            # ),
             Node(
                 package="jrb_sensors",
                 executable="sample_detector",
                 output="screen",
             ),
-            Node(
-                package="jrb_actuators",
-                executable="actuators",
-                output="screen",
-            ),
+            # Node(
+            #     package="jrb_actuators",
+            #     executable="actuators",
+            #     output="screen",
+            # ),
             Node(
                 package="jrb_localization",
                 executable="map_manager",
@@ -133,5 +133,6 @@ def generate_launch_description():
                 output="screen",
                 condition=IfCondition(is_raspi),
             ),
+            Node(package="jrb_strategy", executable="eurobot", output="screen"),
         ],
     )
