@@ -63,9 +63,9 @@ class RaspiGpio(Node):
             ),
         )
 
-        self.starter_polling_rate = self.get_parameter("starter_poling_rate").value
-        self.team_polling_rate = self.get_parameter("team_poling_rate").value
-        self.strategy_polling_rate = self.get_parameter("strategy_poling_rate").value
+        self.starter_polling_rate = self.get_parameter("starter_polling_rate").value
+        self.team_polling_rate = self.get_parameter("team_polling_rate").value
+        self.strategy_polling_rate = self.get_parameter("strategy_polling_rate").value
 
         self.last_starter_value = None
         self.last_team_value = None
