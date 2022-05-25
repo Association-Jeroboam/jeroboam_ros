@@ -91,7 +91,7 @@ class CanBridge : public rclcpp::Node
     : Node("can_bridge")
     {
       // Publishers
-      odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("robot_current_state", 50);
+      odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("odometry", 50);
       left_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("left_pid_state", 10);
       right_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("right_pid_state", 10);
       left_pump_pub = this->create_publisher<jrb_msgs::msg::PumpStatus>("left_pump_status", 10);
