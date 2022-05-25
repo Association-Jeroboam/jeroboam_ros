@@ -122,6 +122,9 @@ class CanBridge : public rclcpp::Node
       // CAN messages
       leftAdaptConfig.ID = CAN_PROTOCOL_LEFT_SPEED_PID_ID;
       rightAdaptConfig.ID = CAN_PROTOCOL_RIGHT_SPEED_PID_ID;
+
+      // Timers
+      // send_config_timer = 
     }
 
     void init() {
