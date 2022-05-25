@@ -113,7 +113,7 @@ class CanBridge : public rclcpp::Node
       motion_config_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
         "motion_config", 4, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
 
-      // param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
+      param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
 
       // CAN messages
       leftAdaptConfig.ID = CAN_PROTOCOL_LEFT_SPEED_PID_ID;
