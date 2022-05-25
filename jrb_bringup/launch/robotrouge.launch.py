@@ -15,7 +15,7 @@ from launch_ros.actions import Node
 from launch.substitutions import ThisLaunchFileDir, PathJoinSubstitution
 from launch.actions import IncludeLaunchDescription
 from launch_ros.substitutions import FindPackageShare
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 import os
 
 
@@ -110,6 +110,13 @@ def generate_launch_description():
                 condition=IfCondition(sim_motionboard),
             ),
             Node(
+                package="jrb_can_bridge",
+                executable="jrb_can_bridge",
+                output="screen",
+                parameters=[can_bridge_param_path],
+                condition=UnlessCondition(sim_motionboard),
+            ),
+            Node(
                 package="rplidar_ros2",
                 executable="rplidar_scan_publisher",
                 parameters=[lidar_param_path],
@@ -125,12 +132,6 @@ def generate_launch_description():
                 executable="raspi_gpio",
                 output="screen",
                 condition=IfCondition(is_raspi),
-            ),
-            Node(
-                package="jrb_can_bridge",
-                executable="jrb_can_bridge",
-                output="screen",
-                parameters=[can_bridge_param_path],
             ),
         ],
     )
