@@ -1,3 +1,4 @@
+from re import A
 import traceback
 from rclpy.node import Node
 import rclpy
@@ -302,10 +303,13 @@ class Actuators_robotbleu(Node):
         super().__init__("actuators")
         self.get_logger().info("init")
 
+        self.xl320_status={}
+        self.present_resistance = 0
+
         self.sub_xl320_status = self.create_subscription(ServoStatus, "servo_status", self.xl320_status_cb, 10)
+        #self.sub_xl320_status = self.create_subscription(OhmStatus, "resistance_status", self.present_resistance_cb, 10)
         self.pub_xl320_target = self.create_publisher(ServoAngle, "servo_angle_target", 10)
         self.pub_xl320_config = self.create_publisher(ServoConfig, "servo_config", 10)
-        self.xl320_status={}
 
         #config msg
         self.arm_left_config_msg = ServoConfig()
@@ -315,17 +319,17 @@ class Actuators_robotbleu(Node):
 
         self.init_actuators()
 
-
     def xl320_status_cb(self, msg: ServoStatus):
         if not msg.id in self.xl320_status :
             self.xl320_status[msg.id] = ServoStatus()
         self.xl320_status[msg.id] = msg
 
+    #def present_resistance_cb(self, msg: OhmStatus):
+    #    self.present_resistance=msg.data
 
     def __del__(self):
         API.resetTorque4All()
         self.serial_actionBoard.close()
-
 
     def init_actuators(self):
 
@@ -350,12 +354,6 @@ class Actuators_robotbleu(Node):
         self.pub_xl320_config.publish(self.plier_tilt_config_msg)
 
         #test servo
-
-#inclinaison pince : id 17, angle min 155° (sorti), angle max 245° (rentré)
-#bras droit : id 2, angle min 150° (rentré), angle max 250° (sorti)
-#bras gauche : id 19, angle min 50° (sorti), angle max 150° (rentré)
-#lecteur de résistances : id 23, angle min 135° (sorti), angle max 240° (rentré)
-
         self.setArm("left","out")
         self.setArm("right","out")
         self.setOhmReader(135)
@@ -369,8 +367,7 @@ class Actuators_robotbleu(Node):
 
         #todo : servomoteur pince
 
-        self.get_logger().info("init OK")
-
+        self.get_logger().info("init OK")        
 
     def setArm(self,side,state):
         angle_msg=ServoAngle()
