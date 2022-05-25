@@ -8,9 +8,9 @@ from rcl_interfaces.msg import ParameterDescriptor, ParameterType, FloatingPoint
 from rcl_interfaces.msg import SetParametersResult
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
 
-STARTER_PIN = 11
-TEAM_PIN = 12
-STRATEGY_PIN = 13
+STARTER_PIN = 18
+TEAM_PIN = 23
+STRATEGY_PIN = 24
 
 
 class RaspiGpio(Node):
@@ -105,9 +105,9 @@ class RaspiGpio(Node):
 
     def init_gpio(self):
         GPIO.setmode(GPIO.BOARD)
-        GPIO.setup(STARTER_PIN, GPIO.IN)
-        GPIO.setup(TEAM_PIN, GPIO.IN)
-        GPIO.setup(STRATEGY_PIN, GPIO.IN)
+        GPIO.setup(STARTER_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(TEAM_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(STRATEGY_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
     def on_starter_polling(self):
         starter_value = bool(GPIO.input(STARTER_PIN))
@@ -121,7 +121,7 @@ class RaspiGpio(Node):
 
         if team_value != self.last_team_value:
             self.last_team_value = team_value
-            self.pub_team.publish(String(data="yellow" if team_value else "violet"))
+            self.pub_team.publish(String(data="yellow" if team_value else "purple"))
 
     def on_strategy_polling(self):
         strategy_value = bool(GPIO.input(STRATEGY_PIN))

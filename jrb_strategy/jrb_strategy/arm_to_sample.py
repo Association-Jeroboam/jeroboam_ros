@@ -6,9 +6,9 @@ from jrb_msgs.msg import SampleDetectedArray
 from geometry_msgs.msg import PoseStamped
 
 
-class ArmToSample(Node):
+class ArmToSampleNode(Node):
     def __init__(self):
-        super().__init__("sample_detector")
+        super().__init__("arm_to_sample")
         self.get_logger().info("init")
 
         self.pub_left_arm_goto = self.create_publisher(
@@ -38,7 +38,7 @@ class ArmToSample(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    node = ArmToSample()
+    node = ArmToSampleNode()
 
     try:
         rclpy.spin(node)
