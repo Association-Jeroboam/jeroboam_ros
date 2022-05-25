@@ -1,7 +1,7 @@
 import traceback
 import threading
 import time
-from math import pi
+from math import pi, atan2
 
 import rclpy
 from rclpy.node import Node
@@ -13,8 +13,9 @@ from rclpy.task import Future
 
 from std_msgs.msg import Bool, String, Empty
 from geometry_msgs.msg import PoseStamped, PoseArray
+from nav_msgs.msg import Odometry
 
-from tf_transformations import quaternion_from_euler
+from tf_transformations import quaternion_from_euler, euler_from_quaternion
 
 from jrb_msgs.msg import SampleDetectedArray
 from jrb_msgs.action import GoToPose
@@ -60,10 +61,21 @@ class EurobotStrategyNode(Node):
         self.strategy = None
         self.end_match_timer = None
         self.obstacle_stop = False
+        self.currentX = None
+        self.currentY = None
+        self.currentTheta = None
 
         # self.sub_sample_detected = self.create_subscription(
         #     SampleDetectedArray, "sample_detected", self.on_sample_detected, 10
         # )
+
+        self.sub_odometry = self.create_subscription(
+            Odometry,
+            "odometry",
+            self.on_odometry,
+            10,
+            callback_group=self.cb_group,
+        )
 
         self.sub_start = self.create_subscription(
             Bool,
@@ -128,6 +140,18 @@ class EurobotStrategyNode(Node):
         self.get_logger().warn("Obstacle detected ! Cancelling all goals")
         self.goto_cancel()
 
+    def on_odometry(self, msg: Odometry):
+        self.currentX = msg.pose.pose.position.x
+        self.currentY = msg.pose.pose.position.y
+
+        q = [
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w,
+        ]
+        _, _, self.currentTheta = euler_from_quaternion(q)
+
     def on_end_match(self):
         self.get_logger().info("End match timer")
         self.end_match.set_result("set")
@@ -170,7 +194,7 @@ class EurobotStrategyNode(Node):
         self.get_logger().info("GoTo goal accepted :)")
         self.goto_goal_handle = goal_handle
 
-    def goto(self, x_, y_, theta_):
+    def goto(self, x_, y_, theta_=None):
         if self.end_match.done():
             self.get_logger().warn("Match is finished, ignoring GoTo")
             return False
@@ -178,6 +202,17 @@ class EurobotStrategyNode(Node):
         if self.obstacle_stop:
             self.get_logger().warn("Obstacle ahead, ignoring GoTo")
             return False
+
+        if theta_ is None:
+            self.get_logger().info("No heading provided")
+
+            if self.currentX is None and self.currentY is None:
+                self.get_logger().warn(
+                    "No odometry data available. Default heading to 0"
+                )
+                theta_ = 0.0
+            else:
+                theta_ = atan2(y_ - self.currentY, x_ - self.currentX)
 
         self.get_logger().info(f"GoTo ({str(x_)}, {str(y_)}, ${str(theta_)}) ")
 
@@ -218,10 +253,10 @@ class EurobotStrategyNode(Node):
         )
 
         ######### Strategy here, written for YELLOW TEAM #########
-        self.goto(1.100, 0.650, 0)
-        self.goto(1.100, 1.300, 0)
-        self.goto(0.670, 1.300, 0)
-        self.goto(0.670, 0.400, 0)
+        self.goto(1.100, 0.650)
+        self.goto(1.100, 1.300)
+        self.goto(0.670, 1.300)
+        self.goto(0.670, 0.400)
         ######### End strategy ##########
 
         self.get_logger().info("Strategy finished !")
