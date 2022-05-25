@@ -107,7 +107,7 @@ class GoToGoalNode(Node):
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
-                    FloatingPointRange(from_value=-0.1, to_value=-30.0, step=0.01)
+                    FloatingPointRange(from_value=-30.0, to_value=-0.1, step=0.01)
                 ],
             ),
         )
@@ -379,10 +379,15 @@ class GoToGoalNode(Node):
         if success:
             self.get_logger().info("Goal succeeded")
             goal_handle.succeed()
+            self.goal_achieved_pub.publish(Bool(data=True))
         else:
             self.get_logger().info("Goal cancelled")
             goal_handle.canceled()
             self.goal_achieved_pub.publish(Bool(data=False))
+
+        self.send_velocity(0.0, 0.0)
+        self.controller.last_linear_speed_cmd = [0.0, 0.0]
+        self.controller.last_angular_speed_cmd = [0.0, 0.0]
 
         self.goal_handle = None
 

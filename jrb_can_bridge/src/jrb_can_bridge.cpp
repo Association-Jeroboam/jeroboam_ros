@@ -470,6 +470,8 @@ class CanBridge : public rclcpp::Node
 
     OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
 
+    rclcpp::TimerBase::SharedPtr send_config_timer;
+
     jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1 leftAdaptConfig;
     jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1 rightAdaptConfig;
 };
