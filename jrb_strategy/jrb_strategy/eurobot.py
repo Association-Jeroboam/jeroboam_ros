@@ -267,7 +267,7 @@ class EurobotStrategyNode(Node):
         initialpose_msg.pose.pose.orientation.w = q[3]
 
         self.pub_initialpose.publish(initialpose_msg)
-        self.get_logger().info("Publish Initial state!!!!!!!!!!!")
+        self.get_logger().info("Publish Initial state! X: {.4f} {.4f}        {.4f} {.4f} {.4f} {.4f}".format(x, y, q[0], q[1], q[2], q[3]))
 
 
     def loop(self):
