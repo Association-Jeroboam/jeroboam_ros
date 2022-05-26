@@ -313,7 +313,6 @@ class CanBridge : public rclcpp::Node
         if (!success ) {
             printf("Queue push failed\n");
         }
-        (*transferID)++;
     }
 
     void robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr msg) const {
@@ -333,6 +332,7 @@ class CanBridge : public rclcpp::Node
         reg_udral_physics_kinematics_cartesian_Twist_0_1_serialize_(&twist, buffer, &buf_size);
 
         send_can_msg(ROBOT_TWIST_GOAL_ID, &transfer_id, buffer, buf_size);
+        transfer_id++;
     }
 
     void initialpose_cb(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) const {
@@ -361,6 +361,7 @@ class CanBridge : public rclcpp::Node
         reg_udral_physics_kinematics_cartesian_Pose_0_1_serialize_(&pose, buffer, &buf_size);
 
         send_can_msg(ROBOT_SET_CURRENT_POSE_ID, &transfer_id, buffer, buf_size);
+        transfer_id++;
     }
 
     void pumpLeftCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) const {
@@ -375,6 +376,7 @@ class CanBridge : public rclcpp::Node
         jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_serialize_(&pumpStatus, buffer, &buf_size);
 
         send_can_msg(ACTION_PUMP_SET_STATUS_ID, &transfer_id, buffer, buf_size);
+        transfer_id++;
       
     }
 
@@ -390,6 +392,7 @@ class CanBridge : public rclcpp::Node
         jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_serialize_(&pumpStatus, buffer, &buf_size);
 
         send_can_msg(ACTION_PUMP_SET_STATUS_ID, &transfer_id, buffer, buf_size);
+        transfer_id++;
       
     }
 
@@ -406,6 +409,7 @@ class CanBridge : public rclcpp::Node
         jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_serialize_(&valveStatus, buffer, &buf_size);
 
         send_can_msg(ACTION_VALVE_SET_STATUS_ID, &transfer_id, buffer, buf_size);
+        transfer_id++;
     }
 
     void valveRightCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg) const {
@@ -421,6 +425,7 @@ class CanBridge : public rclcpp::Node
         jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_serialize_(&valveStatus, buffer, &buf_size);
 
         send_can_msg(ACTION_VALVE_SET_STATUS_ID, &transfer_id, buffer, buf_size);
+        transfer_id++;
     }
 
     void sendAdaptPidConfig(std::string side) {
@@ -435,6 +440,7 @@ class CanBridge : public rclcpp::Node
        }
 
       send_can_msg(MOTION_SET_ADAPTATIVE_PID_ID, &transfer_id, buffer, buf_size);
+       transfer_id++;
     }
 
     void motionConfigCB( const jrb_msgs::msg::MotionConfig msg) const {
@@ -457,6 +463,7 @@ class CanBridge : public rclcpp::Node
       jeroboam_datatypes_actuators_motion_MotionConfig_0_1_serialize_(&motionConfig, buffer, &buf_size);
 
       send_can_msg(MOTION_SET_MOTION_CONFIG_ID, &transfer_id, buffer, buf_size);
+      transfer_id++;
     }
 
 
