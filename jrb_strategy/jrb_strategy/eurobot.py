@@ -297,9 +297,9 @@ class EurobotStrategyNode(Node):
 
             self.goto(1.49, 0.51, radians(90))
 
-            self.goto(1.49, 0.852, radians(0))
+            self.goto(1.49, 0.832, radians(0))
             
-            self.goto(1.90, 0.852, radians(0))
+            self.goto(1.95, 0.832, radians(0))
 
             ######### End strategy ##########
 
