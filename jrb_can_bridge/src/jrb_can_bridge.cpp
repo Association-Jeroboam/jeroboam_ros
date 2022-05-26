@@ -348,7 +348,7 @@ class CanBridge : public rclcpp::Node
         pose.orientation.wxyz[1] = msg->pose.pose.orientation.x;
         pose.orientation.wxyz[2] = msg->pose.pose.orientation.y;
         pose.orientation.wxyz[3] = msg->pose.pose.orientation.z;
-        RCLCPP_INFO(this->get_logger(), "sending set pose : %f %f        %f %f %f %f\r\n",pose.position.value.meter[0]
+        RCLCPP_INFO(this->get_logger(), "sending set pose : %f %f        %f %f %f %f\r\n",pose.position.value.meter[0],
                                                                                           pose.position.value.meter[1],
                                                                                           pose.orientation.wxyz[0],
                                                                                           pose.orientation.wxyz[1],
