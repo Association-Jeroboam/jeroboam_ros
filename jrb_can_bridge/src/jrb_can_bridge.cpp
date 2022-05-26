@@ -119,15 +119,11 @@ class CanBridge : public rclcpp::Node
       right_valve_sub = this->create_subscription<jrb_msgs::msg::ValveStatus>(
         "right_valve_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
       motion_config_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
-        "motion_config", 4, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
+        "motion_config", 20, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
       servo_angle_sub = this->create_subscription<jrb_msgs::msg::ServoAngle>(
         "servo_angle_target", 4, std::bind(&CanBridge::servoAngleCB, this, std::placeholders::_1));
       servo_config_sub = this->create_subscription<jrb_msgs::msg::ServoConfig>(
-<<<<<<< Updated upstream
-        "servo_confif", 4, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
-=======
-        "servo_config", 4, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
->>>>>>> Stashed changes
+        "servo_config", 20, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
 
       param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
 
