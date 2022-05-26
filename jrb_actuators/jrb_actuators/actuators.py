@@ -373,8 +373,8 @@ class Actuators_robotbleu(Node):
         self.pub_xl320_config.publish(self.plier_tilt_config_msg)
         self.pub_xl320_config.publish(self.plier_config_msg)
 
-	self.get_logger().info("configs published")
-	time.sleep(3)
+        self.get_logger().info("configs published")
+        time.sleep(3)
 
         #test servo
         self.setArm("left","out")
