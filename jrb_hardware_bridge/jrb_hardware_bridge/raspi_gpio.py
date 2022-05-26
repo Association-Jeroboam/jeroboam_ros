@@ -113,8 +113,9 @@ class RaspiGpio(Node):
         starter_value = bool(GPIO.input(STARTER_PIN))
 
         if starter_value != self.last_starter_value:
+            if self.last_starter_value is not None:
+                self.pub_starter.publish(Bool(data=starter_value))
             self.last_starter_value = starter_value
-            self.pub_starter.publish(Bool(data=starter_value))
 
     def on_team_polling(self):
         team_value = bool(GPIO.input(TEAM_PIN))

@@ -93,11 +93,11 @@ def generate_launch_description():
                 executable="map_manager",
                 output="screen",
             ),
-            # Node(
-            #     package="jrb_screen",
-            #     executable="screen_manager",
-            #     output="screen",
-            # ),
+            Node(
+                package="jrb_screen",
+                executable="screen_manager",
+                output="screen",
+            ),
             Node(
                 package="jrb_control",
                 executable="go_to_goal",
