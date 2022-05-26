@@ -92,7 +92,7 @@ class ScreenManager(Node):
 
         self.state = STATE_WAIT_FOR_MATCH
         self.stop = False
-        self.score = "0"
+        self.score = "16"
         self.text = ""
         self.team = ""
         self.strategy = ""

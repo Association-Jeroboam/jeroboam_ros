@@ -295,6 +295,12 @@ class EurobotStrategyNode(Node):
 
             self.goto(0.69, 0.3077, radians(-90))
 
+            self.goto(1.49, 0.51, radians(90))
+
+            self.goto(1.49, 0.852, radians(0))
+            
+            self.goto(1.90, 0.852, radians(0))
+
             ######### End strategy ##########
 
             self.get_logger().info("Strategy finished !")
