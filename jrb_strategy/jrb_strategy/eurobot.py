@@ -309,6 +309,11 @@ class EurobotStrategyNode(Node):
 
             ######### Strategy here, written for YELLOW TEAM #########
 
+            self.set_initialpose(0.865, 0.1, radians(90))
+            # TODO: dirty hack, need a service / action to resolve when the pos is effectively set
+            rclpy.spin_once(self)
+            time.sleep(2)
+
             self.actuators.setPlierTilt("out")
             self.actuators.closePlier()
             time.sleep(2)
@@ -317,10 +322,6 @@ class EurobotStrategyNode(Node):
             time.sleep(2)
 
 
-            self.set_initialpose(0.865, 0.1, radians(90))
-            # TODO: dirty hack, need a service / action to resolve when the pos is effectively set
-            rclpy.spin_once(self)
-            time.sleep(2)
 
             self.goto(1.118, 0.9441, radians(104.6))
 
