@@ -116,6 +116,10 @@ class CanBridge : public rclcpp::Node
         "right_valve_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
       motion_config_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
         "motion_config", 4, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
+      servo_angle_sub = this->create_subscription<jrb_msgs::msg::ServoAngle>(
+        "servo_angle_target", 4, std::bind(&CanBridge::servoAngleCB, this, std::placeholders::_1));
+      servo_config_sub = this->create_subscription<jrb_msgs::msg::ServoConfig>(
+        "servo_angle_target", 4, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
 
       param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
 
@@ -452,6 +456,39 @@ class CanBridge : public rclcpp::Node
       send_can_msg(MOTION_SET_MOTION_CONFIG_ID, &transfer_id, buffer, buf_size);
     }
 
+    void servoAngleCB (const jrb_msgs::msg::ServoAngle msg) const {
+        static CanardTransferID transfer_id = 0;
+
+        jeroboam_datatypes_actuators_servo_ServoAngle_0_1 servoAngle;
+
+        servoAngle.ID = msg.id;
+        servoAngle.angle.radian = msg.radian;
+
+        size_t buf_size = jeroboam_datatypes_actuators_servo_ServoAngle_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+        uint8_t buffer[jeroboam_datatypes_actuators_servo_ServoAngle_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+        jeroboam_datatypes_actuators_servo_ServoAngle_0_1_serialize_(&servoAngle, buffer, &buf_size);
+
+        send_can_msg(ACTION_SERVO_SET_ANGLE_ID, &transfer_id, buffer, buf_size);
+    }
+
+    void servoConfigCB (const jrb_msgs::msg::ServoConfig msg) const {
+        static CanardTransferID transfer_id = 0;
+
+        jeroboam_datatypes_actuators_servo_ServoConfig_0_1 servoConfig;
+
+        servoConfig.ID = msg.id;
+        servoConfig._torque_limit = msg.torque_limit;
+        servoConfig.moving_speed = msg.moving_speed;
+
+        size_t buf_size = jeroboam_datatypes_actuators_servo_ServoConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+        uint8_t buffer[jeroboam_datatypes_actuators_servo_ServoConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+        jeroboam_datatypes_actuators_servo_ServoConfig_0_1_serialize_(&servoConfig, buffer, &buf_size);
+
+        send_can_msg(ACTION_SERVO_SET_CONFIG_ID, &transfer_id, buffer, buf_size);
+    }
+
 
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr       odom_pub;
     rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       left_pid_pub;
@@ -470,6 +507,8 @@ class CanBridge : public rclcpp::Node
     rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr left_adapt_pid_conf_sub;
     rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr right_adapt_pid_conf_sub;
     rclcpp::Subscription<jrb_msgs::msg::MotionConfig>::SharedPtr motion_config_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ServoAngle>::SharedPtr   servo_angle_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ServoConfig>::SharedPtr  servo_config_sub;
 
     OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
 
