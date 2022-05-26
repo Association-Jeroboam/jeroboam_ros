@@ -338,6 +338,7 @@ class CanBridge : public rclcpp::Node
     void initialpose_cb(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) const {
         static CanardTransferID transfer_id = 0;
         reg_udral_physics_kinematics_cartesian_Pose_0_1 pose;
+	RCLCPP_INFO(this->get_logger(), "sending set pose\r\n");
 
         pose.position.value.meter[0] = msg->pose.pose.position.x;
         pose.position.value.meter[1] = msg->pose.pose.position.y;
