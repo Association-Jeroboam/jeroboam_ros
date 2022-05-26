@@ -123,8 +123,6 @@ class CanBridge : public rclcpp::Node
       leftAdaptConfig.ID = CAN_PROTOCOL_LEFT_SPEED_PID_ID;
       rightAdaptConfig.ID = CAN_PROTOCOL_RIGHT_SPEED_PID_ID;
 
-      // Timers
-      // send_config_timer = 
     }
 
     void init() {
@@ -157,6 +155,17 @@ class CanBridge : public rclcpp::Node
           setAdaptPidParam(side, threshold, "threshold", value);
         }
       }
+
+      // Timers
+      send_config_timer = this->create_wall_timer(
+        std::chrono::milliseconds(1000),
+        std::bind(&CanBridge::sendConfigTimerCallback, this));
+
+    }
+
+    void sendConfigTimerCallback() {
+      sendAdaptPidConfig(std::string("left"));
+      sendAdaptPidConfig(std::string("right"));
     }
 
     void setAdaptPidParam(std::string side, std::string threshold, std::string param_name, double value) {
@@ -194,8 +203,6 @@ class CanBridge : public rclcpp::Node
 
           adaptConfig->configs[conf_idx].pid[pid_idx] = value;
         }
-
-        sendAdaptPidConfig(side);
     }
 
     rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters) {
