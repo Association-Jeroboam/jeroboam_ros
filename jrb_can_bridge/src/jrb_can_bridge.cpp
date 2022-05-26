@@ -43,6 +43,10 @@
 #include "AdaptativePIDConfig_0_1.h"
 #include "MotionConfig_0_1.h"
 #include "jrb_can_bridge/param_utils.hpp"
+#include "jrb_msgs/msg/servo_config.hpp"
+#include "jrb_msgs/msg/servo_angle.hpp"
+#include "ServoAngle.hpp"
+#include "ServoConfig.hpp"
 
 using namespace std::chrono_literals;
 
@@ -119,7 +123,7 @@ class CanBridge : public rclcpp::Node
       servo_angle_sub = this->create_subscription<jrb_msgs::msg::ServoAngle>(
         "servo_angle_target", 4, std::bind(&CanBridge::servoAngleCB, this, std::placeholders::_1));
       servo_config_sub = this->create_subscription<jrb_msgs::msg::ServoConfig>(
-        "servo_angle_target", 4, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
+        "servo_confif", 4, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
 
       param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
 
