@@ -267,6 +267,8 @@ class EurobotStrategyNode(Node):
         initialpose_msg.pose.pose.orientation.w = q[3]
 
         self.pub_initialpose.publish(initialpose_msg)
+        self.get_logger().info("Publish Initial state!!!!!!!!!!!")
+
 
     def loop(self):
         while rclpy.ok():
