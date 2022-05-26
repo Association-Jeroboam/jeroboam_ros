@@ -286,7 +286,7 @@ class EurobotStrategyNode(Node):
             )
 
             ######### Strategy here, written for YELLOW TEAM #########
-
+            time.sleep(14)
             self.set_initialpose(0.865, 0.1, radians(90))
             # TODO: dirty hack, need a service / action to resolve when the pos is effectively set
             time.sleep(2)
