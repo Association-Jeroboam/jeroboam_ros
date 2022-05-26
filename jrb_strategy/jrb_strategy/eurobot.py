@@ -287,6 +287,7 @@ class EurobotStrategyNode(Node):
 
             self.set_initialpose(0.865, 0.1, radians(90))
             # TODO: dirty hack, need a service / action to resolve when the pos is effectively set
+            rclpy.spin_once(self)
             time.sleep(2)
 
             self.goto(1.118, 0.9441, radians(104.6))
@@ -297,9 +298,9 @@ class EurobotStrategyNode(Node):
 
             self.goto(1.49, 0.51, radians(90))
 
-            self.goto(1.49, 0.832, radians(0))
+            self.goto(1.59, 0.832, radians(0))
             
-            self.goto(1.95, 0.832, radians(0))
+            self.goto(1.90, 0.88, radians(0))
 
             ######### End strategy ##########
 
