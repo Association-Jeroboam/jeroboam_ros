@@ -280,7 +280,7 @@ class EurobotStrategyNode(Node):
                 f"Start ! team: {self.team.result()} strategy: {str(self.strategy)}"
             )
             self.end_match_timer = self.create_timer(
-                20, self.on_end_match, callback_group=self.cb_group
+                100, self.on_end_match, callback_group=self.cb_group
             )
 
             ######### Strategy here, written for YELLOW TEAM #########
