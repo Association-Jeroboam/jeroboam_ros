@@ -480,6 +480,9 @@ class CanBridge : public rclcpp::Node
         servoConfig.ID = msg.id;
         servoConfig._torque_limit = msg.torque_limit;
         servoConfig.moving_speed = msg.moving_speed;
+        servoConfig.pid.pid[0] = msg.pid.pid[0];
+        servoConfig.pid.pid[1] = msg.pid.pid[1];
+        servoConfig.pid.pid[2] = msg.pid.pid[2];
 
         size_t buf_size = jeroboam_datatypes_actuators_servo_ServoConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
         uint8_t buffer[jeroboam_datatypes_actuators_servo_ServoConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
