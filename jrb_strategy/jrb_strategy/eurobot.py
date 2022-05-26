@@ -61,7 +61,8 @@ class EurobotStrategyNode(Node):
 
         self.start = Future()
         self.end_match = Future()
-        self.team = None
+        self.reset = Future()
+        self.team = Future()
         self.strategy = None
         self.end_match_timer = None
         self.obstacle_stop = False
@@ -128,14 +129,18 @@ class EurobotStrategyNode(Node):
     #     self.pub_left_arm_goto.publish(left_arm_goal)
 
     def on_starter(self, msg: Bool):
-        self.get_logger().info("start cb")
         value = msg.data
 
-        if value:
+        if value and not self.start.done():
             self.start.set_result("set")
+            self.reset = Future()
+
+        if not value and self.start.done():
+            self.reset.set_result("set")
 
     def on_team(self, msg: String):
-        self.team = msg.data
+        if not self.start.done():
+            self.team.set_result(msg.data)
 
     def on_strategy(self, msg: Bool):
         self.strategy = msg.data
@@ -167,7 +172,7 @@ class EurobotStrategyNode(Node):
         self.goto_cancel()
 
     def get_pose(self, x, y, theta):
-        if self.team == "yellow":
+        if self.team.result() == "yellow":
             return (x, y, theta)
         else:
             return (x, 3.0 - y, 2 * pi - theta)
@@ -179,8 +184,9 @@ class EurobotStrategyNode(Node):
         else:
             self.get_logger().info("GoTo goal failed to cancel")
 
+        self.goto_goal_handle = None
+
     def goto_cancel(self):
-        self.get_logger().info("GoTo cancel")
         if self.goto_goal_handle is None:
             return
 
@@ -244,6 +250,7 @@ class EurobotStrategyNode(Node):
         goal_finished_future = goal_handle.get_result_async()
 
         rclpy.spin_until_future_complete(self, goal_finished_future)
+        self.goto_goal_handle = None
 
     def set_initialpose(self, x_, y_, theta_):
         x, y, theta = self.get_pose(x_, y_, theta_)
@@ -262,39 +269,43 @@ class EurobotStrategyNode(Node):
         self.pub_initialpose.publish(initialpose_msg)
 
     def loop(self):
-        self.get_logger().info("Init strategy. Wait for start...")
-
-        rclpy.spin_until_future_complete(self, self.start)
-
-        self.get_logger().info(
-            f"Start ! team: {self.team} strategy: {str(self.strategy)}"
-        )
-        self.end_match_timer = self.create_timer(
-            100, self.on_end_match, callback_group=self.cb_group
-        )
-
-        ######### Strategy here, written for YELLOW TEAM #########
-
-        self.set_initialpose(0.865, 0.1, radians(90))
-
-        self.goto(1.118, 0.9441, radians(104.6))
-
-        self.goto(0.69, 1.378, radians(-90))
-
-        self.goto(0.69, 0.3077, radians(-90))
-
-        ######### End strategy ##########
-
-        self.get_logger().info("Strategy finished !")
-
-        rclpy.spin_until_future_complete(self, self.end_match)
-        self.get_logger().info("End match !")
-
-        self.rate = self.create_rate(10.0)  # Hz
         while rclpy.ok():
+            self.get_logger().info("Init strategy. Wait for team...")
+            rclpy.spin_until_future_complete(self, self.team)
+
+            self.get_logger().info("Wait for start...")
+            rclpy.spin_until_future_complete(self, self.start)
+
+            self.get_logger().info(
+                f"Start ! team: {self.team.result()} strategy: {str(self.strategy)}"
+            )
+            self.end_match_timer = self.create_timer(
+                20, self.on_end_match, callback_group=self.cb_group
+            )
+
+            ######### Strategy here, written for YELLOW TEAM #########
+
+            self.set_initialpose(0.865, 0.1, radians(90))
+
+            self.goto(1.118, 0.9441, radians(104.6))
+
+            self.goto(0.69, 1.378, radians(-90))
+
+            self.goto(0.69, 0.3077, radians(-90))
+
+            ######### End strategy ##########
+
+            self.get_logger().info("Strategy finished !")
+
+            rclpy.spin_until_future_complete(self, self.end_match)
+
+            self.get_logger().info("End match !")
             self.pub_end_match.publish(Empty())
-            self.rate.sleep()
-            rclpy.spin_once(self)
+
+            rclpy.spin_until_future_complete(self, self.reset)
+
+            self.start = Future()
+            self.end_match = Future()
 
 
 def main(args=None):
@@ -314,8 +325,8 @@ def main(args=None):
     except KeyboardInterrupt:
         node.get_logger().info("Node stopped cleanly")
     except Exception:
-        print("Error while stopping the node")
-        print(traceback.format_exc())
+        node.get_logger().info("Error while stopping the node")
+        node.get_logger().info(traceback.format_exc())
         raise
     finally:
         node.destroy_node()
