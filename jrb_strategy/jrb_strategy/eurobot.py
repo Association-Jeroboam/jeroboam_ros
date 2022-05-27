@@ -350,6 +350,14 @@ class EurobotStrategyNode(Node):
 
             time.sleep(2)
 
+            self.actuators.setPlierTilt("in")
+            self.get_logger().info("eurobot : close plier rep")
+            self.actuators.closePlier_rep()
+            time.sleep(1)
+            self.get_logger().info("eurobot : set plier tilt out")
+            self.actuators.setPlierTilt("out")
+            time.sleep(50)
+
             self.actuators.setPlierTilt("out")
             time.sleep(2)
             self.actuators.openPlier()
@@ -455,10 +463,16 @@ class Actuators_robotbleu(Node):
 
         self.arm_left_config_msg.pid.pid = (
             self.arm_right_config_msg.pid.pid
-        ) = self.ohm_reader_config_msg.pid.pid = self.plier_tilt_config_msg.pid.pid = [
+        ) = self.ohm_reader_config_msg.pid.pid =  [
             32.0,
             0.0,
             0.0,
+        ]
+
+        self.plier_tilt_config_msg.pid.pid = [
+            50.0,
+            5.0,
+            0.0
         ]
 
         self.pub_xl320_config.publish(self.arm_left_config_msg)
@@ -475,7 +489,7 @@ class Actuators_robotbleu(Node):
         self.setPlierTilt("in")
         self.setArm("left", "in")
         self.setArm("right", "in")
-        self.closePlier_rep()
+        self.openPlier()
 
         self.get_logger().info("init OK")
 
