@@ -103,7 +103,7 @@ class EurobotStrategyNode(Node):
         self.currentY = None
         self.currentTheta = None
 
-        # self.actuators = Actuators_robotbleu(self)
+        self.actuators = Actuators_robotbleu(self)
 
         # self.sub_sample_detected = self.create_subscription(
         #     SampleDetectedArray, "sample_detected", self.on_sample_detected, 10
@@ -303,26 +303,26 @@ class EurobotStrategyNode(Node):
 
         self.pub_initialpose.publish(initialpose_msg)
 
-    def servo(self, name, activated):
-        msg = ServoAngle()
+    # def servo(self, name, activated):
+    #     msg = ServoAngle()
 
-        if name == "pince":
-            msg.id = 18
-            msg.radian = radians(50.0 if activated else 15)
-        elif name == "inclinaison":
-            msg.id = 17
-            msg.radian = radians(165 if activated else 240)
-        elif name == "fourche":
-            msg.id = 16
-            msg.radian = radians(155 if activated else 230)
-        elif name == "bras droit":
-            msg.id = 15
-            msg.radian = radians(250 if activated else 155)
-        elif name == "bras gauche":
-            msg.id = 14
-            msg.radian = radians(50.0 if activated else 145)
+    #     if name == "pince":
+    #         msg.id = 18
+    #         msg.radian = radians(50.0 if activated else 15)
+    #     elif name == "inclinaison":
+    #         msg.id = 17
+    #         msg.radian = radians(165 if activated else 240)
+    #     elif name == "fourche":
+    #         msg.id = 16
+    #         msg.radian = radians(155 if activated else 230)
+    #     elif name == "bras droit":
+    #         msg.id = 15
+    #         msg.radian = radians(250 if activated else 155)
+    #     elif name == "bras gauche":
+    #         msg.id = 14
+    #         msg.radian = radians(50.0 if activated else 145)
 
-        self.pub_servo.publish(msg)
+    #     self.pub_servo.publish(msg)
 
     def loop(self):
         while rclpy.ok():
@@ -344,28 +344,31 @@ class EurobotStrategyNode(Node):
             self.set_initialpose(0.865, 0.1, radians(90))
             # TODO: dirty hack, need a service / action to resolve when the pos is effectively set
             rclpy.spin_once(self)
+
             time.sleep(2)
 
             self.actuators.setPlierTilt("out")
-            self.actuators.closePlier()
-            time.sleep(2)
-            self.actuators.setPlierTilt("in")
             self.actuators.openPlier()
-            time.sleep(2)
+            time.sleep(1)
+            self.actuators.closePlier_stat()
+            time.sleep(1)
+            self.actuators.setPlierTilt("in")
+            #self.actuators.openPlier()
+            #time.sleep(2)
 
             self.goto(1.118, 0.9441, radians(104.6))
-
-            self.goto(0.69, 1.378, radians(-90))
-
-            self.goto(0.69, 0.3077, radians(-90))
-
-            self.goto(1.49, 0.51, radians(90))
-
-            self.goto(1.59, 0.832, radians(0))
-
-            self.goto(1.90, 0.77, radians(0))
-
-            self.goto(0.865, 0.25, radians(90))
+#
+            #self.goto(0.69, 1.378, radians(-90))
+#
+            #self.goto(0.69, 0.3077, radians(-90))
+#
+            #self.goto(1.49, 0.51, radians(90))
+#
+            #self.goto(1.59, 0.832, radians(0))
+#
+            #self.goto(1.90, 0.77, radians(0))
+#
+            #self.goto(0.865, 0.25, radians(90))
 
             ######### End strategy ##########
 
@@ -455,23 +458,14 @@ class Actuators_robotbleu(Node):
         self.pub_xl320_config.publish(self.plier_config_msg)
 
         self.get_logger().info("configs published")
-        time.sleep(3)
+        time.sleep(0.5)
 
         # test servo
-        self.setArm("left", "out")
-        self.setArm("right", "out")
-        self.setOhmReader(135)
-        self.setPlierTilt("out")
-        self.openPlier()
-        time.sleep(1)
+        self.setOhmReader(230)
+        self.setPlierTilt("in")
         self.setArm("left", "in")
         self.setArm("right", "in")
-        self.setOhmReader(200)
-        self.setPlierTilt("in")
-        self.closePlier()
-        time.sleep(1)
-
-        # todo : servomoteur pince
+        self.closePlier_rep()
 
         self.get_logger().info("init OK")
 
@@ -505,7 +499,7 @@ class Actuators_robotbleu(Node):
 
     def setPlierTilt(self, state):
         if state == "in":
-            self.setPlierTiltAngle(245)
+            self.setPlierTiltAngle(240)
         elif state == "out":
             self.setPlierTiltAngle(155)
 
@@ -521,12 +515,19 @@ class Actuators_robotbleu(Node):
         angle_msg.radian = math.radians(15)
         self.pub_xl320_target.publish(angle_msg)
 
-    def closePlier(self):
+    def closePlier_stat(self):
+        print("in closePlierStat")
         angle_msg = ServoAngle()
         angle_msg.id = self.plier_config_msg.id
         angle_msg.radian = math.radians(50)
         self.pub_xl320_target.publish(angle_msg)
 
+    def closePlier_rep(self):
+        print("in closePlierRep")
+        angle_msg = ServoAngle()
+        angle_msg.id = self.plier_config_msg.id
+        angle_msg.radian = math.radians(70)
+        self.pub_xl320_target.publish(angle_msg)
 
 def main(args=None):
     rclpy.init(args=args)
