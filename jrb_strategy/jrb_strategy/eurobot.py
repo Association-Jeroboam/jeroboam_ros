@@ -586,7 +586,7 @@ class Actuators_robotbleu(Node):
         if state == "in":
             self.setPlierTiltAngle(240)
         elif state == "out":
-            self.setPlierTiltAngle(180)
+            self.setPlierTiltAngle(155)
 
     def setPlierTiltAngle(self, degrees):
         angle_msg = ServoAngle()
