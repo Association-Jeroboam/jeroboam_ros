@@ -350,26 +350,35 @@ class EurobotStrategyNode(Node):
 
             time.sleep(2)
 
-            self.actuators.setPlierTilt("in")
-            self.actuators.closePlier_rep()
-            time.sleep(1)
-            #self.actuators.setPlierTilt("in")
-            #self.actuators.openPlier()
-            #time.sleep(2)
+            self.actuators.setPlierTilt("out")
+            time.sleep(2)
+            self.actuators.openPlier()
+            time.sleep(2)
 
-            self.goto(1.118, 0.9441, radians(104.6))
-#
-            #self.goto(0.69, 1.378, radians(-90))
-#
-            #self.goto(0.69, 0.3077, radians(-90))
-#
-            #self.goto(1.49, 0.51, radians(90))
-#
-            #self.goto(1.59, 0.832, radians(0))
-#
-            #self.goto(1.90, 0.77, radians(0))
-#
-            #self.goto(0.865, 0.25, radians(90))
+            # intermédiaire
+            self.goto(1.4930556297302246, 0.47016228437423706, radians(-47.290))
+
+            # final
+            self.goto(1.6930556297302246, 0.27016228437423706, radians(-47.290))
+            time.sleep(2)
+            
+            self.actuators.closePlier_stat()
+            time.sleep(2)
+            self.actuators.setPlierTilt("in")
+            time.sleep(2)
+
+            # intermédiaire
+            self.goto(1.4930556297302246, 0.47016228437423706, radians(-180))
+
+            # final
+            self.goto(0.12256450206041336, 0.23134462535381317,  radians(-177.069))
+            time.sleep(2)
+            self.actuators.setPlierTilt("out")
+            time.sleep(2)
+            self.actuators.openPlier()
+
+            # retour base
+            self.goto(0.865, 0.25, radians(90))
 
             ######### End strategy ##########
 
