@@ -12,12 +12,21 @@ from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
 from rclpy.task import Future
 
 from std_msgs.msg import Bool, String, Empty, Float32
+from jrb_msgs.msg import ServoAngle
 from geometry_msgs.msg import PoseStamped, PoseArray, PoseWithCovarianceStamped
 from nav_msgs.msg import Odometry
 import math
 from tf_transformations import quaternion_from_euler, euler_from_quaternion
 
-from jrb_msgs.msg import SampleDetectedArray, StackSample, PumpStatus, ValveStatus, ServoStatus, ServoConfig, ServoAngle
+from jrb_msgs.msg import (
+    SampleDetectedArray,
+    StackSample,
+    PumpStatus,
+    ValveStatus,
+    ServoStatus,
+    ServoConfig,
+    ServoAngle,
+)
 
 from jrb_msgs.action import GoToPose
 
@@ -32,10 +41,10 @@ CAN_PROTOCOL_SERVO_ARM_RIGHT_B = 6
 CAN_PROTOCOL_SERVO_ARM_RIGHT_C = 7
 CAN_PROTOCOL_SERVO_ARM_RIGHT_D = 8
 CAN_PROTOCOL_SERVO_ARM_RIGHT_E = 9
-CAN_PROTOCOL_SERVO_RAKE_LEFT_TOP = 10 
-CAN_PROTOCOL_SERVO_RAKE_LEFT_BOTTOM = 11 
+CAN_PROTOCOL_SERVO_RAKE_LEFT_TOP = 10
+CAN_PROTOCOL_SERVO_RAKE_LEFT_BOTTOM = 11
 CAN_PROTOCOL_SERVO_RAKE_RIGHT_TOP = 12
-CAN_PROTOCOL_SERVO_RAKE_RIGHT_BOTTOM = 13 
+CAN_PROTOCOL_SERVO_RAKE_RIGHT_BOTTOM = 13
 CAN_PROTOCOL_SERVO_PUSH_ARM_LEFT = 14
 CAN_PROTOCOL_SERVO_PUSH_ARM_RIGHT = 15
 CAN_PROTOCOL_SERVO_MEASURE_FORK = 16
@@ -70,6 +79,8 @@ class EurobotStrategyNode(Node):
             PoseWithCovarianceStamped, "/initialpose", 10
         )
 
+        # self.pub_servo = self.create_publisher(ServoAngle, "servo_angle_target", 10)
+
         self.goto_action_client = ActionClient(
             self, GoToPose, "diff_drive_go_to_goal", callback_group=self.cb_group
         )
@@ -92,7 +103,7 @@ class EurobotStrategyNode(Node):
         self.currentY = None
         self.currentTheta = None
 
-        self.actuators = Actuators_robotbleu(self)
+        # self.actuators = Actuators_robotbleu(self)
 
         # self.sub_sample_detected = self.create_subscription(
         #     SampleDetectedArray, "sample_detected", self.on_sample_detected, 10
@@ -292,6 +303,27 @@ class EurobotStrategyNode(Node):
 
         self.pub_initialpose.publish(initialpose_msg)
 
+    def servo(self, name, activated):
+        msg = ServoAngle()
+
+        if name == "pince":
+            msg.id = 18
+            msg.radian = radians(50.0 if activated else 15)
+        elif name == "inclinaison":
+            msg.id = 17
+            msg.radian = radians(165 if activated else 240)
+        elif name == "fourche":
+            msg.id = 16
+            msg.radian = radians(155 if activated else 230)
+        elif name == "bras droit":
+            msg.id = 15
+            msg.radian = radians(250 if activated else 155)
+        elif name == "bras gauche":
+            msg.id = 14
+            msg.radian = radians(50.0 if activated else 145)
+
+        self.pub_servo.publish(msg)
+
     def loop(self):
         while rclpy.ok():
             self.get_logger().info("Init strategy. Wait for team...")
@@ -321,8 +353,6 @@ class EurobotStrategyNode(Node):
             self.actuators.openPlier()
             time.sleep(2)
 
-
-
             self.goto(1.118, 0.9441, radians(104.6))
 
             self.goto(0.69, 1.378, radians(-90))
@@ -332,9 +362,9 @@ class EurobotStrategyNode(Node):
             self.goto(1.49, 0.51, radians(90))
 
             self.goto(1.59, 0.832, radians(0))
-            
+
             self.goto(1.90, 0.77, radians(0))
-                
+
             self.goto(0.865, 0.25, radians(90))
 
             ######### End strategy ##########
@@ -352,24 +382,28 @@ class EurobotStrategyNode(Node):
             self.end_match = Future()
 
 
-
-
 class Actuators_robotbleu(Node):
     def __init__(self, node):
         super().__init__("actuators")
         self.get_logger().info("init actuator_robotbleu")
 
-        self.node=node
+        self.node = node
 
-        self.xl320_status={}
+        self.xl320_status = {}
         self.present_resistance = 0
 
-        self.sub_xl320_status = self.create_subscription(ServoStatus, "servo_status", self.xl320_status_cb, 10)
-        self.sub_xl320_status = self.create_subscription(Float32, "resistance_status", self.present_resistance_cb, 10)
-        self.pub_xl320_target = self.create_publisher(ServoAngle, "servo_angle_target", 10)
+        self.sub_xl320_status = self.create_subscription(
+            ServoStatus, "servo_status", self.xl320_status_cb, 10
+        )
+        self.sub_xl320_status = self.create_subscription(
+            Float32, "resistance_status", self.present_resistance_cb, 10
+        )
+        self.pub_xl320_target = self.create_publisher(
+            ServoAngle, "servo_angle_target", 10
+        )
         self.pub_xl320_config = self.create_publisher(ServoConfig, "servo_config", 10)
 
-        #config msg
+        # config msg
         self.arm_left_config_msg = ServoConfig()
         self.arm_right_config_msg = ServoConfig()
         self.ohm_reader_config_msg = ServoConfig()
@@ -379,30 +413,40 @@ class Actuators_robotbleu(Node):
         self.init_actuators()
 
     def xl320_status_cb(self, msg: ServoStatus):
-        if not msg.id in self.xl320_status :
+        if not msg.id in self.xl320_status:
             self.xl320_status[msg.id] = ServoStatus()
         self.xl320_status[msg.id] = msg
 
     def present_resistance_cb(self, msg: Float32):
-        self.present_resistance=msg.data
+        self.present_resistance = msg.data
 
     def init_actuators(self):
 
-        #config servo
+        # config servo
         self.arm_left_config_msg.id = CAN_PROTOCOL_SERVO_PUSH_ARM_LEFT
         self.arm_right_config_msg.id = CAN_PROTOCOL_SERVO_PUSH_ARM_RIGHT
         self.ohm_reader_config_msg.id = CAN_PROTOCOL_SERVO_MEASURE_FORK
         self.plier_tilt_config_msg.id = CAN_PROTOCOL_SERVO_PLIERS_INCLINATION
         self.plier_config_msg.id = CAN_PROTOCOL_SERVO_PLIERS
 
-        self.arm_left_config_msg.torque_limit = self.arm_right_config_msg.torque_limit = self.ohm_reader_config_msg.torque_limit = self.plier_tilt_config_msg.torque_limit = 1023
-        
-        self.arm_left_config_msg.moving_speed = 512 # max: 1024
-        self.arm_right_config_msg.moving_speed = 512 # max: 1024
-        self.ohm_reader_config_msg.moving_speed = 300 # max: 1024
-        self.plier_tilt_config_msg.moving_speed = 200 # max: 1024
-        
-        self.arm_left_config_msg.pid.pid = self.arm_right_config_msg.pid.pid = self.ohm_reader_config_msg.pid.pid = self.plier_tilt_config_msg.pid.pid = [32.0,0.0,0.0]
+        self.arm_left_config_msg.torque_limit = (
+            self.arm_right_config_msg.torque_limit
+        ) = (
+            self.ohm_reader_config_msg.torque_limit
+        ) = self.plier_tilt_config_msg.torque_limit = 1023
+
+        self.arm_left_config_msg.moving_speed = 512  # max: 1024
+        self.arm_right_config_msg.moving_speed = 512  # max: 1024
+        self.ohm_reader_config_msg.moving_speed = 300  # max: 1024
+        self.plier_tilt_config_msg.moving_speed = 200  # max: 1024
+
+        self.arm_left_config_msg.pid.pid = (
+            self.arm_right_config_msg.pid.pid
+        ) = self.ohm_reader_config_msg.pid.pid = self.plier_tilt_config_msg.pid.pid = [
+            32.0,
+            0.0,
+            0.0,
+        ]
 
         self.pub_xl320_config.publish(self.arm_left_config_msg)
         self.pub_xl320_config.publish(self.arm_right_config_msg)
@@ -413,73 +457,75 @@ class Actuators_robotbleu(Node):
         self.get_logger().info("configs published")
         time.sleep(3)
 
-        #test servo
-        self.setArm("left","out")
-        self.setArm("right","out")
+        # test servo
+        self.setArm("left", "out")
+        self.setArm("right", "out")
         self.setOhmReader(135)
         self.setPlierTilt("out")
         self.openPlier()
         time.sleep(1)
-        self.setArm("left","in")
-        self.setArm("right","in")
+        self.setArm("left", "in")
+        self.setArm("right", "in")
         self.setOhmReader(200)
         self.setPlierTilt("in")
         self.closePlier()
         time.sleep(1)
 
-        #todo : servomoteur pince
+        # todo : servomoteur pince
 
-        self.get_logger().info("init OK")        
+        self.get_logger().info("init OK")
 
-    def setArm(self,side,state):
-        angle_msg=ServoAngle()
+    def setArm(self, side, state):
+        angle_msg = ServoAngle()
 
-        if side == "left" :
+        if side == "left":
             angle_msg.id = self.arm_left_config_msg.id
-            if state == "in" :
-                angle_msg.radian=math.radians(150)
+            if state == "in":
+                angle_msg.radian = math.radians(150)
             elif state == "out ":
-                angle_msg.radian=math.radians(50)
+                angle_msg.radian = math.radians(50)
 
-        elif side == "right" :
+        elif side == "right":
             angle_msg.id = self.arm_right_config_msg.id
-            if state == "in" :
-                angle_msg.radian=math.radians(150)
+            if state == "in":
+                angle_msg.radian = math.radians(150)
             elif state == "out ":
-                angle_msg.radian=math.radians(250)
-        
-        else : return
+                angle_msg.radian = math.radians(250)
+
+        else:
+            return
 
         self.pub_xl320_target.publish(angle_msg)
 
-    def setOhmReader(self,degrees) :
-        angle_msg=ServoAngle()
-        angle_msg.id=self.ohm_reader_config_msg.id
-        angle_msg.radian=math.radians(degrees)
+    def setOhmReader(self, degrees):
+        angle_msg = ServoAngle()
+        angle_msg.id = self.ohm_reader_config_msg.id
+        angle_msg.radian = math.radians(degrees)
         self.pub_xl320_target.publish(angle_msg)
 
     def setPlierTilt(self, state):
-        if state == "in" : self.setPlierTiltAngle(245)
-        elif state == "out" : self.setPlierTiltAngle(155)
+        if state == "in":
+            self.setPlierTiltAngle(245)
+        elif state == "out":
+            self.setPlierTiltAngle(155)
 
-    def setPlierTiltAngle(self,degrees) :
-        angle_msg=ServoAngle()
-        angle_msg.id=self.plier_tilt_config_msg.id
-        angle_msg.radian=math.radians(degrees)
+    def setPlierTiltAngle(self, degrees):
+        angle_msg = ServoAngle()
+        angle_msg.id = self.plier_tilt_config_msg.id
+        angle_msg.radian = math.radians(degrees)
         self.pub_xl320_target.publish(angle_msg)
 
     def openPlier(self):
-        angle_msg=ServoAngle()
-        angle_msg.id=self.plier_config_msg.id
-        angle_msg.radian=math.radians(15)
+        angle_msg = ServoAngle()
+        angle_msg.id = self.plier_config_msg.id
+        angle_msg.radian = math.radians(15)
         self.pub_xl320_target.publish(angle_msg)
 
     def closePlier(self):
-        angle_msg=ServoAngle()
-        angle_msg.id=self.plier_config_msg.id
-        angle_msg.radian=math.radians(50)
+        angle_msg = ServoAngle()
+        angle_msg.id = self.plier_config_msg.id
+        angle_msg.radian = math.radians(50)
         self.pub_xl320_target.publish(angle_msg)
-
 
 
 def main(args=None):
