@@ -292,7 +292,7 @@ class EurobotStrategyNode(Node):
         rclpy.spin_until_future_complete(self, goal_finished_future)
         self.goto_goal_handle = None
 
-    def recalibration(self, theta, x=None, y=None):
+    def toutdroit(self):
         twist_msg = Twist()
         twist_msg.linear.x = 0.2
         for i in range(20):
@@ -302,6 +302,8 @@ class EurobotStrategyNode(Node):
         self.pub_twist.publish(Twist())
         rclpy.spin_once(self)
 
+    def recalibration(self, theta, x=None, y=None):
+        self.toutdroit()
         q = quaternion_from_euler(0, 0, radians(theta))
 
         pose_msg = PoseWithCovarianceStamped()
@@ -386,55 +388,62 @@ class EurobotStrategyNode(Node):
             self.actuators.openPlier()
 
             self.goto(
-                1.5802383422851562, 0.4006575644016266, radians(-46.89428199888194)
+                1.5438363552093506, 0.39137980341911316, radians(-41.358321086233005)
             )
 
-            self.goto(
-                1.6688615083694458, 0.29730165004730225, radians(-47.58899304764586)
-            )
+            self.goto(1.630508542060852, 0.3107624351978302, radians(-42.3681255748667))
 
-            self.actuators.closePlier_stat()
-            time.sleep(1)
-
+            self.toutdroit()
             # potentiellement : recalibration -45 deg orientation
 
+            # Serre + eleve 45
+            self.actuators.closePlier_stat()
+            time.sleep(1)
             self.actuators.setPlierTiltAngle(205)
 
             self.goto(
-                1.7668827772140503, -1.0125259160995483, radians(-87.21852109489949)
+                0.28720876574516296, 0.22292561829090118, radians(-175.57350942694433)
             )
 
-            self.goto(
-                1.7825645208358765, -1.2128386497497559, radians(-87.36902177843581)
-            )
-
+            # baisse pince
             self.actuators.setPlierTilt("out")
 
             self.recalibration(180, x=0.1)
 
+            self.goto(
+                1.601249098777771, 0.41577181220054626, radians(-43.95235404529698)
+            )
+
+            # Attraper replique
             self.actuators.openPlier()
-
-            self.goto(
-                1.581170678138733, -1.0678077936172485, radians(-48.486203222759606)
-            )
-
-            self.goto(
-                1.676937222480774, -1.1847928762435913, radians(-44.80885216020908)
-            )
-
+            time.sleep(1)
             self.actuators.setPlierTilt("in")
             time.sleep(1)
-
             self.actuators.closePlier_rep()
-            time.sleep(1)
 
+            self.goto(
+                1.6761348247528076, 0.33661699295043945, radians(-45.39803376505072)
+            )
+
+            # poser replique
             self.actuators.setPlierTilt("out")
             time.sleep(1)
-
             self.actuators.openPlier()
 
-            # retour base
-            # self.goto(0.865, 0.25, radians(90))
+            self.goto(
+                1.6932655572891235, 0.8984884023666382, radians(0.7448462132756761)
+            )
+
+            self.actuators.closePlier_full()
+
+            self.recalibration(0, 1.9)
+
+            self.goto(0.6886870265007019, 1.6326829195022583, radians(-77.4526634313721))
+
+            self.goto(0.731564998626709, 1.1083611249923706, radians(-81.97548038594752))
+
+            self.goto(0.6989494562149048, 0.2988869249820709, radians(-95.18329640489486))
+
 
             ######### End strategy ##########
 
@@ -595,6 +604,13 @@ class Actuators_robotbleu(Node):
         angle_msg = ServoAngle()
         angle_msg.id = self.plier_config_msg.id
         angle_msg.radian = math.radians(55)
+        self.pub_xl320_target.publish(angle_msg)
+    
+    def closePlier_full(self):
+        print("in closePlierRep")
+        angle_msg = ServoAngle()
+        angle_msg.id = self.plier_config_msg.id
+        angle_msg.radian = math.radians(85)
         self.pub_xl320_target.publish(angle_msg)
 
 
