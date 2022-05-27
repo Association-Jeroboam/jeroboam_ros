@@ -13,6 +13,7 @@ from rclpy.task import Future
 
 from std_msgs.msg import Bool, String, Empty, Float32
 from jrb_msgs.msg import ServoAngle
+from geometry_msgs.msg import Twist
 from geometry_msgs.msg import PoseStamped, PoseArray, PoseWithCovarianceStamped
 from nav_msgs.msg import Odometry
 import math
@@ -146,6 +147,8 @@ class EurobotStrategyNode(Node):
             10,
             callback_group=self.cb_group,
         )
+
+        self.pub_cmd_vel = self.create_publisher(Twist, "cmd_vel", 10)
 
     # def on_sample_detected(self, msg: SampleDetectedArray):
     #     if len(msg.samples) == 0:
@@ -287,6 +290,28 @@ class EurobotStrategyNode(Node):
         rclpy.spin_until_future_complete(self, goal_finished_future)
         self.goto_goal_handle = None
 
+    def recalibration(self, theta, x=None, y=None):
+        twist_msg = Twist()
+        twist_msg.linear.x = 0.05
+        self.pub_twist.publish(twist_msg)
+        time.sleep(2)
+
+        q = quaternion_from_euler(0, 0, radians(theta))
+
+        pose_msg = PoseWithCovarianceStamped()
+
+        pose_msg.header.stamp = self.get_clock().now().to_msg()
+
+        pose_msg.pose.pose.position.x = float(x) if x is not None else self.currentX
+        pose_msg.pose.pose.position.y = float(y) if y is not None else self.currentY
+
+        pose_msg.pose.pose.orientation.x = q[0]
+        pose_msg.pose.pose.orientation.y = q[1]
+        pose_msg.pose.pose.orientation.z = q[2]
+        pose_msg.pose.pose.orientation.w = q[3]
+
+        self.pub_initialpose.publish(pose_msg)
+
     def set_initialpose(self, x_, y_, theta_):
         x, y, theta = self.get_pose(x_, y_, theta_)
         q = quaternion_from_euler(0, 0, theta)
@@ -302,8 +327,9 @@ class EurobotStrategyNode(Node):
         initialpose_msg.pose.pose.orientation.w = q[3]
 
         self.pub_initialpose.publish(initialpose_msg)
-        self.pub_initialpose.publish(initialpose_msg) #2e publish : work around transfert id reset (UAVCAN)
-
+        self.pub_initialpose.publish(
+            initialpose_msg
+        )  # 2e publish : work around transfert id reset (UAVCAN)
 
     # def servo(self, name, activated):
     #     msg = ServoAngle()
@@ -350,18 +376,18 @@ class EurobotStrategyNode(Node):
 
             time.sleep(2)
 
-            self.actuators.setPlierTilt("in")
-            self.get_logger().info("eurobot : close plier rep")
-            self.actuators.closePlier_rep()
-            time.sleep(1)
-            self.get_logger().info("eurobot : set plier tilt out")
-            self.actuators.setPlierTilt("out")
-            time.sleep(50)
+            # self.actuators.setPlierTilt("in")
+            # self.get_logger().info("eurobot : close plier rep")
+            # self.actuators.closePlier_rep()
+            # time.sleep(1)
+            # self.get_logger().info("eurobot : set plier tilt out")
+            # self.actuators.setPlierTilt("out")
+            # time.sleep(50)
 
-            self.actuators.setPlierTilt("out")
-            time.sleep(2)
-            self.actuators.openPlier()
-            time.sleep(2)
+            # self.actuators.setPlierTilt("out")
+            # time.sleep(2)
+            # self.actuators.openPlier()
+            # time.sleep(2)
 
             # intermédiaire
             self.goto(1.4930556297302246, 0.47016228437423706, radians(-47.290))
@@ -369,7 +395,7 @@ class EurobotStrategyNode(Node):
             # final
             self.goto(1.6930556297302246, 0.27016228437423706, radians(-47.290))
             time.sleep(2)
-            
+
             self.actuators.closePlier_stat()
             time.sleep(2)
             self.actuators.setPlierTilt("in")
@@ -379,7 +405,7 @@ class EurobotStrategyNode(Node):
             self.goto(1.4930556297302246, 0.47016228437423706, radians(-180))
 
             # final
-            self.goto(0.12256450206041336, 0.23134462535381317,  radians(-177.069))
+            self.goto(0.12256450206041336, 0.23134462535381317, radians(-177.069))
             time.sleep(2)
             self.actuators.setPlierTilt("out")
             time.sleep(2)
@@ -463,17 +489,13 @@ class Actuators_robotbleu(Node):
 
         self.arm_left_config_msg.pid.pid = (
             self.arm_right_config_msg.pid.pid
-        ) = self.ohm_reader_config_msg.pid.pid =  [
+        ) = self.ohm_reader_config_msg.pid.pid = [
             32.0,
             0.0,
             0.0,
         ]
 
-        self.plier_tilt_config_msg.pid.pid = [
-            50.0,
-            5.0,
-            0.0
-        ]
+        self.plier_tilt_config_msg.pid.pid = [50.0, 5.0, 0.0]
 
         self.pub_xl320_config.publish(self.arm_left_config_msg)
         self.pub_xl320_config.publish(self.arm_right_config_msg)
@@ -552,6 +574,7 @@ class Actuators_robotbleu(Node):
         angle_msg.id = self.plier_config_msg.id
         angle_msg.radian = math.radians(55)
         self.pub_xl320_target.publish(angle_msg)
+
 
 def main(args=None):
     rclpy.init(args=args)
