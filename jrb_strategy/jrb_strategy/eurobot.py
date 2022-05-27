@@ -267,6 +267,7 @@ class EurobotStrategyNode(Node):
         initialpose_msg.pose.pose.orientation.w = q[3]
 
         self.pub_initialpose.publish(initialpose_msg)
+        self.pub_initialpose.publish(initialpose_msg)
 
     def loop(self):
         while rclpy.ok():
@@ -290,7 +291,7 @@ class EurobotStrategyNode(Node):
             rclpy.spin_once(self)
             time.sleep(2)
 
-            self.goto(1.118, 0.9441, radians(104.6))
+            self.goto(1.16, 0.9441, radians(104.6))
 
             self.goto(0.69, 1.378, radians(-90))
 
@@ -298,10 +299,14 @@ class EurobotStrategyNode(Node):
 
             self.goto(1.49, 0.51, radians(90))
 
-            self.goto(1.59, 0.832, radians(0))
-            
-            self.goto(1.90, 0.77, radians(0))
-                
+            # Pousse des carrés de fouille
+            if self.team.result() == "yellow":
+                self.goto(1.59, 0.832, radians(0))
+                self.goto(1.90, 0.77, radians(0))
+            else:
+                self.goto(1.59, 0.832 + 0.05, radians(0))
+                self.goto(1.90, 0.77 + 0.05, radians(0))
+
             self.goto(0.865, 0.25, radians(90))
 
             ######### End strategy ##########
