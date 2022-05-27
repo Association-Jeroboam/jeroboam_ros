@@ -80,9 +80,7 @@ class EurobotStrategyNode(Node):
             PoseWithCovarianceStamped, "/initialpose", 10
         )
 
-        self.pub_twist = self.create_publisher(
-            Twist, "/cmd_vel", 10
-        )
+        self.pub_twist = self.create_publisher(Twist, "/cmd_vel", 10)
 
         # self.pub_servo = self.create_publisher(ServoAngle, "servo_angle_target", 10)
 
@@ -338,6 +336,10 @@ class EurobotStrategyNode(Node):
         self.pub_initialpose.publish(
             initialpose_msg
         )  # 2e publish : work around transfert id reset (UAVCAN)
+        # TODO: dirty hack, need a service / action to resolve when the pos is effectively set
+        rclpy.spin_once(self)
+
+        time.sleep(2)
 
     # def servo(self, name, activated):
     #     msg = ServoAngle()
@@ -377,50 +379,62 @@ class EurobotStrategyNode(Node):
             )
 
             ######### Strategy here, written for YELLOW TEAM #########
+
             self.set_initialpose(0.865, 0.1, radians(90))
 
-            # TODO: dirty hack, need a service / action to resolve when the pos is effectively set
-            rclpy.spin_once(self)
+            self.actuators.setPlierTilt("out")
+            self.actuators.openPlier()
 
-            time.sleep(2)
+            self.goto(
+                1.5802383422851562, 0.4006575644016266, radians(-46.89428199888194)
+            )
 
-            # self.actuators.setPlierTilt("in")
-            # self.get_logger().info("eurobot : close plier rep")
-            # self.actuators.closePlier_rep()
-            # time.sleep(1)
-            # self.get_logger().info("eurobot : set plier tilt out")
-            # self.actuators.setPlierTilt("out")
-            # time.sleep(50)
-
-            # self.actuators.setPlierTilt("out")
-            # time.sleep(2)
-            # self.actuators.openPlier()
-            # time.sleep(2)
-
-            # intermédiaire
-            self.goto(1.4930556297302246, 0.47016228437423706, radians(-47.290))
-
-            # final
-            self.goto(1.6930556297302246, 0.27016228437423706, radians(-47.290))
-            time.sleep(2)
+            self.goto(
+                1.6688615083694458, 0.29730165004730225, radians(-47.58899304764586)
+            )
 
             self.actuators.closePlier_stat()
-            time.sleep(2)
-            self.actuators.setPlierTilt("in")
-            time.sleep(2)
+            time.sleep(1)
 
-            # intermédiaire
-            self.goto(1.4930556297302246, 0.47016228437423706, radians(-180))
+            # potentiellement : recalibration -45 deg orientation
 
-            # final
-            self.goto(0.12256450206041336, 0.23134462535381317, radians(-177.069))
-            time.sleep(2)
+            self.actuators.setPlierTiltAngle(205)
+
+            self.goto(
+                1.7668827772140503, -1.0125259160995483, radians(-87.21852109489949)
+            )
+
+            self.goto(
+                1.7825645208358765, -1.2128386497497559, radians(-87.36902177843581)
+            )
+
             self.actuators.setPlierTilt("out")
-            time.sleep(2)
+
+            self.recalibration(180, x=0.1)
+
+            self.actuators.openPlier()
+
+            self.goto(
+                1.581170678138733, -1.0678077936172485, radians(-48.486203222759606)
+            )
+
+            self.goto(
+                1.676937222480774, -1.1847928762435913, radians(-44.80885216020908)
+            )
+
+            self.actuators.setPlierTilt("in")
+            time.sleep(1)
+
+            self.actuators.closePlier_rep()
+            time.sleep(1)
+
+            self.actuators.setPlierTilt("out")
+            time.sleep(1)
+
             self.actuators.openPlier()
 
             # retour base
-            self.goto(0.865, 0.25, radians(90))
+            # self.goto(0.865, 0.25, radians(90))
 
             ######### End strategy ##########
 
