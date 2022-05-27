@@ -80,6 +80,10 @@ class EurobotStrategyNode(Node):
             PoseWithCovarianceStamped, "/initialpose", 10
         )
 
+        self.pub_twist = self.create_publisher(
+            Twist, "/cmd_vel", 10
+        )
+
         # self.pub_servo = self.create_publisher(ServoAngle, "servo_angle_target", 10)
 
         self.goto_action_client = ActionClient(
@@ -292,9 +296,13 @@ class EurobotStrategyNode(Node):
 
     def recalibration(self, theta, x=None, y=None):
         twist_msg = Twist()
-        twist_msg.linear.x = 0.05
-        self.pub_twist.publish(twist_msg)
-        time.sleep(2)
+        twist_msg.linear.x = 0.2
+        for i in range(20):
+            self.pub_twist.publish(twist_msg)
+            rclpy.spin_once(self)
+            time.sleep(0.1)
+        self.pub_twist.publish(Twist())
+        rclpy.spin_once(self)
 
         q = quaternion_from_euler(0, 0, radians(theta))
 
@@ -354,6 +362,7 @@ class EurobotStrategyNode(Node):
 
     def loop(self):
         while rclpy.ok():
+            self.pub_twist.publish(Twist())
             self.get_logger().info("Init strategy. Wait for team...")
             rclpy.spin_until_future_complete(self, self.team)
 
@@ -368,7 +377,6 @@ class EurobotStrategyNode(Node):
             )
 
             ######### Strategy here, written for YELLOW TEAM #########
-
             self.set_initialpose(0.865, 0.1, radians(90))
 
             # TODO: dirty hack, need a service / action to resolve when the pos is effectively set
