@@ -408,7 +408,15 @@ class EurobotStrategyNode(Node):
             # baisse pince
             self.actuators.setPlierTilt("out")
 
-            self.recalibration(180, x=0.1)
+            self.recalibration(180, x=0.12)
+
+            # lacher la statuette
+            self.actuators.openPlier()
+            time.sleep(1)
+
+            self.goto(
+                1.401249098777771, 0.61577181220054626, radians(-45)
+            )
 
             self.goto(
                 1.601249098777771, 0.41577181220054626, radians(-43.95235404529698)
@@ -431,14 +439,14 @@ class EurobotStrategyNode(Node):
             self.actuators.openPlier()
 
             self.goto(
-                1.6932655572891235, 0.8984884023666382, radians(0.7448462132756761)
+                1.6932655572891235, 0.8784884023666382, radians(0.7448462132756761)
             )
 
             self.actuators.closePlier_full()
 
             self.recalibration(0, 1.9)
 
-            self.goto(0.6886870265007019, 1.6326829195022583, radians(-77.4526634313721))
+            self.goto(0.6886870265007019, 1.5326829195022583, radians(-77.4526634313721))
 
             self.goto(0.731564998626709, 1.1083611249923706, radians(-81.97548038594752))
 
@@ -526,7 +534,7 @@ class Actuators_robotbleu(Node):
             0.0,
         ]
 
-        self.plier_tilt_config_msg.pid.pid = [50.0, 5.0, 0.0]
+        self.plier_tilt_config_msg.pid.pid = [80.0, 10.0, 0.0]
 
         self.pub_xl320_config.publish(self.arm_left_config_msg)
         self.pub_xl320_config.publish(self.arm_right_config_msg)
@@ -578,7 +586,7 @@ class Actuators_robotbleu(Node):
         if state == "in":
             self.setPlierTiltAngle(240)
         elif state == "out":
-            self.setPlierTiltAngle(170)
+            self.setPlierTiltAngle(180)
 
     def setPlierTiltAngle(self, degrees):
         angle_msg = ServoAngle()
