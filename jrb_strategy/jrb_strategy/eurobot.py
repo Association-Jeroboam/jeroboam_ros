@@ -302,6 +302,8 @@ class EurobotStrategyNode(Node):
         initialpose_msg.pose.pose.orientation.w = q[3]
 
         self.pub_initialpose.publish(initialpose_msg)
+        self.pub_initialpose.publish(initialpose_msg) #2e publish : work around transfert id reset (UAVCAN)
+
 
     # def servo(self, name, activated):
     #     msg = ServoAngle()
@@ -342,17 +344,16 @@ class EurobotStrategyNode(Node):
             ######### Strategy here, written for YELLOW TEAM #########
 
             self.set_initialpose(0.865, 0.1, radians(90))
+
             # TODO: dirty hack, need a service / action to resolve when the pos is effectively set
             rclpy.spin_once(self)
 
             time.sleep(2)
 
-            self.actuators.setPlierTilt("out")
-            self.actuators.openPlier()
-            time.sleep(1)
-            self.actuators.closePlier_stat()
-            time.sleep(1)
             self.actuators.setPlierTilt("in")
+            self.actuators.closePlier_rep()
+            time.sleep(1)
+            #self.actuators.setPlierTilt("in")
             #self.actuators.openPlier()
             #time.sleep(2)
 
@@ -501,7 +502,7 @@ class Actuators_robotbleu(Node):
         if state == "in":
             self.setPlierTiltAngle(240)
         elif state == "out":
-            self.setPlierTiltAngle(155)
+            self.setPlierTiltAngle(170)
 
     def setPlierTiltAngle(self, degrees):
         angle_msg = ServoAngle()
@@ -519,14 +520,14 @@ class Actuators_robotbleu(Node):
         print("in closePlierStat")
         angle_msg = ServoAngle()
         angle_msg.id = self.plier_config_msg.id
-        angle_msg.radian = math.radians(50)
+        angle_msg.radian = math.radians(51)
         self.pub_xl320_target.publish(angle_msg)
 
     def closePlier_rep(self):
         print("in closePlierRep")
         angle_msg = ServoAngle()
         angle_msg.id = self.plier_config_msg.id
-        angle_msg.radian = math.radians(70)
+        angle_msg.radian = math.radians(55)
         self.pub_xl320_target.publish(angle_msg)
 
 def main(args=None):
