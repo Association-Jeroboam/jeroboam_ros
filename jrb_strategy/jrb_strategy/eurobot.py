@@ -381,18 +381,21 @@ class EurobotStrategyNode(Node):
             )
 
             ######### Strategy here, written for YELLOW TEAM #########
+            self.set_initialpose(0.865, 0.1, radians(90))
 
             if self.team.result() == "yellow":
-                self.set_initialpose(0.865, 0.1, radians(90))
-
                 self.actuators.setPlierTilt("out")
                 self.actuators.openPlier()
 
                 self.goto(
-                    1.5438363552093506, 0.39137980341911316, radians(-41.358321086233005)
+                    1.5438363552093506,
+                    0.39137980341911316,
+                    radians(-41.358321086233005),
                 )
 
-                self.goto(1.630508542060852, 0.3107624351978302, radians(-42.3681255748667))
+                self.goto(
+                    1.630508542060852, 0.3107624351978302, radians(-42.3681255748667)
+                )
 
                 self.toutdroit()
                 # potentiellement : recalibration -45 deg orientation
@@ -403,7 +406,9 @@ class EurobotStrategyNode(Node):
                 self.actuators.setPlierTiltAngle(205)
 
                 self.goto(
-                    0.28720876574516296, 0.22292561829090118, radians(-175.57350942694433)
+                    0.28720876574516296,
+                    0.22292561829090118,
+                    radians(-175.57350942694433),
                 )
 
                 # baisse pince
@@ -415,9 +420,7 @@ class EurobotStrategyNode(Node):
                 self.actuators.openPlier()
                 time.sleep(1)
 
-                self.goto(
-                    1.401249098777771, 0.61577181220054626, radians(-45)
-                )
+                self.goto(1.401249098777771, 0.61577181220054626, radians(-45))
 
                 self.goto(
                     1.601249098777771, 0.41577181220054626, radians(-43.95235404529698)
@@ -447,11 +450,17 @@ class EurobotStrategyNode(Node):
 
                 self.recalibration(0, 1.9)
 
-                self.goto(0.6886870265007019, 1.5326829195022583, radians(-77.4526634313721))
+                self.goto(
+                    0.6886870265007019, 1.5326829195022583, radians(-77.4526634313721)
+                )
 
-                self.goto(0.731564998626709, 1.1083611249923706, radians(-81.97548038594752))
+                self.goto(
+                    0.731564998626709, 1.1083611249923706, radians(-81.97548038594752)
+                )
 
-                self.goto(0.6989494562149048, 0.2988869249820709, radians(-95.18329640489486))
+                self.goto(
+                    0.6989494562149048, 0.2988869249820709, radians(-95.18329640489486)
+                )
             elif self.team.result() == "purple":
                 self.actuators.setPlierTilt("out")
                 self.actuators.closePlier_full()
@@ -473,7 +482,6 @@ class EurobotStrategyNode(Node):
                     self.goto(1.90, 0.77 + 0.1, radians(0))
 
                 self.goto(0.865, 0.25, radians(90))
-
 
             ######### End strategy ##########
 
@@ -635,7 +643,7 @@ class Actuators_robotbleu(Node):
         angle_msg.id = self.plier_config_msg.id
         angle_msg.radian = math.radians(55)
         self.pub_xl320_target.publish(angle_msg)
-    
+
     def closePlier_full(self):
         print("in closePlierRep")
         angle_msg = ServoAngle()
