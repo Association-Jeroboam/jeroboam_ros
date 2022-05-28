@@ -412,7 +412,8 @@ class EurobotStrategyNode(Node):
                 )
 
                 # baisse pince
-                self.actuators.setPlierTilt("out")
+                self.actuators.setPlierTiltAngle(170)
+                time.sleep(1)
 
                 self.recalibration(180, x=0.12)
 
@@ -433,9 +434,10 @@ class EurobotStrategyNode(Node):
                 time.sleep(1)
                 self.actuators.closePlier_rep()
 
-                self.goto(
-                    1.6761348247528076, 0.33661699295043945, radians(-45.39803376505072)
-                )
+                # self.goto(
+                #     1.6761348247528076, 0.33661699295043945, radians(-45.39803376505072)
+                # )
+                self.toutdroit()
 
                 # poser replique
                 self.actuators.setPlierTilt("out")
