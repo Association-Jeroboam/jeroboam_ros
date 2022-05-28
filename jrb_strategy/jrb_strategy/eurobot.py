@@ -382,75 +382,97 @@ class EurobotStrategyNode(Node):
 
             ######### Strategy here, written for YELLOW TEAM #########
 
-            self.set_initialpose(0.865, 0.1, radians(90))
+            if self.team.result() == "yellow":
+                self.set_initialpose(0.865, 0.1, radians(90))
 
-            self.actuators.setPlierTilt("out")
-            self.actuators.openPlier()
+                self.actuators.setPlierTilt("out")
+                self.actuators.openPlier()
 
-            self.goto(
-                1.5438363552093506, 0.39137980341911316, radians(-41.358321086233005)
-            )
+                self.goto(
+                    1.5438363552093506, 0.39137980341911316, radians(-41.358321086233005)
+                )
 
-            self.goto(1.630508542060852, 0.3107624351978302, radians(-42.3681255748667))
+                self.goto(1.630508542060852, 0.3107624351978302, radians(-42.3681255748667))
 
-            self.toutdroit()
-            # potentiellement : recalibration -45 deg orientation
+                self.toutdroit()
+                # potentiellement : recalibration -45 deg orientation
 
-            # Serre + eleve 45
-            self.actuators.closePlier_stat()
-            time.sleep(1)
-            self.actuators.setPlierTiltAngle(205)
+                # Serre + eleve 45
+                self.actuators.closePlier_stat()
+                time.sleep(1)
+                self.actuators.setPlierTiltAngle(205)
 
-            self.goto(
-                0.28720876574516296, 0.22292561829090118, radians(-175.57350942694433)
-            )
+                self.goto(
+                    0.28720876574516296, 0.22292561829090118, radians(-175.57350942694433)
+                )
 
-            # baisse pince
-            self.actuators.setPlierTilt("out")
+                # baisse pince
+                self.actuators.setPlierTilt("out")
 
-            self.recalibration(180, x=0.12)
+                self.recalibration(180, x=0.12)
 
-            # lacher la statuette
-            self.actuators.openPlier()
-            time.sleep(1)
+                # lacher la statuette
+                self.actuators.openPlier()
+                time.sleep(1)
 
-            self.goto(
-                1.401249098777771, 0.61577181220054626, radians(-45)
-            )
+                self.goto(
+                    1.401249098777771, 0.61577181220054626, radians(-45)
+                )
 
-            self.goto(
-                1.601249098777771, 0.41577181220054626, radians(-43.95235404529698)
-            )
+                self.goto(
+                    1.601249098777771, 0.41577181220054626, radians(-43.95235404529698)
+                )
 
-            # Attraper replique
-            self.actuators.openPlier()
-            time.sleep(1)
-            self.actuators.setPlierTilt("in")
-            time.sleep(1)
-            self.actuators.closePlier_rep()
+                # Attraper replique
+                self.actuators.openPlier()
+                time.sleep(1)
+                self.actuators.setPlierTilt("in")
+                time.sleep(1)
+                self.actuators.closePlier_rep()
 
-            self.goto(
-                1.6761348247528076, 0.33661699295043945, radians(-45.39803376505072)
-            )
+                self.goto(
+                    1.6761348247528076, 0.33661699295043945, radians(-45.39803376505072)
+                )
 
-            # poser replique
-            self.actuators.setPlierTilt("out")
-            time.sleep(1)
-            self.actuators.openPlier()
+                # poser replique
+                self.actuators.setPlierTilt("out")
+                time.sleep(1)
+                self.actuators.openPlier()
 
-            self.goto(
-                1.6932655572891235, 0.8784884023666382, radians(0.7448462132756761)
-            )
+                self.goto(
+                    1.6932655572891235, 0.8784884023666382, radians(0.7448462132756761)
+                )
 
-            self.actuators.closePlier_full()
+                self.actuators.closePlier_full()
 
-            self.recalibration(0, 1.9)
+                self.recalibration(0, 1.9)
 
-            self.goto(0.6886870265007019, 1.5326829195022583, radians(-77.4526634313721))
+                self.goto(0.6886870265007019, 1.5326829195022583, radians(-77.4526634313721))
 
-            self.goto(0.731564998626709, 1.1083611249923706, radians(-81.97548038594752))
+                self.goto(0.731564998626709, 1.1083611249923706, radians(-81.97548038594752))
 
-            self.goto(0.6989494562149048, 0.2988869249820709, radians(-95.18329640489486))
+                self.goto(0.6989494562149048, 0.2988869249820709, radians(-95.18329640489486))
+            elif self.team.result() == "purple":
+                self.actuators.setPlierTilt("out")
+                self.actuators.closePlier_full()
+
+                self.goto(1.16, 0.9441, radians(104.6))
+
+                self.goto(0.69, 1.378, radians(-90))
+
+                self.goto(0.69, 0.3077, radians(-90))
+
+                self.goto(1.49, 0.51, radians(90))
+
+                # Pousse des carrés de fouille
+                if self.team.result() == "yellow":
+                    self.goto(1.59, 0.832, radians(0))
+                    self.goto(1.90, 0.77, radians(0))
+                else:
+                    self.goto(1.59, 0.832 + 0.1, radians(0))
+                    self.goto(1.90, 0.77 + 0.1, radians(0))
+
+                self.goto(0.865, 0.25, radians(90))
 
 
             ######### End strategy ##########
