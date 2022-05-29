@@ -245,6 +245,44 @@ class EurobotStrategyNode(Node):
         self.get_logger().info("GoTo goal accepted :)")
         self.goto_goal_handle = goal_handle
 
+
+    def goto_angle(self, x, y, theta_=None):
+        if theta_ is None:
+            self.get_logger().info("No heading provided")
+
+            if self.currentX is None and self.currentY is None:
+                self.get_logger().warn(
+                    "No odometry data available. Default heading to 0"
+                )
+                return
+
+        self.get_logger().info(f"GoToAngle ${str(theta_)}) ")
+
+        self.goto_goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
+
+        q = quaternion_from_euler(0, 0, theta_)
+
+        self.goto_goal_msg.pose.pose.position.x = float(x)
+        self.goto_goal_msg.pose.pose.position.y = float(y)
+        self.goto_goal_msg.pose.pose.orientation.x = q[0]
+        self.goto_goal_msg.pose.pose.orientation.y = q[1]
+        self.goto_goal_msg.pose.pose.orientation.z = q[2]
+        self.goto_goal_msg.pose.pose.orientation.w = q[3]
+
+        self.goto_action_client.wait_for_server()
+
+        send_goal_future = self.goto_action_client.send_goal_async(self.goto_goal_msg)
+        send_goal_future.add_done_callback(self.goto_response_callback)
+
+        rclpy.spin_until_future_complete(self, send_goal_future)
+
+        goal_handle = send_goal_future.result()
+        goal_finished_future = goal_handle.get_result_async()
+
+        rclpy.spin_until_future_complete(self, goal_finished_future)
+        self.goto_goal_handle = None
+
+
     def goto(self, x_, y_, theta_=None):
         if self.end_match.done():
             self.get_logger().warn("Match is finished, ignoring GoTo")
@@ -388,7 +426,7 @@ class EurobotStrategyNode(Node):
             else :
                 dir = -1
 
-            self.goto(0,0, 31.14159265359)
+            self.goto_angle(0,0, 31.14159265359)
 
             self.get_logger().info("Strategy finished !")
 
