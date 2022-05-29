@@ -381,18 +381,14 @@ class EurobotStrategyNode(Node):
             )
 
             ######### Strategy here, written for YELLOW TEAM #########
-            self.set_initialpose(0.865, 0.1, radians(90))
+            self.set_initialpose(0.0, 0.0, 0)
 
             if self.team.result() == "yellow":
                 dir = 1
             else :
                 dir = -1
 
-            angle = 0.0
-            for i in range(0, 10):
-                for j in range(0, 3):
-                    angle+= dir * 2* math.pi /3
-                    self.goto(0,0, angle)
+            self.goto(0,0, 31.14159265359)
 
             self.get_logger().info("Strategy finished !")
 

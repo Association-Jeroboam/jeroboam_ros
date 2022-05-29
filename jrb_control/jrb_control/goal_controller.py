@@ -103,10 +103,10 @@ class GoalController:
         if goal is None:
             return True
         d = self.get_goal_distance(cur, goal)
-        dTh = abs(self.normalize_pi(cur.theta - goal.theta))
+        dTh = abs(cur.theta - goal.theta)
         return d < self.linear_tolerance and dTh < self.angular_tolerance
 
-    def get_velocity(self, cur, goal, dT):
+    def get_velocity(self, cur, goal, dT, normalize = True):
         desired = Pose2D()
 
         goal_heading = atan2(goal.y - cur.y, goal.x - cur.x)
@@ -115,18 +115,23 @@ class GoalController:
         # In Automomous Mobile Robots, they assume theta_G=0. So for
         # the error in heading, we have to adjust theta based on the
         # (possibly non-zero) goal theta.
-        theta = self.normalize_pi(cur.theta - goal.theta)
+        theta = cur.theta - goal.theta
+        if normalize:
+            theta = self.normalize_pi(theta)
+
         b = -theta - a
 
         d = self.get_goal_distance(cur, goal)
         if self.forward_movement_only:
             direction = 1
-            a = self.normalize_pi(a)
-            b = self.normalize_pi(b)
+            if normalize:
+                a = self.normalize_pi(a)
+                b = self.normalize_pi(b)
         else:
             direction = self.sign(cos(a))
-            a = self.normalize_half_pi(a)
-            b = self.normalize_half_pi(b)
+            if normalize:
+                a = self.normalize_half_pi(a)
+                b = self.normalize_half_pi(b)
 
         if abs(d) < self.linear_tolerance:
             desired.xVel = 0
