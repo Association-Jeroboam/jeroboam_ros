@@ -120,6 +120,7 @@ add_executable(jrb_can_bridge
   src/jrb_can_bridge.cpp
   src/param_utils.cpp
   CanProtocol/Cyphal/libcanard/libcanard/canard.c
+  src/CanBridge.cpp
 )
 ament_target_dependencies(jrb_can_bridge rclcpp std_msgs nav_msgs geometry_msgs jrb_msgs)
 target_include_directories(jrb_can_bridge PUBLIC
