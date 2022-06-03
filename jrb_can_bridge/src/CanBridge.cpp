@@ -1,6 +1,6 @@
 #include "CanBridge.hpp"
 
-CanBridg::CanBridge()
+CanBridge::CanBridge()
 		: Node("can_bridge")
 {
 	// Publishers
@@ -226,14 +226,14 @@ void CanBridge::send_can_msg(CanardPortID portID, CanardTransferID* transferID, 
 	metadata.transfer_id = *transferID;
 
 
-	bool success = pushQueue(&metadata, buf_size, buffer);
-	if (!success ) {
-		printf("Queue push failed\n");
-	}
+	//bool success = pushQueue(&metadata, buf_size, buffer);
+	//if (!success ) {
+//		printf("Queue push failed\n");
+//	}
 	(*transferID)++;
 }
 
-void CanBridge::robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr msg) const {
+void CanBridge::robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr msg) {
 	static CanardTransferID transfer_id = 0;
 	reg_udral_physics_kinematics_cartesian_Twist_0_1 twist;
 	twist.linear.meter_per_second[0] = msg->linear.x;
@@ -252,7 +252,7 @@ void CanBridge::robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr m
 	send_can_msg(ROBOT_TWIST_GOAL_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::initialpose_cb(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) const {
+void CanBridge::initialpose_cb(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) {
 	static CanardTransferID transfer_id = 0;
 	reg_udral_physics_kinematics_cartesian_Pose_0_1 pose;
 
@@ -273,7 +273,7 @@ void CanBridge::initialpose_cb(const geometry_msgs::msg::PoseWithCovarianceStamp
 	send_can_msg(ROBOT_SET_CURRENT_POSE_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::pumpLeftCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) const {
+void CanBridge::pumpLeftCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) {
 	static CanardTransferID transfer_id = 0;
 	jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 pumpStatus;
 	pumpStatus.status.ID = CAN_PROTOCOL_PUMP_LEFT_ID;
@@ -288,7 +288,7 @@ void CanBridge::pumpLeftCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) const
 
 }
 
-void CanBridge::pumpRightCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) const {
+void CanBridge::pumpRightCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) {
 	static CanardTransferID transfer_id = 0;
 	jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 pumpStatus;
 	pumpStatus.status.ID = CAN_PROTOCOL_PUMP_RIGHT_ID;
@@ -303,7 +303,7 @@ void CanBridge::pumpRightCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) cons
 
 }
 
-void CanBridge::valveLeftCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg) const {
+void CanBridge::valveLeftCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg) {
 	static CanardTransferID transfer_id = 0;
 
 	jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 valveStatus;
@@ -318,7 +318,7 @@ void CanBridge::valveLeftCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg) con
 	send_can_msg(ACTION_VALVE_SET_STATUS_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::valveRightCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg) const {
+void CanBridge::valveRightCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg) {
 	static CanardTransferID transfer_id = 0;
 
 	jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 valveStatus;
@@ -347,7 +347,7 @@ void CanBridge::sendAdaptPidConfig(std::string side) {
 	send_can_msg(MOTION_SET_ADAPTATIVE_PID_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::motionConfigCB( const jrb_msgs::msg::MotionConfig msg) const {
+void CanBridge::motionConfigCB( const jrb_msgs::msg::MotionConfig msg) {
 	static CanardTransferID transfer_id = 0;
 
 	jeroboam_datatypes_actuators_motion_MotionConfig_0_1 motionConfig;
@@ -369,7 +369,7 @@ void CanBridge::motionConfigCB( const jrb_msgs::msg::MotionConfig msg) const {
 	send_can_msg(MOTION_SET_MOTION_CONFIG_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::servoAngleCB (const jrb_msgs::msg::ServoAngle msg) const {
+void CanBridge::servoAngleCB (const jrb_msgs::msg::ServoAngle msg) {
 	static CanardTransferID transfer_id = 0;
 
 	jeroboam_datatypes_actuators_servo_ServoAngle_0_1 servoAngle;
@@ -385,7 +385,7 @@ void CanBridge::servoAngleCB (const jrb_msgs::msg::ServoAngle msg) const {
 	send_can_msg(ACTION_SERVO_SET_ANGLE_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::servoConfigCB (const jrb_msgs::msg::ServoConfig msg) const {
+void CanBridge::servoConfigCB (const jrb_msgs::msg::ServoConfig msg) {
 	static CanardTransferID transfer_id = 0;
 
 	jeroboam_datatypes_actuators_servo_ServoConfig_0_1 servoConfig;

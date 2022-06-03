@@ -109,12 +109,11 @@ include_directories(CanProtocol/Cyphal/includes/uavcan/si/unit/voltage)
 include_directories(CanProtocol/Cyphal/includes/uavcan/si/unit/volume)
 include_directories(CanProtocol/Cyphal/includes/uavcan/si/unit/volumetric_flow_rate)
 include_directories(CanProtocol/Cyphal/includes/uavcan/time)
-
+include_directories(include)
+include_directories(include/jrb_can_bridge)
 # add_compile_definitions(CANARD_ASSERT (void))
 
-include_directories(
-  include
-)
+
 
 add_executable(jrb_can_bridge
   src/jrb_can_bridge.cpp
