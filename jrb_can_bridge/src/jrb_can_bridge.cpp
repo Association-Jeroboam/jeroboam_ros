@@ -51,7 +51,7 @@
 #include "ServoConfig_0_1.h"
 #include "CanBridge.hpp"
 
-using namespace std::chrono_literals;
+  using namespace std::chrono_literals;
 
 
 void createSubscriptions(void);
@@ -62,14 +62,15 @@ void print_usage(void) {
     printf("usage:\n\tchyphal_demo can_interface (can0, vcan0...)\n");
 }
 
+auto wrapperPtr = new CyphalWrapper(publishReceivedMessage);
 
 std::shared_ptr<CanBridge> canBridge;
-std::shared_ptr<CyphalWrapper> cyphalWrapper(publishReceivedMessage);
+std::shared_ptr<CyphalWrapper> cyphalWrapper(wrapperPtr);
 
 
 int main(int argc, char * argv[])
 {
-  cyphalWrapper.init();
+  cyphalWrapper.get()->init();
   createSubscriptions();
 
 
@@ -83,7 +84,7 @@ int main(int argc, char * argv[])
   canBridge.get()->init();
   rclcpp::spin(canBridge);
   rclcpp::shutdown();
-  cyphalWrapper.shutdown();
+  cyphalWrapper.get()->shutdown();
 
   return 0;
 }

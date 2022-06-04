@@ -10,19 +10,19 @@
 #include <linux/can/raw.h>
 #include "canard.h"
 
-typedef void *cyphalPublishMessageCB(CanardRxTransfer * transfer);
+constexpr int CAN_RX_MAX_SUBSCRIPTION = 32;
+
+typedef void (*cyphalPublishMessageCB)(CanardRxTransfer * transfer);
 
 class CyphalWrapper {
 
 public:
-	CyphalWrapper(cyphalPublishMessageCB * cb);
+	CyphalWrapper(cyphalPublishMessageCB cb);
 	void init();
 	void shutdown();
 	void initCAN(char * iface);
 	int send_can_frame(struct can_frame * frame);
 
-	void * canardSpecificAlloc(CanardInstance * instance, size_t amount);
-	void canardSpecificFree(CanardInstance * instance, void * pointer);
 	void initCanard(void);
 	void* checkTxQueue(void*);
 	void* checkRxMsg(void*);

@@ -30,16 +30,27 @@
 #include "ServoConfig_0_1.h"
 #include "CanBridge.hpp"
 
-constexpr int CAN_RX_MAX_SUBSCRIPTION = 32;
 constexpr int MAX_FRAME_SIZE = 8;
 const uint32_t CAN_EXT_ID_MASK = (1 <<29) -1;
+typedef void * (*THREADFUNCPTR)(void *);
+using namespace std::chrono_literals;
 
-CyphalWrapper::CyphalWrapper(cyphalPublishMessageCB * cb):
+void * canardSpecificAlloc(CanardInstance * instance, size_t amount) {
+	(void) instance;
+	return malloc(amount);
+}
+
+void canardSpecificFree(CanardInstance * instance, void * pointer) {
+	(void)instance;
+	if(pointer) free(pointer);
+}
+
+CyphalWrapper::CyphalWrapper(cyphalPublishMessageCB cb):
 publishCB(cb) {
 
 }
 
-CyhalWrapper::init() {
+void CyphalWrapper::init() {
 	char iface[] = "can0";
 
 	initCAN(iface);
@@ -48,20 +59,20 @@ CyhalWrapper::init() {
 	if (pthread_mutex_init(&tx_exec_lock, NULL) != 0)
 	{
 		printf("\nexecution  mutex init failed\n");
-		return 1;
+		return;
 	}
 
 	if (pthread_mutex_init(&queue_lock, NULL) != 0)
 	{
 		printf("\nqueue mutex init failed\n");
-		return 1;
+		return;
 	}
 
-	pthread_create(&txThread, NULL, &checkTxQueue, NULL);
-	pthread_create(&rxThread, NULL, &checkRxMsg, NULL);
+	pthread_create(&txThread, NULL, (THREADFUNCPTR)&CyphalWrapper::checkTxQueue, this);
+	pthread_create(&rxThread, NULL, (THREADFUNCPTR)&CyphalWrapper::checkRxMsg, this);
 }
 
-CyphalWrapper::shutdown() {
+void CyphalWrapper::shutdown() {
 	pthread_cancel(txThread);
 	pthread_cancel(rxThread);
 	void* retval;
@@ -227,14 +238,4 @@ void CyphalWrapper::initCanard(void) {
 	instance = canardInit(canardSpecificAlloc, canardSpecificFree);
 	instance.node_id = CAN_PROTOCOL_EMBEDDED_COMPUTER_ID; // Embedded computer Node ID
 	queue = canardTxInit(10000, MAX_FRAME_SIZE);
-}
-
-void * canardSpecificAlloc(CanardInstance * instance, size_t amount) {
-	(void) instance;
-	return malloc(amount);
-}
-
-void canardSpecificFree(CanardInstance * instance, void * pointer) {
-	(void)instance;
-	if(pointer) free(pointer);
 }
