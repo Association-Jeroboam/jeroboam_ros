@@ -62,22 +62,24 @@ void print_usage(void) {
     printf("usage:\n\tchyphal_demo can_interface (can0, vcan0...)\n");
 }
 
-auto wrapperPtr = new CyphalWrapper(publishReceivedMessage);
+CyphalWrapper * wrapperPtr = new CyphalWrapper(publishReceivedMessage);
+auto bridgePtr  = new CanBridge(wrapperPtr);
 
-std::shared_ptr<CanBridge> canBridge;
+std::shared_ptr<CanBridge> canBridge(bridgePtr);
 std::shared_ptr<CyphalWrapper> cyphalWrapper(wrapperPtr);
 
 
 int main(int argc, char * argv[])
 {
+  rclcpp::init(argc, argv);
   cyphalWrapper.get()->init();
   createSubscriptions();
 
 
-  rclcpp::init(argc, argv);
+  
   
 
-  canBridge = std::make_shared<CanBridge>();
+  // canBridge = std::make_shared<CanBridge>(wrapperPtr);
   std::this_thread::sleep_for(100ms);
 
   std::this_thread::sleep_for(100ms);

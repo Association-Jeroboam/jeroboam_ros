@@ -26,11 +26,12 @@
 #include "jrb_msgs/msg/servo_config.hpp"
 #include "ServoAngle_0_1.h"
 #include "ServoConfig_0_1.h"
+#include "CyphalWrapper.hpp"
 
 class CanBridge : public rclcpp::Node
 {
 public:
-	CanBridge();
+	CanBridge(CyphalWrapper* wrapper);
 
 	void init();
 	void setAdaptPidParam(std::string side, std::string threshold, std::string param_name, double value);
@@ -76,6 +77,8 @@ private:
 	rclcpp::Subscription<jrb_msgs::msg::MotionConfig>::SharedPtr motion_config_sub;
 	rclcpp::Subscription<jrb_msgs::msg::ServoAngle>::SharedPtr   servo_angle_sub;
 	rclcpp::Subscription<jrb_msgs::msg::ServoConfig>::SharedPtr  servo_config_sub;
+
+	CyphalWrapper * m_wrapper;
 
 	OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
 

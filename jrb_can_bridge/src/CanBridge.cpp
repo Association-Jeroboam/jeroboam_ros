@@ -1,7 +1,8 @@
 #include "CanBridge.hpp"
 
-CanBridge::CanBridge()
-		: Node("can_bridge")
+CanBridge::CanBridge(CyphalWrapper * wrapper)
+		: Node("can_bridge"),
+		  m_wrapper(wrapper)
 {
 	// Publishers
 	odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("odometry", 50);
@@ -226,10 +227,10 @@ void CanBridge::send_can_msg(CanardPortID portID, CanardTransferID* transferID, 
 	metadata.transfer_id = *transferID;
 
 
-	//bool success = pushQueue(&metadata, buf_size, buffer);
-	//if (!success ) {
-//		printf("Queue push failed\n");
-//	}
+	bool success = m_wrapper->pushQueue(&metadata, buf_size, buffer);
+	if (!success ) {
+		printf("Queue push failed\n");
+	}
 	(*transferID)++;
 }
 
