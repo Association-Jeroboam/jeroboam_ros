@@ -8,9 +8,9 @@ from rcl_interfaces.msg import ParameterDescriptor, ParameterType, FloatingPoint
 from rcl_interfaces.msg import SetParametersResult
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy, QoSReliabilityPolicy
 
-STARTER_PIN = 11
-TEAM_PIN = 12
-STRATEGY_PIN = 13
+STARTER_PIN = 12
+TEAM_PIN = 16
+STRATEGY_PIN = 18
 
 
 class RaspiGpio(Node):
@@ -63,9 +63,9 @@ class RaspiGpio(Node):
             ),
         )
 
-        self.starter_polling_rate = self.get_parameter("starter_poling_rate").value
-        self.team_polling_rate = self.get_parameter("team_poling_rate").value
-        self.strategy_polling_rate = self.get_parameter("strategy_poling_rate").value
+        self.starter_polling_rate = self.get_parameter("starter_polling_rate").value
+        self.team_polling_rate = self.get_parameter("team_polling_rate").value
+        self.strategy_polling_rate = self.get_parameter("strategy_polling_rate").value
 
         self.last_starter_value = None
         self.last_team_value = None
@@ -105,23 +105,24 @@ class RaspiGpio(Node):
 
     def init_gpio(self):
         GPIO.setmode(GPIO.BOARD)
-        GPIO.setup(STARTER_PIN, GPIO.IN)
-        GPIO.setup(TEAM_PIN, GPIO.IN)
-        GPIO.setup(STRATEGY_PIN, GPIO.IN)
+        GPIO.setup(STARTER_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(TEAM_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(STRATEGY_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
     def on_starter_polling(self):
         starter_value = bool(GPIO.input(STARTER_PIN))
 
         if starter_value != self.last_starter_value:
+            if self.last_starter_value is not None:
+                self.pub_starter.publish(Bool(data=starter_value))
             self.last_starter_value = starter_value
-            self.pub_starter.publish(Bool(data=starter_value))
 
     def on_team_polling(self):
         team_value = bool(GPIO.input(TEAM_PIN))
 
         if team_value != self.last_team_value:
             self.last_team_value = team_value
-            self.pub_team.publish(String(data="yellow" if team_value else "violet"))
+            self.pub_team.publish(String(data="yellow" if team_value else "purple"))
 
     def on_strategy_polling(self):
         strategy_value = bool(GPIO.input(STRATEGY_PIN))

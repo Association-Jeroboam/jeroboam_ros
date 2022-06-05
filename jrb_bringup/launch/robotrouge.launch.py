@@ -15,7 +15,7 @@ from launch_ros.actions import Node
 from launch.substitutions import ThisLaunchFileDir, PathJoinSubstitution
 from launch.actions import IncludeLaunchDescription
 from launch_ros.substitutions import FindPackageShare
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 import os
 
 
@@ -26,6 +26,7 @@ def generate_launch_description():
     is_raspi = LaunchConfiguration("is_raspi", default=is_raspi_)
     camera_param_path = LaunchConfiguration("camera_param_path")
     lidar_param_path = LaunchConfiguration("lidar_param_path")
+    can_bridge_param_path = LaunchConfiguration("can_bridge_param_path")
     sim_motionboard = LaunchConfiguration("sim_motionboard")
 
     return LaunchDescription(
@@ -50,9 +51,16 @@ def generate_launch_description():
                 ),
             ),
             DeclareLaunchArgument(
+                "can_bridge_param_path",
+                description="Full path to can_bridge parameter file to load",
+                default_value=PathJoinSubstitution(
+                    [this_pkg, "param", "lrobotrouge_can_bridge_param.yaml"]
+                ),
+            ),
+            DeclareLaunchArgument(
                 "sim_motionboard",
                 description="Simulate motionboard with a perfect Twist command to Odometry state",
-                default_value="True",
+                default_value="False",
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
@@ -63,23 +71,23 @@ def generate_launch_description():
                     "use_gui": "False",
                 }.items(),
             ),
-            Node(
-                package="usb_cam",
-                executable="usb_cam_node_exe",
-                name="camera",
-                parameters=[camera_param_path],
-                output="screen",
-            ),
-            Node(
-                package="jrb_sensors",
-                executable="sample_detector",
-                output="screen",
-            ),
-            Node(
-                package="jrb_actuators",
-                executable="actuators",
-                output="screen",
-            ),
+            # Node(
+            #     package="usb_cam",
+            #     executable="usb_cam_node_exe",
+            #     name="camera",
+            #     parameters=[camera_param_path],
+            #     output="screen",
+            # ),
+            # Node(
+            #     package="jrb_sensors",
+            #     executable="sample_detector",
+            #     output="screen",
+            # ),
+            # Node(
+            #     package="jrb_actuators",
+            #     executable="actuators",
+            #     output="screen",
+            # ),
             Node(
                 package="jrb_localization",
                 executable="map_manager",
@@ -102,6 +110,13 @@ def generate_launch_description():
                 condition=IfCondition(sim_motionboard),
             ),
             Node(
+                package="jrb_can_bridge",
+                executable="jrb_can_bridge",
+                output="screen",
+                parameters=[can_bridge_param_path],
+                condition=UnlessCondition(sim_motionboard),
+            ),
+            Node(
                 package="rplidar_ros2",
                 executable="rplidar_scan_publisher",
                 parameters=[lidar_param_path],
@@ -118,5 +133,6 @@ def generate_launch_description():
                 output="screen",
                 condition=IfCondition(is_raspi),
             ),
+            Node(package="jrb_strategy", executable="eurobot", output="screen"),
         ],
     )
