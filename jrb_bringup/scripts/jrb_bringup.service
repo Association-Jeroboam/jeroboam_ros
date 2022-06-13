@@ -1,0 +1,12 @@
+[Unit]
+Description=Start jeroboam robot stack
+
+[Service]
+User=ubuntu
+ExecStart=/bin/bash -c 'source /home/$USER/ros2_ws/install/setup.bash; ros2 launch jrb_bringup robotrouge.launch.py; sleep 30'
+RemainAfterExit=no
+Restart=on-failure
+RestartSec=2s
+
+[Install]
+WantedBy=user.target

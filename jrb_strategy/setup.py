@@ -23,6 +23,7 @@ setup(
     entry_points={
         "console_scripts": [
             "arm_to_sample = jrb_strategy.arm_to_sample:main",
+            "eurobot = jrb_strategy.eurobot:main",
         ],
     },
 )
