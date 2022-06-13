@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp/logging.hpp"
 #include "rcl_interfaces/msg/set_parameters_result.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -31,10 +32,10 @@
 #include <sys/sysinfo.h>
 #include <linux/can.h>
 #include <linux/can/raw.h>
+#include <Pose2D_1_0.h>
 #include "canard.h"
 #include "Heartbeat_1_0.h"
-#include "cartesian/State_0_1.h"
-#include "cartesian/Twist_0_1.h"
+#include "State2D_1_0.h"
 #include "CanProtocol.hpp"
 #include "PIDState_0_1.h"
 #include "PumpStatus_0_1.h"
@@ -43,6 +44,9 @@
 #include "AdaptativePIDConfig_0_1.h"
 #include "MotionConfig_0_1.h"
 #include "jrb_can_bridge/param_utils.hpp"
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include "jrb_msgs/msg/servo_angle.hpp"
 #include "jrb_msgs/msg/servo_config.hpp"
 #include "ServoAngle_0_1.h"
@@ -238,30 +242,34 @@ class CanBridge : public rclcpp::Node
       return result;
     }
   
-    void publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 * state)
+    void publishRobotCurrentState(jeroboam_datatypes_sensors_odometry_State2D_1_0 * state)
     {
       auto state_msg = nav_msgs::msg::Odometry();
       state_msg.header.stamp = get_clock()->now();
       state_msg.header.frame_id = "odom";
       state_msg.child_frame_id = "base_footprint";
       
-      state_msg.pose.pose.position.x = state->pose.position.value.meter[0];
-      state_msg.pose.pose.position.y = state->pose.position.value.meter[1];
-      state_msg.pose.pose.position.z = state->pose.position.value.meter[2];
+      state_msg.pose.pose.position.x = state->pose.x.meter;
+      state_msg.pose.pose.position.y = state->pose.y.meter;
+      state_msg.pose.pose.position.z = 0;
 
-      state_msg.pose.pose.orientation.w = state->pose.orientation.wxyz[0],
-      state_msg.pose.pose.orientation.x = state->pose.orientation.wxyz[1],
-      state_msg.pose.pose.orientation.y = state->pose.orientation.wxyz[2],
-      state_msg.pose.pose.orientation.z = state->pose.orientation.wxyz[3],
+      tf2::Quaternion q;
+      q.setRPY(0, 0, state->pose.theta.radian);
+      q.normalize();
+
+      state_msg.pose.pose.orientation.w = q.getW();
+      state_msg.pose.pose.orientation.x = q.getX();
+      state_msg.pose.pose.orientation.y = q.getY();
+      state_msg.pose.pose.orientation.z = q.getZ();
 
 
-      state_msg.twist.twist.linear.x = state->twist.linear.meter_per_second[0];
-      state_msg.twist.twist.linear.y = state->twist.linear.meter_per_second[1];
-      state_msg.twist.twist.linear.z = state->twist.linear.meter_per_second[2];
+      state_msg.twist.twist.linear.x = state->twist.linear.meter_per_second;
+      state_msg.twist.twist.linear.y = 0;
+      state_msg.twist.twist.linear.z = 0;
 
-      state_msg.twist.twist.angular.x = state->twist.angular.radian_per_second[0];
-      state_msg.twist.twist.angular.y = state->twist.angular.radian_per_second[1];
-      state_msg.twist.twist.angular.z = state->twist.angular.radian_per_second[2];
+      state_msg.twist.twist.angular.x = 0;
+      state_msg.twist.twist.angular.y = 0;
+      state_msg.twist.twist.angular.z = state->twist.angular.radian_per_second;
 
       odom_pub->publish(state_msg);
     }
@@ -326,40 +334,44 @@ class CanBridge : public rclcpp::Node
 
     void robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr msg) const {
         static CanardTransferID transfer_id = 0;
-        reg_udral_physics_kinematics_cartesian_Twist_0_1 twist;
-        twist.linear.meter_per_second[0] = msg->linear.x;
-        twist.linear.meter_per_second[1] = msg->linear.y;
-        twist.linear.meter_per_second[2] = msg->linear.z;
+        jeroboam_datatypes_sensors_odometry_Twist2D_1_0 twist;
 
-        twist.angular.radian_per_second[0] = msg->angular.x;
-        twist.angular.radian_per_second[1] = msg->angular.y;
-        twist.angular.radian_per_second[2] = msg->angular.z;
+        twist.linear.meter_per_second = msg->linear.x;
+        twist.angular.radian_per_second = msg->angular.z;
 
-        size_t buf_size = reg_udral_physics_kinematics_cartesian_Twist_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
-        uint8_t buffer[reg_udral_physics_kinematics_cartesian_Twist_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+        size_t buf_size = jeroboam_datatypes_sensors_odometry_Twist2D_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_;
+        uint8_t buffer[jeroboam_datatypes_sensors_odometry_Twist2D_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-        reg_udral_physics_kinematics_cartesian_Twist_0_1_serialize_(&twist, buffer, &buf_size);
+        jeroboam_datatypes_sensors_odometry_Twist2D_1_0_serialize_(&twist, buffer, &buf_size);
 
         send_can_msg(ROBOT_TWIST_GOAL_ID, &transfer_id, buffer, buf_size);
     }
 
     void initialpose_cb(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) const {
+        RCLCPP_INFO(this->get_logger(), "Sending initial pose");
         static CanardTransferID transfer_id = 0;
-        reg_udral_physics_kinematics_cartesian_Pose_0_1 pose;
+        jeroboam_datatypes_sensors_odometry_Pose2D_1_0 pose;
 
-        pose.position.value.meter[0] = msg->pose.pose.position.x;
-        pose.position.value.meter[1] = msg->pose.pose.position.y;
-        pose.position.value.meter[2] = 0;
+        pose.x.meter = msg->pose.pose.position.x;
+        pose.y.meter = msg->pose.pose.position.y;
 
-        pose.orientation.wxyz[0] = msg->pose.pose.orientation.w;
-        pose.orientation.wxyz[1] = msg->pose.pose.orientation.x;
-        pose.orientation.wxyz[2] = msg->pose.pose.orientation.y;
-        pose.orientation.wxyz[3] = msg->pose.pose.orientation.z;
+        tf2::Quaternion q;
+        tf2::fromMsg(msg->pose.pose.orientation, q);
+        q.normalize();
 
-        size_t buf_size = reg_udral_physics_kinematics_cartesian_Pose_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
-        uint8_t buffer[reg_udral_physics_kinematics_cartesian_Pose_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+        tf2::Matrix3x3 m(q);
+        double roll, pitch, yaw;
+        m.getRPY(roll, pitch, yaw);
 
-        reg_udral_physics_kinematics_cartesian_Pose_0_1_serialize_(&pose, buffer, &buf_size);
+        pose.theta.radian = yaw;
+        if(pose.theta.radian > M_PI) {
+          pose.theta.radian =  pose.theta.radian - 2 * M_PI;
+        }
+
+        size_t buf_size = jeroboam_datatypes_sensors_odometry_Pose2D_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_;
+        uint8_t buffer[jeroboam_datatypes_sensors_odometry_Pose2D_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+        jeroboam_datatypes_sensors_odometry_Pose2D_1_0_serialize_(&pose, buffer, &buf_size);
 
         send_can_msg(ROBOT_SET_CURRENT_POSE_ID, &transfer_id, buffer, buf_size);
     }
@@ -663,7 +675,7 @@ void* checkRxMsg(void*) {
 void createSubscriptions(void) {
   subscribe(CanardTransferKindMessage,
             ROBOT_CURRENT_STATE_ID,
-            reg_udral_physics_kinematics_cartesian_State_0_1_EXTENT_BYTES_);
+            jeroboam_datatypes_sensors_odometry_State2D_1_0_EXTENT_BYTES_);
   subscribe(CanardTransferKindMessage,
             uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_,
             uavcan_node_Heartbeat_1_0_EXTENT_BYTES_);
@@ -691,8 +703,8 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
           printf("Transfer lost! %u %u. rate %.4f\n", last_transfer_id, transfer->metadata.transfer_id, (float)frameErrorCount/(float)frameCount);
       }
       last_transfer_id = transfer->metadata.transfer_id;
-      reg_udral_physics_kinematics_cartesian_State_0_1 state;
-      reg_udral_physics_kinematics_cartesian_State_0_1_deserialize_(&state,
+        jeroboam_datatypes_sensors_odometry_State2D_1_0 state;
+        jeroboam_datatypes_sensors_odometry_State2D_1_0_deserialize_(&state,
                                                                   (uint8_t *)transfer->payload,
                                                                   &transfer->payload_size);
       canBridge.get()->publishRobotCurrentState(&state);
