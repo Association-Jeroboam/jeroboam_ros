@@ -167,7 +167,14 @@ class Actuators(Node):
 
         #self.storeArm("left")
         #self.storeArm("right")
+        time.sleep(2)
+        self.cycle_cool()
 
+
+    def cycle_cool(self):
+        while(True):
+            self.takeSample("left",1)
+            self.returnSample("left")
 
     def init_serial(self):
         import serial
@@ -201,7 +208,6 @@ class Actuators(Node):
             self.pub_valve_right.publish(valve_msg)
 
     def pump_cb(self, side: str, msg: Bool):
-        print("pump_cb")
         if msg.data :
             self.startPump(side)
         else :
@@ -239,8 +245,8 @@ class Actuators(Node):
             self.left_arm.setSliderPosition_mm(z * 1000)
 
     def stackSample_cb(self, msg: StackSample):
-        #self.stackSample(msg.side, msg.sample_index)
-        self.returnSample(msg.side)
+        self.stackSample(msg.side, msg.sample_index)
+        #self.returnSample(msg.side)
 
     def returnSample(self,side) :
         self.rateaux.close()
@@ -262,7 +268,7 @@ class Actuators(Node):
             time.sleep(0.5)
             self.right_arm.joinA.setGoalPosition(335)
             self.right_arm.joinB.setGoalPosition(530)
-            self.right_arm.joinC.setGoalPosition(500)
+            self.right_arm.joinC.setGoalPosition(490)
 
             time.sleep(1)
             self.startPump("right")
@@ -274,10 +280,27 @@ class Actuators(Node):
             time.sleep(1)
             self.right_arm.setArmPosition(0,130,0,90,0)
             time.sleep(1)
+            self.stackSample("right",1)
 
+            print("stack ok")
 
-            self.stackSample("right",3)
+    def takeSample(self,side,sample_index):
+        z= 55 + ( 15 * (sample_index + 1))
 
+        self.left_arm.setArmPosition(0,130, 0,90,0)
+        self.left_arm.setSliderPosition_mm(z+20)
+        time.sleep(1)
+        self.rateaux.open()
+        time.sleep(1)
+        self.left_arm.setArmPosition(112.75, -22.5, 0,90,-65)
+        time.sleep(1)
+        self.left_arm.setSliderPosition_mm(z)
+        self.startPump("left")
+        time.sleep(1)
+        self.left_arm.setSliderPosition_mm(z+20)
+        time.sleep(0.5)
+        self.left_arm.setArmPosition(0,130, 0,90,0)
+        time.sleep(1)
 
 
     def stackSample(self,side,sample_index):
@@ -296,25 +319,28 @@ class Actuators(Node):
             #todo pareil que pour right
 
         else :
-            self.right_arm.setSliderPosition_mm(z)
+            self.right_arm.setSliderPosition_mm(z+10)
             self.right_arm.slider.waitMoveEnd(10)
             self.rateaux.open()
             self.right_arm.setArmPosition(-112.75, -22.5, 0,90,-65)
-            time.sleep(1)
+            time.sleep(2)
             self.stopPump(side)
-            self.right_arm.setSliderPosition_mm(z+10)
+            self.right_arm.setSliderPosition_mm(z+20)
             time.sleep(1)
-            self.right_arm.setArmPosition(-90, 110, 0,90,-65)
-            time.sleep(0.5)
-            self.right_arm.setArmPosition(-90, 110, 40,90,0)
-            time.sleep(0.5)
-            self.right_arm.setArmPosition(-97, 103, 40,90,0)
+            self.right_arm.setArmPosition(0, 130, 0,90,-65)
+            time.sleep(2)
+
+            #bourrage
+#            self.right_arm.setSliderPosition_mm(z)
+#            self.right_arm.setArmPosition(20, 110, 40,90,0)
+#            time.sleep(2)
+#            self.right_arm.setArmPosition(-97, 103, 40,90,0)
 
 #right (-0.10400000000000008, 0.10099999999999998, 0.09999999999999992) (0.4363323129985824, 1.5707963267948966, 0.0)
 #right (-0.09700000000000007, 0.10299999999999998, 0.10499999999999993) (0.5235987755982988, 1.5707963267948966, 0.0)
 
-        time.sleep(1)
-        self.storeArm(side)
+#        time.sleep(2)
+#        self.storeArm(side)
         self.rateaux.close()
 
     def storeArm(self,side):
