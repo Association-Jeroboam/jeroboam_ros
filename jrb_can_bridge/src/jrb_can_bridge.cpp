@@ -118,7 +118,7 @@ class CanBridge : public rclcpp::Node
         "left_valve_status", 4, std::bind(&CanBridge::valveLeftCB, this, std::placeholders::_1));
       right_valve_sub = this->create_subscription<jrb_msgs::msg::ValveStatus>(
         "right_valve_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
-      motion_config_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
+      motion_config_sub = this->create_subscription<jrb_msgs::msg::MotionConfig>(
         "motion_config", 20, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
       servo_angle_sub = this->create_subscription<jrb_msgs::msg::ServoAngle>(
         "servo_angle_target", 4, std::bind(&CanBridge::servoAngleCB, this, std::placeholders::_1));
@@ -148,21 +148,21 @@ class CanBridge : public rclcpp::Node
           value = this->get_parameter("pid/"+side+"/"+threshold+"/p").as_double();
           setAdaptPidParam(side, threshold, "p", value);
 
-          ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/i"), rclcpp::ParameterValue(0.0005), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor integral coef"), std::string(""), false);
-          value = this->get_parameter("pid/"+side+"/"+threshold+"/i").as_double();
-          setAdaptPidParam(side, threshold, "i", value);
+          // ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/i"), rclcpp::ParameterValue(0.0005), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor integral coef"), std::string(""), false);
+          // value = this->get_parameter("pid/"+side+"/"+threshold+"/i").as_double();
+          // setAdaptPidParam(side, threshold, "i", value);
 
-          ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/d"), rclcpp::ParameterValue(0.0), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor derivative coef"), std::string(""), false);
-          value = this->get_parameter("pid/"+side+"/"+threshold+"/d").as_double();
-          setAdaptPidParam(side, threshold, "d", value);
+          // ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/d"), rclcpp::ParameterValue(0.0), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor derivative coef"), std::string(""), false);
+          // value = this->get_parameter("pid/"+side+"/"+threshold+"/d").as_double();
+          // setAdaptPidParam(side, threshold, "d", value);
 
-          ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/bias"), rclcpp::ParameterValue(0.0), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor bias"), std::string(""), false);
-          value = this->get_parameter("pid/"+side+"/"+threshold+"/bias").as_double();
-          setAdaptPidParam(side, threshold, "bias", value);
+          // ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/bias"), rclcpp::ParameterValue(0.0), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor bias"), std::string(""), false);
+          // value = this->get_parameter("pid/"+side+"/"+threshold+"/bias").as_double();
+          // setAdaptPidParam(side, threshold, "bias", value);
 
-          ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/threshold"), rclcpp::ParameterValue(0.01), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " velocity threshlod"), std::string(""), false);
-          value = this->get_parameter("pid/"+side+"/"+threshold+"/threshold").as_double();
-          setAdaptPidParam(side, threshold, "threshold", value);
+          // ros2_utils::add_parameter((rclcpp::Node&)*this, std::string("pid/"+side+"/"+threshold+"/threshold"), rclcpp::ParameterValue(0.01), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " velocity threshlod"), std::string(""), false);
+          // value = this->get_parameter("pid/"+side+"/"+threshold+"/threshold").as_double();
+          // setAdaptPidParam(side, threshold, "threshold", value);
         }
       }
     }
