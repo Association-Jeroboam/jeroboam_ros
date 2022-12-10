@@ -1,0 +1,81 @@
+<root main_tree_to_execute="MainTree">
+    <BehaviorTree ID="EndMatchTree">
+        <Sequence>
+            <IsTimerOver name="IsMatchFinished" sec="100"/>
+            <Fallback>
+                <IsEmergencyStopSet/>
+                <EmergencyStop/>
+            </Fallback>
+        </Sequence>
+    </BehaviorTree>
+
+    <BehaviorTree ID="FunnyActionTree">
+        <Sequence>
+            <IsTimerOver name="IsFunnyActionTime" sec="97"/>
+            <Fallback>
+                <IsEqual name="IsFunnyActionDone" type="bool" operand1="{isFunnyActionDone}" operand2="true"/>
+                <Sequence>
+                    <StopRobot/>
+                    <ForceSuccess>
+                        <RetryUntilSuccessful num_attempts="3">
+                            <DoFunnyAction/>
+                        </RetryUntilSuccessful>
+                    </ForceSuccess>
+                    <SetBlackboard name="SetFunnyActionDone" output_key="isFunnyActionDone" value="true"/>
+                    <EmergencyStop/>
+                </Sequence>
+            </Fallback>
+        </Sequence>
+    </BehaviorTree>
+
+    <BehaviorTree ID="SafetyTree">
+        <Sequence>
+            <IsGonnaCollide/>
+            <StopRobot/>
+            <BackoffRobot/>
+        </Sequence>
+    </BehaviorTree>
+
+    <BehaviorTree ID="DoTaskTree">
+        <Fallback>
+            <Sequence>
+                <IsEqual name="IsTaskA" type="string" operand1="{currentTaskType}" operand2="TaskA"/>
+                <DoTaskA args="{currentTaskArgs}"/>
+            </Sequence>
+            <Sequence>
+                <IsEqual name="IsTaskB" type="string" operand1="{currentTaskType}" operand2="TaskB"/>
+                <DoTaskB args="{currentTaskArgs}"/>
+            </Sequence>
+        </Fallback>
+    </BehaviorTree>
+
+    <BehaviorTree ID="TasksTree">
+        <Fallback>
+            <IsEqual name="IsTaskListOver" type="bool" operand1="{isTaskListOver}" operand2="true"/>
+            <Sequence>
+                <Fallback>
+                    <IsSet name="IsTaskSet" value="{currentTaskType}"/>
+                    <SetNewTask type="{currentTaskType}" args="{currentTaskArgs}" retry="{taskRetryNumber}" timeoutMscecs="{taskTimeoutMsec}"/>
+                </Fallback>
+                <ForceSuccess>
+                    <RetryUntilSuccessful num_attempts="{taskRetryNumber}">
+                        <Timeout msec="{taskTimeoutMsec}">
+                            <SubTree ID="DoTaskTree" />
+                        </Timeout>
+                    </RetryUntilSuccessful>
+                </ForceSuccess>
+                <SetBlackboard name="UnsetCurrentTaskType" output_key="currentTaskType" value=""/>
+                <SetBlackboard name="UnsetCurrentTaskArgs" output_key="currentTaskArgs" value=""/>
+            </Sequence>
+        </Fallback>
+    </BehaviorTree>
+
+    <BehaviorTree ID="MainTree">
+        <ReactiveFallback>
+            <SubTree ID="EndMatchTree"/>
+            <SubTree ID="FunnyActionTree"/>
+            <SubTree ID="SafetyTree"/>
+            <SubTree ID="TasksTree"/>
+        </ReactiveFallback>
+    </BehaviorTree>
+</root>

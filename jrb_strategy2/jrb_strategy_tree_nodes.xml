@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<root>
+  <TreeNodesModel>
+    <Condition ID="IsEmergencyStopSet">
+      <input_port name="emergency_stop_topic">Topic for emergency stop signal</input_port>
+    </Condition>
+    <Condition ID="IsGonnaCollide">
+    </Condition>
+    <Condition ID="IsMatchStarted">
+      <input_port name="starter_topic">Match starter topic</input_port>
+      <input_port name="started_value">Boolean value when the starter is pulled. Default to a pull-down.</input_port>
+    </Condition>
+    <Condition ID="IsTimerOver">
+      <input_port name="secs">Timer seconds</input_port>
+    </Condition>
+    <Condition ID="IsEqual">
+      <input_port name="type">Type of the operand. Must be one of C++ promitive types or string</input_port>
+      <input_port name="operand1">First operand</input_port>
+      <input_port name="operand2">Second operand</input_port>
+      <input_port name="epsilon">Difference precision used in floating point comparison</input_port>
+    </Condition>
+    <Condition ID="IsSet">
+      <input_port name="value">Value to test if set</input_port>
+    </Condition>
+
+    <Action ID="BackoffRobot">
+    </Action>
+    <Action ID="DoFunnyAction">
+    </Action>
+    <Action ID="EmergencyStop">
+      <input_port name="emergency_stop_topic">Topic for emergency stop signal</input_port>
+    </Action>
+    <Action ID="StopRobot">
+    </Action>
+    <Action ID="SetNewTask">
+      <output_port name="type">Task type</output_port>
+      <output_port name="args">Task args</output_port>
+    </Action>
+    <Action ID="DoTaskA">
+      <input_port name="args">Task args</input_port>
+    </Action>
+    <Action ID="DoTaskB">
+      <input_port name="args">Task args</input_port>
+    </Action>
+  </TreeNodesModel>
+</root>
