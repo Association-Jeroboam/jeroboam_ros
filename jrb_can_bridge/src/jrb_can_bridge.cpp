@@ -47,11 +47,12 @@
 #include "jrb_msgs/msg/servo_config.hpp"
 #include "ServoAngle_0_1.h"
 #include "ServoConfig_0_1.h"
+#include "CanBridgeTx.hpp"
+#include "LinuxCan.hpp"
 
 using namespace std::chrono_literals;
 
 constexpr int CAN_RX_MAX_SUBSCRIPTION = 32;
-constexpr int MAX_FRAME_SIZE = 8;
 const uint32_t CAN_EXT_ID_MASK = (1 <<29) -1;
 
 bool check_parameter(char * iface, char * name, size_t n);
@@ -61,11 +62,7 @@ int send_can_frame(struct can_frame * frame);
 void * canardSpecificAlloc(CanardInstance * instance, size_t amount);
 void canardSpecificFree(CanardInstance * instance, void * pointer);
 void initCanard(void);
-void* checkTxQueue(void*);
 void* checkRxMsg(void*);
-bool pushQueue(const CanardTransferMetadata* const metadata,
-               const size_t                        payload_size,
-               const void* const                   payload);
 bool subscribe(CanardTransferKind transfer_kind, CanardPortID port_id, size_t extent);
 
 void publishReceivedMessage(CanardRxTransfer * transfer);
@@ -77,16 +74,13 @@ void print_usage(void) {
 
 int canIFace;
 
-pthread_mutex_t queue_lock;
-pthread_cond_t  tx_exec_cond = PTHREAD_COND_INITIALIZER;
-pthread_mutex_t tx_exec_lock;
 
-static CanardInstance instance;
+CanardInstance instance;
 CanardTxQueue  queue;
 CanardRxSubscription subscriptions[CAN_RX_MAX_SUBSCRIPTION];
 unsigned int subCnt;
 
-pthread_t txThread, rxThread;
+pthread_t rxThread;
 
 class CanBridge : public rclcpp::Node
 {
@@ -317,7 +311,7 @@ class CanBridge : public rclcpp::Node
         metadata.transfer_id = *transferID;
 
 
-        bool success = pushQueue(&metadata, buf_size, buffer);
+        bool success = TxThread::pushQueue(&metadata, buf_size, buffer);
         if (!success ) {
             printf("Queue push failed\n");
         }
@@ -535,77 +529,26 @@ int main(int argc, char * argv[])
   initCanard();
   createSubscriptions();
 
-
-  if (pthread_mutex_init(&tx_exec_lock, NULL) != 0)
-  {
-      printf("\nexecution  mutex init failed\n");
-      return 1;
-  }
-
-  if (pthread_mutex_init(&queue_lock, NULL) != 0)
-  {
-      printf("\nqueue mutex init failed\n");
-      return 1;
-  }
-
   rclcpp::init(argc, argv);
   
 
   canBridge = std::make_shared<CanBridge>();
   std::this_thread::sleep_for(100ms);
-  pthread_create(&txThread, NULL, &checkTxQueue, NULL);
+  TxThread::CanBridgeInitTxThread();
   pthread_create(&rxThread, NULL, &checkRxMsg, NULL);
   std::this_thread::sleep_for(100ms);
   canBridge.get()->init();
   rclcpp::spin(canBridge);
   rclcpp::shutdown();
-  pthread_cancel(txThread);
+  TxThread::CanBridgeDeinitTxThread();
   pthread_cancel(rxThread);
   void* retval;
-  pthread_join(txThread, &retval);
   pthread_join(rxThread, &retval);
   (void)retval;
   close(canIFace);
   return 0;
 }
 
-void* checkTxQueue(void*) {
-
-  while(true) {
-    pthread_mutex_lock(&tx_exec_lock);
-    pthread_cond_wait(&tx_exec_cond, &tx_exec_lock);
-
-
-    const CanardTxQueueItem* item = canardTxPeek(&queue);
-
-    while(item != NULL) {
-      CanardTxQueueItem* extractedItem = canardTxPop(&queue, item);
-      uint32_t           size          = item->frame.payload_size;
-
-      do {
-        struct can_frame frame;
-        frame.can_id = item->frame.extended_can_id | 1 << 31;
-
-        if (size >= MAX_FRAME_SIZE) {
-            frame.can_dlc = MAX_FRAME_SIZE;
-            size -= MAX_FRAME_SIZE;
-        } else {
-            frame.can_dlc= size;
-            size      = 0;
-        }
-        memcpy(&frame.data, item->frame.payload, frame.can_dlc);
-
-        send_can_frame(&frame);
-      } while (size > 0);
-
-      instance.memory_free(&instance, extractedItem);
-      item = canardTxPeek(&queue);
-    }
-
-    pthread_mutex_unlock(&tx_exec_lock);
-
-  }
-}
 
 void* checkRxMsg(void*) {
 //  auto lastReceiveTS = std::chrono::high_resolution_clock::now();
@@ -743,21 +686,6 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
   }
 }
 
-bool pushQueue(const CanardTransferMetadata* const metadata,
-               const size_t                        payload_size,
-               const void* const                   payload) {
-    bool success;
-    pthread_mutex_lock(&queue_lock); // prevents other threads from pushing in the queue at the same time
-    int32_t res = canardTxPush(&queue, &instance, 0, metadata, payload_size, payload);
-    pthread_mutex_unlock(&queue_lock);
-    pthread_mutex_lock(&tx_exec_lock);
-    pthread_cond_signal(&tx_exec_cond);
-    pthread_mutex_unlock(&tx_exec_lock);
-    
-    success = (0 <= res);
-    return success;
-}
-
 bool subscribe(CanardTransferKind transfer_kind, CanardPortID port_id, size_t extent){
 
     if(subCnt >= CAN_RX_MAX_SUBSCRIPTION) return false;
@@ -806,15 +734,6 @@ void initCAN(char * iface) {
         perror("Bind");
         return;
     }
-}
-
-int send_can_frame(struct can_frame * frame) {
-    if (write(canIFace, frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
-        perror("Write ERROR");
-        return 1;
-    }
-    std::this_thread::sleep_for(10ms);
-    return 0;
 }
 
 bool check_parameter(char * iface, char * name, size_t n) {

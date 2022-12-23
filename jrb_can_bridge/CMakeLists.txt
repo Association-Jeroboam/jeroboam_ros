@@ -119,10 +119,13 @@ include_directories(CanProtocol/Cyphal/includes/uavcan/time)
 
 include_directories(
   include
+  include/jrb_can_bridge
 )
 
 add_executable(jrb_can_bridge
   src/jrb_can_bridge.cpp
+  src/CanBridgeTx.cpp
+  src/LinuxCan.cpp
   src/param_utils.cpp
   CanProtocol/Cyphal/libcanard/libcanard/canard.c
 )
