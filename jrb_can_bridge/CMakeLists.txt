@@ -125,6 +125,8 @@ include_directories(
 add_executable(jrb_can_bridge
   src/jrb_can_bridge.cpp
   src/CanBridgeTx.cpp
+  src/CanBridgeRx.cpp
+  src/CanBridge.cpp
   src/LinuxCan.cpp
   src/param_utils.cpp
   CanProtocol/Cyphal/libcanard/libcanard/canard.c
