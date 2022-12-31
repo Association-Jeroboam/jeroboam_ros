@@ -47,10 +47,9 @@ add_executable(brain_node
   src/brain_node.cpp
 )
 ament_target_dependencies(brain_node ${dependencies})
+
 # if built statically
 # target_link_libraries(brain_node ${plugin_libs})
-
-
 install(
   DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}

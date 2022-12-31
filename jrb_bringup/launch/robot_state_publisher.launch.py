@@ -18,12 +18,12 @@ from launch_ros.descriptions import ParameterValue
 def generate_launch_description():
     this_pkg = FindPackageShare("jrb_bringup")
 
-    use_sim_time = LaunchConfiguration("use_sim_time")
+    use_sim_time = LaunchConfiguration("use_sim_time", default=True)
     use_gui = LaunchConfiguration("use_gui")
     urdf_file = LaunchConfiguration(
         "urdf_file",
         default=PathJoinSubstitution(
-            [FindPackageShare("jrb_description"), "urdf", "robotrouge.urdf"]
+            [FindPackageShare("jrb_description"), "urdf", "robotrouge.urdf.xacro"]
         ),
     )
     robot_state_publisher_param_file = LaunchConfiguration(
@@ -52,7 +52,7 @@ def generate_launch_description():
                 parameters=[
                     {
                         "robot_description": ParameterValue(
-                            Command(["cat ", urdf_file]),
+                            Command(["xacro ", urdf_file]),
                             value_type=str,
                         ),
                         "use_sim_time": use_sim_time,
@@ -64,7 +64,6 @@ def generate_launch_description():
                 executable="joint_state_publisher",
                 name="joint_state_publisher",
                 output="screen",
-                arguments=[urdf_file],
                 parameters=[robot_state_publisher_param_file],
                 condition=UnlessCondition(use_gui),
             ),
@@ -72,7 +71,6 @@ def generate_launch_description():
                 package="joint_state_publisher_gui",
                 executable="joint_state_publisher_gui",
                 output="screen",
-                arguments=[urdf_file],
                 condition=IfCondition(use_gui),
             ),
         ]
