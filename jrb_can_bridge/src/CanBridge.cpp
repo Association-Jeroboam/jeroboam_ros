@@ -34,6 +34,8 @@ CanBridge::CanBridge()
     "servo_angle_target", 4, std::bind(&CanBridge::servoAngleCB, this, std::placeholders::_1));
     servo_config_sub = this->create_subscription<jrb_msgs::msg::ServoConfig>(
     "servo_config", 20, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
+    servo_reboot_sub = this->create_subscription<jrb_msgs::msg::ServoID>(
+    "servo_reboot", 20, std::bind(&CanBridge::servoRebootCB, this, std::placeholders::_1));
 
     param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
 
@@ -405,4 +407,19 @@ void CanBridge::servoConfigCB (const jrb_msgs::msg::ServoConfig msg) {
     jeroboam_datatypes_actuators_servo_ServoConfig_0_1_serialize_(&servoConfig, buffer, &buf_size);
 
     send_can_msg(ACTION_SERVO_SET_CONFIG_ID, &transfer_id, buffer, buf_size);
+}
+
+void CanBridge::servoRebootCB (const jrb_msgs::msg::ServoID msg) {
+    static CanardTransferID transfer_id = 0;
+
+    jeroboam_datatypes_actuators_servo_ServoID_0_1 servoID;
+
+    servoID.ID = msg.id;
+
+    size_t buf_size = jeroboam_datatypes_actuators_servo_ServoID_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+    uint8_t buffer[jeroboam_datatypes_actuators_servo_ServoID_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+    jeroboam_datatypes_actuators_servo_ServoID_0_1_serialize_(&servoID, buffer, &buf_size);
+
+    send_can_msg(ACTION_SERVO_REBOOT_ID, &transfer_id, buffer, buf_size);
 }

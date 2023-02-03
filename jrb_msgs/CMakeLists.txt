@@ -27,6 +27,7 @@ set(msg_files
   "msg/SampleDetectedArray.msg"
   "msg/ServoAngle.msg"
   "msg/ServoConfig.msg"
+  "msg/ServoID.msg"
   "msg/ServoStatus.msg"
   "msg/SliderPosition.msg"
   "msg/SliderConfig.msg"

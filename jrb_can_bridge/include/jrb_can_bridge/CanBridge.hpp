@@ -46,8 +46,10 @@
 #include "jrb_can_bridge/param_utils.hpp"
 #include "jrb_msgs/msg/servo_angle.hpp"
 #include "jrb_msgs/msg/servo_config.hpp"
+#include "jrb_msgs/msg/servo_id.hpp"
 #include "ServoAngle_0_1.h"
 #include "ServoConfig_0_1.h"
+#include "ServoID_0_1.h"
 #include "CanBridgeTx.hpp"
 #include "CanBridgeRx.hpp"
 
@@ -92,6 +94,8 @@ class CanBridge : public rclcpp::Node
 
     void servoConfigCB (const jrb_msgs::msg::ServoConfig msg);
 
+    void servoRebootCB (const jrb_msgs::msg::ServoID msg);
+
 
       rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr       odom_pub;
       rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       left_pid_pub;
@@ -112,6 +116,7 @@ class CanBridge : public rclcpp::Node
       rclcpp::Subscription<jrb_msgs::msg::MotionConfig>::SharedPtr motion_config_sub;
       rclcpp::Subscription<jrb_msgs::msg::ServoAngle>::SharedPtr   servo_angle_sub;
       rclcpp::Subscription<jrb_msgs::msg::ServoConfig>::SharedPtr  servo_config_sub;
+      rclcpp::Subscription<jrb_msgs::msg::ServoID>::SharedPtr      servo_reboot_sub;
 
     OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
 
