@@ -28,6 +28,7 @@ set(msg_files
   "msg/ServoAngle.msg"
   "msg/ServoConfig.msg"
   "msg/ServoID.msg"
+  "msg/ServoGenericCommand.msg"
   "msg/ServoStatus.msg"
   "msg/SliderPosition.msg"
   "msg/SliderConfig.msg"

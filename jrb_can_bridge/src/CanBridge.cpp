@@ -36,7 +36,9 @@ CanBridge::CanBridge()
     "servo_config", 20, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
     servo_reboot_sub = this->create_subscription<jrb_msgs::msg::ServoID>(
     "servo_reboot", 20, std::bind(&CanBridge::servoRebootCB, this, std::placeholders::_1));
-
+    servo_generic_command_sub = this->create_subscription<jrb_msgs::msg::ServoGenericCommand>(
+    "servo_generic_command", 20, std::bind(&CanBridge::servoGenericCommandCB, this, std::placeholders::_1));
+    
     param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
 
     // CAN messages
@@ -422,4 +424,25 @@ void CanBridge::servoRebootCB (const jrb_msgs::msg::ServoID msg) {
     jeroboam_datatypes_actuators_servo_ServoID_0_1_serialize_(&servoID, buffer, &buf_size);
 
     send_can_msg(ACTION_SERVO_REBOOT_ID, &transfer_id, buffer, buf_size);
+}
+
+void CanBridge::servoGenericCommandCB (const jrb_msgs::msg::ServoGenericCommand msg) {
+    static CanardTransferID transfer_id = 0;
+
+    jeroboam_datatypes_actuators_servo_GenericCommand_0_1 command;
+
+    command.id = msg.id;
+    command.addr = msg.addr;
+    command.data.count = msg.len;
+    for (int i=0; i<msg.len; ++i)
+    {
+      command.data.elements[i] = msg.data[i];
+    }
+
+    size_t buf_size = jeroboam_datatypes_actuators_servo_GenericCommand_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+    uint8_t buffer[jeroboam_datatypes_actuators_servo_GenericCommand_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+    jeroboam_datatypes_actuators_servo_GenericCommand_0_1_serialize_(&command, buffer, &buf_size);
+
+    send_can_msg(ACTION_SERVO_GENERIC_ID, &transfer_id, buffer, buf_size);
 }
