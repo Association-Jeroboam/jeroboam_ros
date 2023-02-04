@@ -13,6 +13,7 @@ CanBridge::CanBridge()
     left_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("left_valve_status", 10);
     right_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("right_valve_status", 10);
     servo_generic_read_response_pub = this->create_publisher<jrb_msgs::msg::ServoGenericReadResponse>("servo_generic_read_response", 10);
+    servo_angle_pub = this->create_publisher<jrb_msgs::msg::ServoAngle>("servo_angle", 10);
 
     // Subscribers
     twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
@@ -225,7 +226,7 @@ void CanBridge::publishRightValveStatus(jeroboam_datatypes_actuators_pneumatics_
     right_valve_pub->publish(status_msg);
 }
 
-void CanBridge::publishServoGenericReadResponse(jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1 response) {
+void CanBridge::publishServoGenericReadResponse(jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1 * response) {
     auto servo_response = jrb_msgs::msg::ServoGenericReadResponse();
     printf("BROKEN DOES NOT WORK (yet.)\r\n");
     
@@ -246,6 +247,13 @@ void CanBridge::publishServoGenericReadResponse(jeroboam_datatypes_actuators_ser
     //}
     
     //servo_generic_read_response_pub->publish(servo_response);
+}
+
+void CanBridge::publishServoAngle(jeroboam_datatypes_actuators_servo_ServoAngle_0_1 * servoAngle) {
+    auto servo_angle_msg = jrb_msgs::msg::ServoAngle();
+    servo_angle_msg.id = servoAngle->ID;
+    servo_angle_msg.radian = servoAngle->angle.radian;
+    servo_angle_pub->publish(servo_angle_msg);
 }
 
 void CanBridge::send_can_msg(CanardPortID portID, CanardTransferID* transferID, void* buffer, size_t buf_size) {

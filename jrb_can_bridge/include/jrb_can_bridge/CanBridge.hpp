@@ -77,7 +77,8 @@ class CanBridge : public rclcpp::Node
     void publishRightPumpStatus(jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 * status);
     void publishLeftValveStatus(jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 * status);
     void publishRightValveStatus(jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 * status);
-    void publishServoGenericReadResponse(jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1 response);
+    void publishServoGenericReadResponse(jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1 * response);
+    void publishServoAngle(jeroboam_datatypes_actuators_servo_ServoAngle_0_1 * servoAngle);
 
   private:
     static void send_can_msg(CanardPortID portID, CanardTransferID* transferID, void* buffer, size_t buf_size);
@@ -119,6 +120,7 @@ class CanBridge : public rclcpp::Node
       rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    left_valve_pub;
       rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    right_valve_pub;
       rclcpp::Publisher<jrb_msgs::msg::ServoGenericReadResponse>::SharedPtr    servo_generic_read_response_pub;
+      rclcpp::Publisher<jrb_msgs::msg::ServoAngle>::SharedPtr     servo_angle_pub;
     
       rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr  twist_sub;
       rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initialpose_sub;
