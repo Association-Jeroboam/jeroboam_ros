@@ -12,6 +12,7 @@ CanBridge::CanBridge()
     right_pump_pub = this->create_publisher<jrb_msgs::msg::PumpStatus>("right_pump_status", 10);
     left_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("left_valve_status", 10);
     right_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("right_valve_status", 10);
+    servo_generic_read_response_pub = this->create_publisher<jrb_msgs::msg::ServoGenericReadResponse>("servo_generic_read_response", 10);
 
     // Subscribers
     twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
@@ -38,6 +39,8 @@ CanBridge::CanBridge()
     "servo_reboot", 20, std::bind(&CanBridge::servoRebootCB, this, std::placeholders::_1));
     servo_generic_command_sub = this->create_subscription<jrb_msgs::msg::ServoGenericCommand>(
     "servo_generic_command", 20, std::bind(&CanBridge::servoGenericCommandCB, this, std::placeholders::_1));
+    servo_generic_read_sub = this->create_subscription<jrb_msgs::msg::ServoGenericRead>(
+    "servo_generic_read", 20, std::bind(&CanBridge::servoGenericReadCB, this, std::placeholders::_1));
     
     param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
 
@@ -222,12 +225,51 @@ void CanBridge::publishRightValveStatus(jeroboam_datatypes_actuators_pneumatics_
     right_valve_pub->publish(status_msg);
 }
 
+void CanBridge::publishServoGenericReadResponse(jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1 response) {
+    auto servo_response = jrb_msgs::msg::ServoGenericReadResponse();
+    printf("BROKEN DOES NOT WORK (yet.)\r\n");
+    
+    //if(response._tag_ == CAN_PROTOCOL_RESPONSE_SUCCESS) {
+        //printf("count %lu\r\n", response.data.count);
+        //printf("count %lu", response->data.count);
+       //for(size_t i = 0; i < response->data.count; i++){
+    //        servo_response.data[i] = response->data.elements[i];
+        //}
+        //servo_response.len = response->data.count;
+      //  servo_response.len = 1;
+    //} else if(response._tag_ == CAN_PROTOCOL_RESPONSE_ERROR){
+    //    printf("tag = %i\r\n", response._tag_);
+    //    printf("error = %u\r\n", response.err_code);
+    //    servo_response.len = 0;
+    //} else {
+    //    printf("unhandled tag %u\r\n", response._tag_);;
+    //}
+    
+    //servo_generic_read_response_pub->publish(servo_response);
+}
+
 void CanBridge::send_can_msg(CanardPortID portID, CanardTransferID* transferID, void* buffer, size_t buf_size) {
     CanardTransferMetadata metadata;
     metadata.priority = CanardPriorityNominal;
     metadata.transfer_kind = CanardTransferKindMessage;
     metadata.port_id = portID;
     metadata.remote_node_id = CANARD_NODE_ID_UNSET;
+    metadata.transfer_id = *transferID;
+
+
+    bool success = TxThread::pushQueue(&metadata, buf_size, buffer);
+    if (!success ) {
+        printf("Queue push failed\n");
+    }
+    (*transferID)++;
+}
+
+void CanBridge::send_can_request(CanardPortID portID, CanardNodeID destID, CanardTransferID* transferID, void* buffer, size_t buf_size) {
+    CanardTransferMetadata metadata;
+    metadata.priority = CanardPriorityNominal;
+    metadata.transfer_kind = CanardTransferKindRequest;
+    metadata.port_id = portID;
+    metadata.remote_node_id = destID;
     metadata.transfer_id = *transferID;
 
 
@@ -444,5 +486,22 @@ void CanBridge::servoGenericCommandCB (const jrb_msgs::msg::ServoGenericCommand 
 
     jeroboam_datatypes_actuators_servo_GenericCommand_0_1_serialize_(&command, buffer, &buf_size);
 
-    send_can_msg(ACTION_SERVO_GENERIC_ID, &transfer_id, buffer, buf_size);
+    send_can_msg(ACTION_SERVO_GENERIC_COMMAND_ID, &transfer_id, buffer, buf_size);
+}
+
+void CanBridge::servoGenericReadCB (const jrb_msgs::msg::ServoGenericRead msg) {
+    static CanardTransferID transfer_id = 0;
+
+    jeroboam_datatypes_actuators_servo_GenericRead_0_1 read;
+
+    read.id = msg.id;
+    read.addr = msg.addr;
+    read.len = msg.len;
+
+    size_t buf_size = jeroboam_datatypes_actuators_servo_GenericRead_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+    uint8_t buffer[jeroboam_datatypes_actuators_servo_GenericRead_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+    jeroboam_datatypes_actuators_servo_GenericRead_0_1_serialize_(&read, buffer, &buf_size);
+
+    send_can_request(ACTION_SERVO_GENERIC_READ_ID, CAN_PROTOCOL_ACTION_BOARD_ID, &transfer_id, buffer, buf_size);
 }

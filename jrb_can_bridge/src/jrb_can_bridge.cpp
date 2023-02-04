@@ -122,6 +122,9 @@ void createSubscriptions(void) {
   subscribe(CanardTransferKindMessage,
             ACTION_VALVE_STATUS_ID,
             jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_EXTENT_BYTES_); 
+  subscribe(CanardTransferKindResponse,
+            ACTION_SERVO_GENERIC_READ_ID,
+            jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1_EXTENT_BYTES_); 
 }
 
 bool subscribe(CanardTransferKind transfer_kind, CanardPortID port_id, size_t extent){

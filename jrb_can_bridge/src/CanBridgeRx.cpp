@@ -181,6 +181,19 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
       }
       break;
     }
+    case ACTION_SERVO_GENERIC_READ_ID:{
+      jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1 response;
+      int8_t res = jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1_deserialize_(&response,
+                                                                              (uint8_t *)transfer->payload,
+                                                                              &transfer->payload_size);
+      if(res == NUNAVUT_SUCCESS) {
+        canBridge.get()->publishServoGenericReadResponse(response);
+      } else {
+        printf("ACTION_SERVO_GENERIC_READ_ID deserialize failed %i\r\n", res);
+      }
+      
+      break;
+    }
     case uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_:
         // Heartbeat
         break;

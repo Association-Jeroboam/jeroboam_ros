@@ -48,10 +48,14 @@
 #include "jrb_msgs/msg/servo_config.hpp"
 #include "jrb_msgs/msg/servo_id.hpp"
 #include "jrb_msgs/msg/servo_generic_command.hpp"
+#include "jrb_msgs/msg/servo_generic_read.hpp"
+#include "jrb_msgs/msg/servo_generic_read_response.hpp"
 #include "ServoAngle_0_1.h"
 #include "ServoConfig_0_1.h"
 #include "ServoID_0_1.h"
 #include "GenericCommand_0_1.h"
+#include "GenericRead_0_1.h"
+#include "GenericReadResponse_0_1.h"
 #include "CanBridgeTx.hpp"
 #include "CanBridgeRx.hpp"
 
@@ -73,8 +77,12 @@ class CanBridge : public rclcpp::Node
     void publishRightPumpStatus(jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 * status);
     void publishLeftValveStatus(jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 * status);
     void publishRightValveStatus(jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 * status);
+    void publishServoGenericReadResponse(jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1 response);
+
   private:
     static void send_can_msg(CanardPortID portID, CanardTransferID* transferID, void* buffer, size_t buf_size);
+
+    static void send_can_request(CanardPortID portID, CanardNodeID destID, CanardTransferID* transferID, void* buffer, size_t buf_size);
 
     void robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr msg);
 
@@ -100,6 +108,8 @@ class CanBridge : public rclcpp::Node
 
     void servoGenericCommandCB (const jrb_msgs::msg::ServoGenericCommand msg);
 
+    void servoGenericReadCB (const jrb_msgs::msg::ServoGenericRead msg);
+
 
       rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr       odom_pub;
       rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       left_pid_pub;
@@ -108,6 +118,7 @@ class CanBridge : public rclcpp::Node
       rclcpp::Publisher<jrb_msgs::msg::PumpStatus>::SharedPtr     right_pump_pub;
       rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    left_valve_pub;
       rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    right_valve_pub;
+      rclcpp::Publisher<jrb_msgs::msg::ServoGenericReadResponse>::SharedPtr    servo_generic_read_response_pub;
     
       rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr  twist_sub;
       rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initialpose_sub;
@@ -122,6 +133,7 @@ class CanBridge : public rclcpp::Node
       rclcpp::Subscription<jrb_msgs::msg::ServoConfig>::SharedPtr  servo_config_sub;
       rclcpp::Subscription<jrb_msgs::msg::ServoID>::SharedPtr      servo_reboot_sub;
       rclcpp::Subscription<jrb_msgs::msg::ServoGenericCommand>::SharedPtr            servo_generic_command_sub;
+      rclcpp::Subscription<jrb_msgs::msg::ServoGenericRead>::SharedPtr               servo_generic_read_sub;
 
     OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
 
