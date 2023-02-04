@@ -20,6 +20,7 @@ set(msg_files
   "msg/AdaptativePIDConfig.msg"
   "msg/MotionBoardDataFrame.msg"
   "msg/MotionConfig.msg"
+  "msg/MotionSpeedCommand.msg"
   "msg/PIDConfig.msg"
   "msg/PIDState.msg"
   "msg/PumpStatus.msg"

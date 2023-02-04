@@ -50,12 +50,14 @@
 #include "jrb_msgs/msg/servo_generic_command.hpp"
 #include "jrb_msgs/msg/servo_generic_read.hpp"
 #include "jrb_msgs/msg/servo_generic_read_response.hpp"
+#include "jrb_msgs/msg/motion_speed_command.hpp"
 #include "ServoAngle_0_1.h"
 #include "ServoConfig_0_1.h"
 #include "ServoID_0_1.h"
 #include "GenericCommand_0_1.h"
 #include "GenericRead_0_1.h"
 #include "GenericReadResponse_0_1.h"
+#include "SpeedCommand_0_1.h"
 #include "CanBridgeTx.hpp"
 #include "CanBridgeRx.hpp"
 
@@ -111,6 +113,8 @@ class CanBridge : public rclcpp::Node
 
     void servoGenericReadCB (const jrb_msgs::msg::ServoGenericRead msg);
 
+    void motionSpeedCommandCB (const jrb_msgs::msg::MotionSpeedCommand msg);
+
 
       rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr       odom_pub;
       rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       left_pid_pub;
@@ -136,6 +140,7 @@ class CanBridge : public rclcpp::Node
       rclcpp::Subscription<jrb_msgs::msg::ServoID>::SharedPtr      servo_reboot_sub;
       rclcpp::Subscription<jrb_msgs::msg::ServoGenericCommand>::SharedPtr            servo_generic_command_sub;
       rclcpp::Subscription<jrb_msgs::msg::ServoGenericRead>::SharedPtr               servo_generic_read_sub;
+      rclcpp::Subscription<jrb_msgs::msg::MotionSpeedCommand>::SharedPtr             motion_speed_command_sub;
 
     OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
 
