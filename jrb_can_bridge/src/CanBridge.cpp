@@ -14,6 +14,7 @@ CanBridge::CanBridge()
     right_valve_pub = this->create_publisher<jrb_msgs::msg::ValveStatus>("right_valve_status", 10);
     servo_generic_read_response_pub = this->create_publisher<jrb_msgs::msg::ServoGenericReadResponse>("servo_generic_read_response", 10);
     servo_angle_pub = this->create_publisher<jrb_msgs::msg::ServoAngle>("servo_angle", 10);
+    odometry_ticks_pub = this->create_publisher<jrb_msgs::msg::OdometryTicks>("odometry_ticks", 10);
 
     // Subscribers
     twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
@@ -257,6 +258,14 @@ void CanBridge::publishServoAngle(jeroboam_datatypes_actuators_servo_ServoAngle_
     servo_angle_msg.radian = servoAngle->angle.radian;
     servo_angle_pub->publish(servo_angle_msg);
 }
+
+void CanBridge::publishOdometryTicks(jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1 * odometryTicks) {
+    auto ticks = jrb_msgs::msg::OdometryTicks();
+    ticks.left = odometryTicks->left;
+    ticks.right = odometryTicks->right;
+    odometry_ticks_pub->publish(ticks);
+}
+
 
 void CanBridge::send_can_msg(CanardPortID portID, CanardTransferID* transferID, void* buffer, size_t buf_size) {
     CanardTransferMetadata metadata;

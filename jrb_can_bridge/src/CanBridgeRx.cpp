@@ -199,10 +199,23 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
       int8_t res = jeroboam_datatypes_actuators_servo_ServoAngle_0_1_deserialize_(&servoAngle,
                                                                                   (uint8_t *)transfer->payload,
                                                                                   &transfer->payload_size);
-if(res == NUNAVUT_SUCCESS) {
+      if(res == NUNAVUT_SUCCESS) {
         canBridge.get()->publishServoAngle(&servoAngle);
       } else {
         printf("ACTION_SERVO_CURRENT_ANGLE_ID deserialize failed %i\r\n", res);
+      }
+      break;
+    }
+    case MOTION_ODOM_TICKS_ID:{
+      jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1 odometryTicks;
+      int8_t res = jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1_deserialize_(&odometryTicks,
+                                                                                      (uint8_t *)transfer->payload,
+                                                                                      &transfer->payload_size);
+      
+      if(res == NUNAVUT_SUCCESS) {
+        canBridge.get()->publishOdometryTicks(&odometryTicks);
+      } else {
+        printf("MOTION_ODOM_TICKS_ID deserialize failed %i\r\n", res);
       }
       break;
     }

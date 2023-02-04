@@ -127,7 +127,10 @@ void createSubscriptions(void) {
             jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1_EXTENT_BYTES_);
   subscribe(CanardTransferKindMessage,
             ACTION_SERVO_CURRENT_ANGLE_ID,
-            jeroboam_datatypes_actuators_servo_ServoAngle_0_1_EXTENT_BYTES_); 
+            jeroboam_datatypes_actuators_servo_ServoAngle_0_1_EXTENT_BYTES_);
+  subscribe(CanardTransferKindMessage,
+            MOTION_ODOM_TICKS_ID,
+            jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1_EXTENT_BYTES_); 
 }
 
 bool subscribe(CanardTransferKind transfer_kind, CanardPortID port_id, size_t extent){

@@ -21,6 +21,7 @@ set(msg_files
   "msg/MotionBoardDataFrame.msg"
   "msg/MotionConfig.msg"
   "msg/MotionSpeedCommand.msg"
+  "msg/OdometryTicks.msg"
   "msg/PIDConfig.msg"
   "msg/PIDState.msg"
   "msg/PumpStatus.msg"

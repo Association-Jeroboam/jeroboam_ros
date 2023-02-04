@@ -26,6 +26,7 @@ include_directories(CanProtocol/Cyphal/includes/jeroboam_datatypes/actuators/mot
 include_directories(CanProtocol/Cyphal/includes/jeroboam_datatypes/actuators/pneumatics)
 include_directories(CanProtocol/Cyphal/includes/jeroboam_datatypes/actuators/servo)
 include_directories(CanProtocol/Cyphal/includes/jeroboam_datatypes/sensors)
+include_directories(CanProtocol/Cyphal/includes/jeroboam_datatypes/sensors/odometry)
 include_directories(CanProtocol/Cyphal/includes/)
 include_directories(CanProtocol/Cyphal/includes/nunavut)
 include_directories(CanProtocol/Cyphal/includes/nunavut/support)
