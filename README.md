@@ -84,6 +84,7 @@ pip3 install pygame==2.0.0.dev6
 sudo apt-get install libSDL2-2.0
 sudo apt-get install libSDL2-ttf-2.0.0
 sudo apt-get install can-utils
+sudo apt install ros-humble-rmw-cyclonedds-cpp
 sudo apt install python3-rosdep2
 rosdep install -i --from-path src --rosdistro galactic -y
 
@@ -101,6 +102,9 @@ ros2 launch jrb_bringup robotrouge.launch.py
 ## Development aliases
 
 ```shell
+#update submodules
+git submodule update --init --recursive
+
 # Build
 b
 
