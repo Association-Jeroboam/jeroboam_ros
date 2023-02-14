@@ -3,11 +3,9 @@ import traceback
 from rclpy.node import Node
 import rclpy
 from geometry_msgs.msg import PoseStamped
-from jrb_msgs.msg import StackSample, PumpStatus, ValveStatus, ServoStatus, ServoConfig, ServoAngle
+from jrb_msgs.msg import StackSample, PumpStatus, ValveStatus, ServoStatus, ServoConfig, ServoAngle, ServoGenericCommand
 from std_msgs.msg import Bool, Float32
-#from .lib import custom_dxl_API as API
-#from dynamixel_sdk import *  # Uses Dynamixel SDK library
-#import RPi.GPIO as GPIO
+from .lib import dxl
 import time
 import numpy as np
 from functools import partial
@@ -60,6 +58,10 @@ class Actuators_robotrouge(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
+        self.pub_generic_command = self.create_publisher(
+            ServoGenericCommand, "servo_generic_command", 10
+        )
+
         self.pub_actuator_state = self.create_publisher(
             JointState, "actuator_state", 10
         )
@@ -106,14 +108,12 @@ class Actuators_robotrouge(Node):
         self.init_actuators()
 
         publish_state_rate = 1 / 6  # Hz
-        self.state_publish_timer = self.create_timer(
-            publish_state_rate, self.on_state_publish_timer
-        )
+        #self.state_publish_timer = self.create_timer(publish_state_rate, self.on_state_publish_timer)
 
         self.actuator_state_msg = JointState()
 
     def __del__(self):
-        API.resetTorque4All()
+        dxl.setTorque4All(self,0)
         self.stopPump("left")
         self.stopPump("right") 
         self.serial_actionBoard.close()
@@ -144,61 +144,74 @@ class Actuators_robotrouge(Node):
 
     #     self.pPompe.start(speed2rapportCyclique(0))
     #     self.pVanne.start(speed2rapportCyclique(0))
+    def sendGenericCommand(self, len_, id, addr, data):
+
+        data_array=[]
+        while data > 0 :
+            data_array.append(data%255)
+            data=data//255
+
+        if len(data_array) > len_ :
+            self.get_logger().warn("Data does not fit on specified command lenght")
+
+        while len(data_array)<8:
+            data_array.append(0)
+
+        msg=ServoGenericCommand()
+        msg.id=id
+        msg.addr=addr
+        msg.len=len_
+        msg.data=data_array
+
+        if msg.id == 0 :
+            self.get_logger().error("msg.id == 0")
+
+        #while self.last_sending+0.0005>time.time():
+        #    pass
+        #self.last_sending=time.time()
+        self.pub_generic_command.publish(msg)
 
     def init_actuators(self):
-        # Protocol version
-        PROTOCOL_VERSION = 2.0  # See which protocol version is used in the Dynamixel
 
-        # Default setting
-        BAUDRATE = 57600  # Dynamixel default baudrate : 57600
-        DEVICENAME = "/dev/ttyACM0"  # Check which port is being used on your controller
-        # ex) Windows: "COM1"   Linux: "/dev/ttyUSB0" Mac: "/dev/tty.usbserial-*"
+        #self.last_sending=time.time()
+        #dxl.reboot(254)  # 254 for broadcast
+        #time.sleep(2)
 
-        API.initHandlers(DEVICENAME, BAUDRATE, PROTOCOL_VERSION)
-        API.reboot(254)  # 254 for broadcast
-        time.sleep(2)
+        self.left_arm = dxl.bras(self,"left",16, 14, 22, 1, 8, 101) #gauche
+        #self.right_arm = dxl.bras(self,"right",3, 4, 10, 9, 11, 100) #droit
 
-        self.left_arm = API.bras("left",16, 14, 22, 1, 8, 101) #gauche
-        self.right_arm = API.bras("right",3, 4, 10, 9, 11, 100) #droit
-
-        self.rateaux = API.rakes(7, 15, 5, 18)
+        #self.rateaux = dxl.rakes(self,7, 15, 5, 18)
 
         # centre reservoir : 112.75 ; -22.5
         x = 112.75
         y = -22.5
 
         self.startPump("left")
-        self.rateaux.setTorque(1)
-        self.rateaux.close()
+        #self.rateaux.setTorque(1)
+        #self.rateaux.close()
         self.stopPump("left")
         self.left_arm.setTorque(1)
-        self.right_arm.setTorque(1)
+        #self.right_arm.setTorque(1)
         self.left_arm.setArmPosition(20,120)
-        self.right_arm.setArmPosition(-20,120)
+        #self.right_arm.setArmPosition(-20,120)
         time.sleep(1)
-        self.left_arm.initSlider()
-        self.right_arm.initSlider()
+        #self.left_arm.initSlider()
+        #self.right_arm.initSlider()
         self.left_arm.setTorque(1)
-        self.right_arm.setTorque(1)
-        self.rateaux.open()
+        #self.right_arm.setTorque(1)
+        #self.rateaux.open()
         self.get_logger().info("init OK")
 
         #self.storeArm("left")
         #self.storeArm("right")
         time.sleep(2)
-        self.cycle_cool()
+        #self.cycle_cool()
 
 
     def cycle_cool(self):
         while(True):
             self.takeSample("left",1)
             self.returnSample("left")
-
-    def init_serial(self):
-        import serial
-        self.serial_actionBoard = serial.Serial('/dev/ttyACM0')  # open serial port
-        print("Serial port : "+self.serial_actionBoard.name)
-        #todo : check if good device (not DXL board)
 
     def startPump(self, side):
         #self.serial_actionBoard.write(("pump "+side+" 1\r").encode('utf-8'))
@@ -257,10 +270,10 @@ class Actuators_robotrouge(Node):
 
         if side =="right" :
             self.right_arm.setArmPosition(x * 1000, y * 1000, math.degrees(msg.pose.orientation.y),math.degrees(msg.pose.orientation.x),math.degrees(msg.pose.orientation.z))
-            self.right_arm.setSliderPosition_mm(z * 1000)
+            #self.right_arm.setSliderPosition_mm(z * 1000)
         elif side =="left" :
             self.left_arm.setArmPosition(x * 1000, y * 1000, math.degrees(msg.pose.orientation.y),math.degrees(msg.pose.orientation.x),math.degrees(msg.pose.orientation.z))
-            self.left_arm.setSliderPosition_mm(z * 1000)
+            #self.left_arm.setSliderPosition_mm(z * 1000)
 
     def stackSample_cb(self, msg: StackSample):
         self.stackSample(msg.side, msg.sample_index)
@@ -349,16 +362,16 @@ class Actuators_robotrouge(Node):
             time.sleep(2)
 
             #bourrage
-#            self.right_arm.setSliderPosition_mm(z)
-#            self.right_arm.setArmPosition(20, 110, 40,90,0)
-#            time.sleep(2)
-#            self.right_arm.setArmPosition(-97, 103, 40,90,0)
+            self.right_arm.setSliderPosition_mm(z)
+            self.right_arm.setArmPosition(20, 110, 40,90,0)
+            time.sleep(2)
+            self.right_arm.setArmPosition(-97, 103, 40,90,0)
 
-#right (-0.10400000000000008, 0.10099999999999998, 0.09999999999999992) (0.4363323129985824, 1.5707963267948966, 0.0)
-#right (-0.09700000000000007, 0.10299999999999998, 0.10499999999999993) (0.5235987755982988, 1.5707963267948966, 0.0)
+            #right (-0.10400000000000008, 0.10099999999999998, 0.09999999999999992) (0.4363323129985824, 1.5707963267948966, 0.0)
+            #right (-0.09700000000000007, 0.10299999999999998, 0.10499999999999993) (0.5235987755982988, 1.5707963267948966, 0.0)
 
-#        time.sleep(2)
-#        self.storeArm(side)
+        #time.sleep(2)
+        #self.storeArm(side)
         self.rateaux.close()
 
     def storeArm(self,side):
@@ -523,10 +536,14 @@ class Actuators_robotbleu(Node):
         angle_msg.radian=math.radians(50)
         self.pub_xl320_target.publish(angle_msg)
 
+
+
+
+
 def main(args=None):
     rclpy.init(args=args)
     #node = Actuators()
-    node = Actuators_robotbleu()
+    node = Actuators_robotrouge()
 
     try:
         rclpy.spin(node)
