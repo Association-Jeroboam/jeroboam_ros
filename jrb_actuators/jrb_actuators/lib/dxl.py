@@ -184,8 +184,8 @@ class XL320():
 #        present_voltage=readValue(portHandler, 1, self.ID, 45)/10.0
 #        return present_voltage
 
-#    def reboot(self):
-#        packetHandler.reboot(portHandler, self.ID)
+    def reboot(self):
+        self.node.sendRebootCommand(self.ID)
 
     def setDriveMode(self, MODE):
         self.node.sendGenericCommand(1, self.ID, 11, MODE)  # XL430 : 1:Velocity  3:Position  4:Extended position  16:PWM
