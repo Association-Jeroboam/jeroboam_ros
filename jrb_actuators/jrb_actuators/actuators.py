@@ -5,7 +5,7 @@ import traceback
 from rclpy.node import Node
 import rclpy
 from geometry_msgs.msg import PoseStamped
-from jrb_msgs.msg import StackSample, PumpStatus, ValveStatus, ServoStatus, ServoConfig, ServoAngle, ServoGenericCommand
+from jrb_msgs.msg import StackSample, PumpStatus, ValveStatus, ServoStatus, ServoConfig, ServoAngle, ServoGenericCommand, ServoID
 from std_msgs.msg import Bool, Float32
 from .lib import dxl
 import time
@@ -62,6 +62,10 @@ class Actuators_robotrouge(Node):
 
         self.pub_generic_command = self.create_publisher(
             ServoGenericCommand, "servo_generic_command", 10
+        )
+
+        self.pub_reboot_command = self.create_publisher(
+            ServoID, "servo_reboot", 10
         )
 
         self.pub_actuator_state = self.create_publisher(
@@ -136,16 +140,6 @@ class Actuators_robotrouge(Node):
 
         self.pub_actuator_state.publish(self.actuator_state_msg)
 
-    # def init_gpio(self):
-    #     GPIO.setmode(GPIO.BOARD)
-    #     GPIO.setup(channel_pompe, GPIO.OUT)
-    #     GPIO.setup(channel_vanne, GPIO.OUT)
-
-    #     self.pPompe = GPIO.PWM(channel_pompe, frequence)
-    #     self.pVanne = GPIO.PWM(channel_vanne, frequence)
-
-    #     self.pPompe.start(speed2rapportCyclique(0))
-    #     self.pVanne.start(speed2rapportCyclique(0))
     def sendGenericCommand(self, len_, id, addr, data):
 
         data_array=[]
@@ -173,11 +167,16 @@ class Actuators_robotrouge(Node):
         #self.last_sending=time.time()
         self.pub_generic_command.publish(msg)
 
+    def sendRebootCommand(self, id):
+        msg=ServoID()
+        msg.id=id
+        self.pub_reboot_command.publish(msg)
+
     def init_actuators(self):
 
         #self.last_sending=time.time()
-        #dxl.reboot(254)  # 254 for broadcast
-        #time.sleep(2)
+        self.sendRebootCommand(254)  # 254 for broadcast
+        time.sleep(10)
 
         self.left_arm = dxl.bras(self,"left",16, 14, 22, 1, 8, 101) #gauche
         #self.right_arm = dxl.bras(self,"right",3, 4, 10, 9, 11, 100) #droit
