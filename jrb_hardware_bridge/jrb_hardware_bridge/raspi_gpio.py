@@ -1,5 +1,4 @@
 import traceback
-import RPi.GPIO as GPIO
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool, String
@@ -18,7 +17,7 @@ class RaspiGpio(Node):
         super().__init__("raspi_gpio")
         self.get_logger().info(f"{self.get_name()} started")
 
-        self.init_gpio()
+        # self.init_gpio()
 
         latchedQoS = QoSProfile(
             durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
@@ -71,15 +70,15 @@ class RaspiGpio(Node):
         self.last_team_value = None
         self.last_strategy_value = None
 
-        self.starter_polling_timer = self.create_timer(
-            1 / self.starter_polling_rate, self.on_starter_polling
-        )
-        self.team_polling_timer = self.create_timer(
-            1 / self.team_polling_rate, self.on_team_polling
-        )
-        self.strategy_polling_timer = self.create_timer(
-            1 / self.strategy_polling_rate, self.on_strategy_polling
-        )
+        # self.starter_polling_timer = self.create_timer(
+        #     1 / self.starter_polling_rate, self.on_starter_polling
+        # )
+        # self.team_polling_timer = self.create_timer(
+        #     1 / self.team_polling_rate, self.on_team_polling
+        # )
+        # self.strategy_polling_timer = self.create_timer(
+        #     1 / self.strategy_polling_rate, self.on_strategy_polling
+        # )
 
         self.add_on_set_parameters_callback(self.on_update_parameters)
 

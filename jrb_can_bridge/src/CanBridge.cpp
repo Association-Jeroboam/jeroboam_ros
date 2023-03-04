@@ -338,6 +338,8 @@ void CanBridge::initialpose_cb(const geometry_msgs::msg::PoseWithCovarianceStamp
     reg_udral_physics_kinematics_cartesian_Pose_0_1_serialize_(&pose, buffer, &buf_size);
 
     send_can_msg(ROBOT_SET_CURRENT_POSE_ID, &transfer_id, buffer, buf_size);
+    // Double it in case we restarted the node and we already sent a current pose with transfer ID 0
+    send_can_msg(ROBOT_SET_CURRENT_POSE_ID, &transfer_id, buffer, buf_size);
 }
 
 void CanBridge::pumpLeftCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) {
