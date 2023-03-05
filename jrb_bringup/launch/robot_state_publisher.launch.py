@@ -73,6 +73,11 @@ def generate_launch_description():
                 name="joint_state_publisher",
                 output="screen",
                 condition=UnlessCondition(use_gui),
+                parameters=[
+                    {
+                        "use_sim_time": use_sim_time,
+                    }
+                ],
             ),
             Node(
                 package="joint_state_publisher_gui",

@@ -10,14 +10,14 @@ from launch.actions import IncludeLaunchDescription
 
 
 def generate_launch_description():
-    use_sim_time = LaunchConfiguration("use_sim_time", default="false")
+    use_sim_time = LaunchConfiguration("use_sim_time")
 
     return LaunchDescription(
         [
             DeclareLaunchArgument(
                 "use_sim_time",
-                default_value=use_sim_time,
                 description="Use simulation (Gazebo) clock if true",
+                default_value="False"
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
@@ -31,6 +31,11 @@ def generate_launch_description():
                 name="rviz2",
                 # arguments=['-d', rviz_config_dir],
                 output="screen",
+                parameters=[
+                    {
+                        "use_sim_time": use_sim_time,
+                    }
+                ],
             ),
         ],
     )
