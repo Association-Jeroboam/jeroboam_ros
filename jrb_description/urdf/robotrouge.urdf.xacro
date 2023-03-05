@@ -2,39 +2,25 @@
 <robot name="robotrouge"
   xmlns:xacro="http://ros.org/wiki/xacro">
 
+  <gazebo>
+      <plugin name="gazebo_ros_joint_state_publisher"
+          filename="libgazebo_ros_joint_state_publisher.so">
+          <update_rate>20</update_rate>
+          <joint_name>slider_joint</joint_name>
+          <joint_name>arm_joint</joint_name>
+      </plugin>
+  </gazebo>
+
+  <gazebo>
+    <plugin name="gazebo_ros_joint_pose_trajectory"
+        filename="libgazebo_ros_joint_pose_trajectory.so">
+        <update_rate>20</update_rate>
+    </plugin>
+</gazebo>
+  
   <!-- <xacro:include filename="arm.urdf.xacro" /> -->
   <xacro:include filename="colors.xacro" />
   <xacro:include filename="inertial.xacro" />
-
-  <!-- Webots -->
-  <webots>
-    <device reference="laser_link" type="Lidar">
-      <ros>
-        <enabled>true</enabled>
-        <updateRate>5</updateRate>
-        <topicName>/scan</topicName>
-        <alwaysOn>true</alwaysOn>
-        <frameName>laser_link</frameName>
-      </ros>
-    </device>
-
-    <plugin type="webots_ros2_control::Ros2Control" />
-  </webots>
-
-  <ros2_control name="WebotsControl" type="system">
-    <hardware>
-      <plugin>webots_ros2_control::Ros2ControlSystem</plugin>
-    </hardware>
-    <joint name="right_wheel_joint">
-      <state_interface name="position" />
-      <command_interface name="velocity" />
-    </joint>
-    <joint name="left_wheel_joint">
-      <state_interface name="position" />
-      <command_interface name="velocity" />
-    </joint>
-  </ros2_control>
-
 
   <!-- BASE LINK -->
   <link name="chassis">

@@ -13,12 +13,13 @@ from launch.substitutions import (
 from launch_ros.actions import Node
 from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.descriptions import ParameterValue
+from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
     this_pkg = FindPackageShare("jrb_bringup")
 
-    use_sim_time = LaunchConfiguration("use_sim_time", default=True)
+    use_sim_time = LaunchConfiguration("use_sim_time")
     use_gui = LaunchConfiguration("use_gui")
     urdf_file = LaunchConfiguration(
         "urdf_file",
@@ -39,6 +40,13 @@ def generate_launch_description():
                 "use_sim_time",
                 description="Use simulation clock if true",
                 default_value="False",
+            ),
+            DeclareLaunchArgument(
+                "urdf_file",
+                description="urdf file",
+                default_value=PathJoinSubstitution(
+                    [FindPackageShare("jrb_description"), "urdf", "robotrouge.urdf.xacro"]
+            )
             ),
             DeclareLaunchArgument(
                 "use_gui",
@@ -64,7 +72,6 @@ def generate_launch_description():
                 executable="joint_state_publisher",
                 name="joint_state_publisher",
                 output="screen",
-                parameters=[robot_state_publisher_param_file],
                 condition=UnlessCondition(use_gui),
             ),
             Node(
