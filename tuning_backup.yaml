@@ -1,0 +1,48 @@
+
+/can_bridge:
+  ros__parameters:
+    pid/left/high/bias: 0.0
+    pid/left/high/p: 0.0
+    pid/left/high/i: 0.0
+    pid/left/high/d: 0.0
+    pid/left/high/threshold: 0.0
+
+    pid/left/medium/bias: 0.0
+    pid/left/medium/p: 0.0
+    pid/left/medium/i: 0.0
+    pid/left/medium/d: 0.0
+    pid/left/medium/threshold: 0.0
+
+    pid/left/low/bias: 0.0
+    pid/left/low/p: 0.0
+    pid/left/low/i: 0.0
+    pid/left/low/d: 0.0
+    pid/left/low/threshold: 0.0
+
+    pid/right/high/bias: 0.0
+    pid/right/high/p: 0.002
+    pid/right/high/i: 0.002
+    pid/right/high/d: 0.0
+    pid/right/high/threshold: 0.50
+
+    pid/right/medium/bias: 0.0
+    pid/right/medium/p: 0.006
+    pid/right/medium/i: 0.005
+    pid/right/medium/d: 0.0
+    pid/right/medium/threshold: 0.2
+
+    pid/right/low/bias: 0.0
+    pid/right/low/p: 0.0005
+    pid/right/low/i: 0.0002
+    pid/right/low/d: 0.0
+    pid/right/low/threshold: 0.05
+
+    qos_overrides:
+      /parameter_events:
+        publisher:
+          depth: 1000
+          durability: volatile
+          history: keep_last
+          reliability: reliable
+
+    use_sim_time: false
