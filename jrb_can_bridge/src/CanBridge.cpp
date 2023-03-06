@@ -87,6 +87,7 @@ void CanBridge::init() {
             value = this->get_parameter("pid/"+side+"/"+threshold+"/threshold").as_double();
             setAdaptPidParam(side, threshold, "threshold", value);
         }
+        sendAdaptPidConfig(side);
     }
 }
 
@@ -125,31 +126,29 @@ void CanBridge::setAdaptPidParam(std::string side, std::string threshold, std::s
 
         adaptConfig->configs[conf_idx].pid[pid_idx] = value;
     }
-
-    sendAdaptPidConfig(side);
 }
 
 rcl_interfaces::msg::SetParametersResult CanBridge::parametersCallback(const std::vector<rclcpp::Parameter> &parameters) {
     for (const auto &parameter : parameters) {
-    auto name = parameter.get_name();
+        auto name = parameter.get_name();
 
-    if (name.rfind("pid/", 0) == 0) {
-        std::string side, threshold, param_name;
-        std::stringstream s(name);
-        std::string part;
-        std::vector<std::string> parts;
+        if (name.rfind("pid/", 0) == 0) {   
+            std::string side, threshold, param_name;
+            std::stringstream s(name);
+            std::string part;
+            std::vector<std::string> parts;
 
-        while (std::getline(s, part, '/')) {
-        parts.push_back(part);
+            while (std::getline(s, part, '/')) {
+                parts.push_back(part);
+            }
+
+            side = parts[1];
+            threshold = parts[2];
+            param_name = parts[3];
+            auto value = parameter.as_double();
+
+            setAdaptPidParam(side, threshold, param_name, value);
         }
-
-        side = parts[1];
-        threshold = parts[2];
-        param_name = parts[3];
-        auto value = parameter.as_double();
-
-        setAdaptPidParam(side, threshold, param_name, value);
-    }
     }
 
     rcl_interfaces::msg::SetParametersResult result;

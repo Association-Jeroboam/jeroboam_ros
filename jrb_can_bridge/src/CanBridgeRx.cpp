@@ -229,11 +229,24 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
       canBridge.get()->publishOdometryTicks(&odometryTicks);
       break;
     }
-
-    case uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_:
-        // Heartbeat
-        break;
-
+    case uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_:{
+      // Heartbeat
+      uavcan_node_Heartbeat_1_0 heartbeat;
+      int8_t res = uavcan_node_Heartbeat_1_0_deserialize_(&heartbeat,
+                                                          (uint8_t *)transfer->payload,
+                                                          &transfer->payload_size);
+      if(res == NUNAVUT_SUCCESS) {
+        if(heartbeat.vendor_specific_status_code == CAN_PROTOCOL_MOTION_BOARD_ID) {
+          if(heartbeat.mode.value == uavcan_node_Mode_1_0_INITIALIZATION) {
+            canBridge.get()->sendAdaptPidConfig("left");
+            canBridge.get()->sendAdaptPidConfig("right");
+          }
+        }
+      } else {
+        printf("HEARTBEAT deserialize failed %i\r\n", res);
+      }
+      break;
+    }
     default:
       RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: Accepted a non handled CAN message(ID " << transfer->metadata.port_id << ")! Please fix me!");
       break;

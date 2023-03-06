@@ -84,6 +84,7 @@ class CanBridge : public rclcpp::Node
     void publishServoGenericReadResponse(jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1 * response);
     void publishServoAngle(jeroboam_datatypes_actuators_servo_ServoAngle_0_1 * servoAngle);
     void publishOdometryTicks(jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1 * odometryTicks);
+    void sendAdaptPidConfig(std::string side);
 
   private:
     static void send_can_msg(CanardPortID portID, CanardTransferID* transferID, void* buffer, size_t buf_size);
@@ -101,8 +102,6 @@ class CanBridge : public rclcpp::Node
     void valveLeftCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg);
 
     void valveRightCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg);
-
-    void sendAdaptPidConfig(std::string side);
 
     void motionConfigCB( const jrb_msgs::msg::MotionConfig msg);
 
