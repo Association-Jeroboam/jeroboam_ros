@@ -54,7 +54,7 @@ def generate_launch_description():
                 "can_bridge_param_path",
                 description="Full path to can_bridge parameter file to load",
                 default_value=PathJoinSubstitution(
-                    [this_pkg, "param", "lrobotrouge_can_bridge_param.yaml"]
+                    [this_pkg, "param", "robotrouge_can_bridge_param.yaml"]
                 ),
             ),
             DeclareLaunchArgument(
