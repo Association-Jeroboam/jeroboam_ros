@@ -4,6 +4,7 @@
 CanBridge::CanBridge()
 : Node("can_bridge")
 {
+    send_config_enabled = false;
     // Publishers
     odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("odometry", 50);
     left_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("left_pid_state", 10);
@@ -89,6 +90,7 @@ void CanBridge::init() {
         }
         sendAdaptPidConfig(side);
     }
+    send_config_enabled = true;
 }
 
 void CanBridge::setAdaptPidParam(std::string side, std::string threshold, std::string param_name, double value) {
@@ -149,6 +151,10 @@ rcl_interfaces::msg::SetParametersResult CanBridge::parametersCallback(const std
 
             setAdaptPidParam(side, threshold, param_name, value);
         }
+    }
+    if(send_config_enabled) {
+        sendAdaptPidConfig("left");
+        sendAdaptPidConfig("right");
     }
 
     rcl_interfaces::msg::SetParametersResult result;
