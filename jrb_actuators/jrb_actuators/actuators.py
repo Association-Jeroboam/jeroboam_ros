@@ -7,7 +7,6 @@ from jrb_msgs.msg import StackSample, PumpStatus, ValveStatus, ServoStatus, Serv
 from std_msgs.msg import Bool, Float32
 #from .lib import custom_dxl_API as API
 #from dynamixel_sdk import *  # Uses Dynamixel SDK library
-#import RPi.GPIO as GPIO
 import time
 import numpy as np
 from functools import partial

@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-is_raspi_ = "True"
-try:
-    import RPi.GPIO as GPIO
-except RuntimeError:
-    is_raspi_ = "False"
-
-from operator import is_
 from launch import LaunchDescription
 from launch.substitutions import LaunchConfiguration
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -23,7 +16,6 @@ def generate_launch_description():
     this_pkg = FindPackageShare("jrb_bringup")
 
     use_sim_time = LaunchConfiguration("use_sim_time")
-    is_raspi = LaunchConfiguration("is_raspi", default=is_raspi_)
     camera_param_path = LaunchConfiguration("camera_param_path")
     lidar_param_path = LaunchConfiguration("lidar_param_path")
     can_bridge_param_path = LaunchConfiguration("can_bridge_param_path")
@@ -129,9 +121,8 @@ def generate_launch_description():
             ),
             Node(
                 package="jrb_hardware_bridge",
-                executable="raspi_gpio",
+                executable="gpio_node",
                 output="screen",
-                condition=IfCondition(is_raspi),
             ),
             Node(package="jrb_strategy", executable="eurobot", output="screen"),
         ],
