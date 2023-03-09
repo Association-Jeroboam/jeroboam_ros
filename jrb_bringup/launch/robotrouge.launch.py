@@ -63,6 +63,11 @@ def generate_launch_description():
                     "use_gui": "False",
                 }.items(),
             ),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    [ThisLaunchFileDir(), "/joystick.launch.py"]
+                )
+            ),
             # Node(
             #     package="usb_cam",
             #     executable="usb_cam_node_exe",

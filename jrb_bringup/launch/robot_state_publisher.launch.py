@@ -21,13 +21,14 @@ def generate_launch_description():
 
     use_sim_time = LaunchConfiguration("use_sim_time")
     use_gui = LaunchConfiguration("use_gui")
+    display_meshes = LaunchConfiguration("display_meshes")
     urdf_file = LaunchConfiguration(
         "urdf_file",
         default=PathJoinSubstitution(
             [FindPackageShare("jrb_description"), "urdf", "robotrouge.urdf.xacro"]
         ),
     )
-    robot_state_publisher_param_file = LaunchConfiguration(
+    joint_state_publisher_param_file = LaunchConfiguration(
         "robot_state_publisher_param_file",
         default=PathJoinSubstitution(
             [this_pkg, "param", "robotrouge_joint_state_publisher_param.yaml"]
@@ -45,13 +46,22 @@ def generate_launch_description():
                 "urdf_file",
                 description="urdf file",
                 default_value=PathJoinSubstitution(
-                    [FindPackageShare("jrb_description"), "urdf", "robotrouge.urdf.xacro"]
-            )
+                    [
+                        FindPackageShare("jrb_description"),
+                        "urdf",
+                        "robotrouge.urdf.xacro",
+                    ]
+                ),
             ),
             DeclareLaunchArgument(
                 "use_gui",
                 description="Launch joint_state_publisher_gui instead of joint_state_publisher",
                 default_value="False",
+            ),
+            DeclareLaunchArgument(
+                "display_meshes",
+                description="Display detailed meshes in urdf",
+                default_value="True",
             ),
             Node(
                 package="robot_state_publisher",
@@ -60,7 +70,14 @@ def generate_launch_description():
                 parameters=[
                     {
                         "robot_description": ParameterValue(
-                            Command(["xacro ", urdf_file]),
+                            Command(
+                                [
+                                    "xacro ",
+                                    urdf_file,
+                                    " display_meshes:=",
+                                    display_meshes,
+                                ]
+                            ),
                             value_type=str,
                         ),
                         "use_sim_time": use_sim_time,
@@ -76,7 +93,8 @@ def generate_launch_description():
                 parameters=[
                     {
                         "use_sim_time": use_sim_time,
-                    }
+                    },
+                    joint_state_publisher_param_file,
                 ],
             ),
             Node(
