@@ -27,6 +27,10 @@ def generate_launch_description():
     )
 
     # Include the Gazebo launch file, provided by the gazebo_ros package
+    gazebo_params_path = os.path.join(
+        get_package_share_directory(package_name), "param", "gazebo.yaml"
+    )
+
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             [
@@ -37,6 +41,7 @@ def generate_launch_description():
                 )
             ]
         ),
+        launch_arguments={"params_file": gazebo_params_path}.items(),
     )
 
     joystick = IncludeLaunchDescription(

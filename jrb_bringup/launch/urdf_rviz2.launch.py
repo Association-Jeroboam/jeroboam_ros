@@ -11,21 +11,6 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    package_name = "jrb_bringup"
-
-    rsp = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            [
-                os.path.join(
-                    get_package_share_directory(package_name),
-                    "launch",
-                    "robot_state_publisher.launch.py",
-                )
-            ]
-        ),
-        launch_arguments={"display_meshes": "true"}.items(),
-    )
-
     rviz = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([ThisLaunchFileDir(), "/rviz2.launch.py"]),
         launch_arguments={
@@ -38,4 +23,4 @@ def generate_launch_description():
         }.items(),
     )
 
-    return LaunchDescription([rsp, rviz])
+    return LaunchDescription([rviz])

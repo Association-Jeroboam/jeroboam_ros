@@ -25,12 +25,6 @@ def generate_launch_description():
                 description="A display config file (.rviz) to load",
                 default_value="",
             ),
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(
-                    [ThisLaunchFileDir(), "/robot_state_publisher.launch.py"]
-                ),
-                launch_arguments={"use_sim_time": use_sim_time}.items(),
-            ),
             Node(
                 package="rviz2",
                 executable="rviz2",
