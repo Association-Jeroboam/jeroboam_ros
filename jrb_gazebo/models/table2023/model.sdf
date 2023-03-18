@@ -3,6 +3,7 @@
   <model name='table2023'>
     <static>true</static>
     <link name="floor">
+      <pose>0 0 0 0 0 0</pose>
       <collision name="collision">
         <geometry>
           <plane>
@@ -38,7 +39,7 @@
     </link>
 
     <link name="wall1">
-      <pose>1.011 0 0 0 0 0</pose>
+      <pose>1.011 0 0.035 0 0 0</pose>
       <collision name="collision">
         <geometry>
           <box>
@@ -57,7 +58,7 @@
     </link>
 
     <link name="wall2">
-      <pose>-1.011 0 0 0 0 0</pose>
+      <pose>-1.011 0 0.035 0 0 0</pose>
       <collision name="collision">
         <geometry>
           <box>
@@ -76,7 +77,7 @@
     </link>
 
     <link name="wall3">
-      <pose>0 1.511 0 0 0 0</pose>
+      <pose>0 1.511 0.035 0 0 0</pose>
       <collision name="collision">
         <geometry>
           <box>
@@ -95,7 +96,7 @@
     </link>
 
     <link name="wall4">
-      <pose>0 -1.511 0 0 0 0</pose>
+      <pose>0 -1.511 0.035 0 0 0</pose>
       <collision name="collision">
         <geometry>
           <box>
@@ -112,5 +113,275 @@
         </geometry>
       </visual>
     </link>
+
+  <link name="beacon_support_1">
+      <pose>0 1.622 0.5 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.022 0.2 0.978</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <geometry>
+          <box>
+            <size>0.022 0.2 0.978</size>
+          </box>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="beacon_support_2">
+      <pose>0 1.722 0.5 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.2 0.022 0.978</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <geometry>
+          <box>
+            <size>0.2 0.022 0.978</size>
+          </box>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="beacon_support_3">
+      <pose>0 1.622 0.999 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.4 0.2 0.022</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <geometry>
+          <box>
+            <size>0.4 0.2 0.022</size>
+          </box>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="basket_1">
+      <pose>0.775 1.622 0.059 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.450 0.2 0.022</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <geometry>
+          <box>
+            <size>0.450 0.2 0.022</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Green</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+
+    <link name="basket_2">
+      <pose>-0.775 1.622 0.059 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.450 0.2 0.022</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <geometry>
+          <box>
+            <size>0.450 0.2 0.022</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Blue</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+
+    <link name="beacon1">
+      <pose>-1.094 1.45 0.5 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1</length>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Blue</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+
+    <link name="beacon2">
+      <pose>1.094 1.45 0.5 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1</length>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Green</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+
+    <link name="beacon3">
+      <pose>-1.094 0 0.5 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1</length>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Green</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+
+    <link name="beacon4">
+      <pose>1.094 0 0.5 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1</length>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Blue</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+
+    <link name="beacon5">
+      <pose>-1.094 -1.45 0.5 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1</length>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Blue</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+
+    <link name="beacon6">
+      <pose>1.094 -1.45 0.5 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1</length>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>1</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <script>
+            <name>Gazebo/Green</name>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+          </script>
+        </material>
+      </visual>
+    </link>
+
   </model>
 </sdf>
