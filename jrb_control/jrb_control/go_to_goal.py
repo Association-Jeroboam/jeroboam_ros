@@ -52,15 +52,15 @@ class GoToGoalNode(Node):
             self.action_name,
         )
 
-        self.dist_pub = self.create_publisher(Float32, "distance_to_goal", 10)
-        self.twist_pub = self.create_publisher(Twist, "cmd_vel", 10)
-        self.goal_achieved_pub = self.create_publisher(Bool, "goal_achieved", 1)
+        self.dist_pub = self.create_publisher(Float32, "/distance_to_goal", 10)
+        self.twist_pub = self.create_publisher(Twist, "/cmd_vel", 10)
+        self.goal_achieved_pub = self.create_publisher(Bool, "/goal_achieved", 1)
         self.pub_debug_current_goal = self.create_publisher(
-            Marker, "debug/current_goal", 1
+            Marker, "/debug/current_goal", 1
         )
 
         self.odom_sub = self.create_subscription(
-            Odometry, "odometry", self.on_odometry, 10
+            Odometry, "/odom", self.on_odometry, 10
         )
         self.goal_sub = self.create_subscription(
             PoseStamped,

@@ -239,11 +239,10 @@
 
     <link name="left_tag_link">
         <visual>
-            <origin xyz="0 0 0.0005" rpy="0 0 0"/>
-            <geometry>
-                <box size="0.02 0.02 0.001"/>
-            </geometry>
-            <material name="dark"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <mesh filename="package://jrb_description/urdf/meshes/tag/tag_left.dae" />
+                </geometry>
         </visual>
     </link>
 
@@ -256,15 +255,15 @@
 
     <link name="right_tag_link">
         <visual>
-            <origin xyz="0 0 0.0005" rpy="0 0 0"/>
-            <geometry>
-                <box size="0.02 0.02 0.001"/>
-            </geometry>
-            <material name="dark"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <mesh filename="package://jrb_description/urdf/meshes/tag/tag_right.dae" />
+                </geometry>
         </visual>
     </link>
 
     <xacro:include filename="lidar.xacro" />
+    <xacro:include filename="camera.xacro" />
 
     <xacro:include filename="gazebo.xacro" />
     <xacro:include filename="gazebo_control.xacro" /> 

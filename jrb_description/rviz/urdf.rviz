@@ -61,11 +61,17 @@ Visualization Manager:
           Value: true
         base_link:
           Value: true
+        camera_link:
+          Value: true
+        camera_link_optical:
+          Value: true
         carter:
           Value: true
         chassis:
           Value: true
         front_caster_wheel:
+          Value: true
+        laser_link:
           Value: true
         left_tag_link:
           Value: true
@@ -87,9 +93,14 @@ Visualization Manager:
           chassis:
             back_caster_wheel:
               {}
+            camera_link:
+              camera_link_optical:
+                {}
             carter:
               {}
             front_caster_wheel:
+              {}
+            laser_link:
               {}
             left_tag_link:
               {}
@@ -132,6 +143,15 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
+        camera_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        camera_link_optical:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         carter:
           Alpha: 1
           Show Axes: false
@@ -143,6 +163,11 @@ Visualization Manager:
           Show Trail: false
           Value: true
         front_caster_wheel:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        laser_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -221,7 +246,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 1.2873642444610596
+      Distance: 0.17343856394290924
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -236,10 +261,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4403993487358093
+      Pitch: 0.5203993320465088
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.996633052825928
+      Yaw: 1.178453803062439
     Saved: ~
 Window Geometry:
   Displays:
