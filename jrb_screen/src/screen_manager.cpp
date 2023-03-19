@@ -207,6 +207,7 @@ public:
         }
 
         CloseWindow();
+        rclcpp::shutdown();
     }
 
 private:
