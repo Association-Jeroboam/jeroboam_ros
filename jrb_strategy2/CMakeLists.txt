@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 project(jrb_strategy2)
 
-# Default to C++14
+# Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
 endif()
@@ -14,7 +14,9 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(behaviortree_cpp_v3 REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED) 
 
 set(library_name ${PROJECT_NAME})
 
@@ -26,7 +28,9 @@ set(dependencies
   rclcpp
   behaviortree_cpp_v3
   tf2_ros
+  tf2_geometry_msgs
   std_msgs
+  visualization_msgs
 )
 
 add_library(is_match_started_condition SHARED src/nodes/condition/is_match_started_condition.cpp)
@@ -48,6 +52,11 @@ add_executable(brain_node
 )
 ament_target_dependencies(brain_node ${dependencies})
 
+add_executable(marker_publisher
+  src/marker_publisher.cpp
+)
+ament_target_dependencies(marker_publisher ${dependencies})
+
 # if built statically
 # target_link_libraries(brain_node ${plugin_libs})
 install(
@@ -61,7 +70,7 @@ install(TARGETS ${plugin_libs}
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS brain_node
+install(TARGETS brain_node marker_publisher
   DESTINATION lib/${PROJECT_NAME}
 )
 
