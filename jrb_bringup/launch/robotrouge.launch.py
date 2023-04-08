@@ -20,7 +20,6 @@ def generate_launch_description():
 
     this_pkg = FindPackageShare("jrb_bringup")
 
-    use_sim_time = LaunchConfiguration("use_sim_time")
     camera_param_path = LaunchConfiguration("camera_param_path")
     lidar_param_path = LaunchConfiguration("lidar_param_path")
     can_bridge_param_path = LaunchConfiguration("can_bridge_param_path")
@@ -50,7 +49,6 @@ def generate_launch_description():
                 PythonLaunchDescriptionSource(
                     [ThisLaunchFileDir(), "/joystick.launch.py"]
                 ),
-                launch_arguments={"use_sim_time": "true"}.items(),
             ),
         ]
     )
@@ -59,7 +57,7 @@ def generate_launch_description():
         package="twist_mux",
         executable="twist_mux",
         output="screen",
-        parameters=[twist_mux_params, {"use_sim_time": True}],
+        parameters=[twist_mux_params],
         remappings=[("cmd_vel_out", "/cmd_vel")],
     )
 
