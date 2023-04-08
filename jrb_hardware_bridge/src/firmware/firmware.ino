@@ -1,6 +1,13 @@
+#include <Adafruit_NeoPixel.h>
+
 const int PIN_STARTER = 23;
 const int PIN_TEAM = 22;
 const int PIN_STRATEGY = 21;
+const int PIN_LED = 11;
+
+const int NB_LED = 10;
+
+Adafruit_NeoPixel LEDmodule = Adafruit_NeoPixel(NB_LED, PIN_LED, NEO_GRB + NEO_KHZ800);  // création de l'objet module
 
 const int BAUDRATE = 115200;
 const int BUFFER_SIZE = 64;
@@ -121,6 +128,19 @@ void readSerial()
     }
 }
 
+void setLed()
+{
+    int R,G,B;
+    for(int i=0;i<NB_LED;i++)
+    {
+        R = random(0, 100);
+        G = random(0, 100);
+        B = random(0, 100);
+        LEDmodule.setPixelColor(i,R,G,B);
+    }
+    LEDmodule.show();
+}
+
 void setup()
 {
     Serial.begin(BAUDRATE);
@@ -137,6 +157,14 @@ void setup()
     prevValues[0] = currentValues[0];
     prevValues[1] = currentValues[1];
     prevValues[2] = currentValues[2];
+
+    LEDmodule.begin();
+/*    for(int i=0;i<NB_LED;i++)
+    { 
+        LEDmodule.setPixelColor(i,0,0,0);
+    }
+    LEDmodule.show();*/
+    setLed();
 }
 
 void loop()
