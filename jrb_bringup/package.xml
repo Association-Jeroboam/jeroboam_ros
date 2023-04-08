@@ -17,7 +17,9 @@
   <exec_depend>joint_state_publisher</exec_depend>
   <exec_depend>joint_state_publisher_gui</exec_depend>
   <exec_depend>rviz2</exec_depend>
-  <exec_depend>usb_cam</exec_depend>
+  <exec_depend>v4l2_camera</exec_depend>
+  <exec_depend>image-transport-plugins</exec_depend>
+  <exec_depend>rqt_image_view</exec_depend>
   <exec_depend>twist_mux</exec_depend>
   <exec_depend>navigation2</exec_depend>
   <exec_depend>nav2_bringup</exec_depend>
