@@ -11,7 +11,7 @@ from launch.actions import IncludeLaunchDescription
 
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
-    display_config = LaunchConfiguration("display_config")
+    rviz_config = LaunchConfiguration("rviz_config")
 
     return LaunchDescription(
         [
@@ -21,7 +21,7 @@ def generate_launch_description():
                 default_value="False",
             ),
             DeclareLaunchArgument(
-                "display_config",
+                "rviz_config",
                 description="A display config file (.rviz) to load",
                 default_value="",
             ),
@@ -29,7 +29,7 @@ def generate_launch_description():
                 package="rviz2",
                 executable="rviz2",
                 name="rviz2",
-                arguments=["-d", display_config],
+                arguments=["-d", rviz_config],
                 output="screen",
                 parameters=[
                     {

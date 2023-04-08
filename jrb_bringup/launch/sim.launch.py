@@ -31,6 +31,10 @@ def generate_launch_description():
         get_package_share_directory("jrb_bringup"), "param", "twist_mux.yaml"
     )
 
+    marker_publisher_params = os.path.join(
+        get_package_share_directory("jrb_bringup"), "param", "marker_publisher.yaml"
+    )
+
     # Include the Gazebo launch file, provided by the gazebo_ros package
     gazebo_params_path = os.path.join(
         get_package_share_directory(package_name), "param", "gazebo.yaml"
@@ -74,13 +78,6 @@ def generate_launch_description():
         output="screen",
     )
 
-    map_manager = Node(
-        package="jrb_localization",
-        executable="map_manager",
-        output="screen",
-        parameters=[{"use_sim_time": True}],
-    )
-
     sample_detector = Node(
         package="jrb_sensors",
         executable="sample_detector",
@@ -104,15 +101,23 @@ def generate_launch_description():
         remappings=[("cmd_vel_out", "/cmd_vel")],
     )
 
+    marker_publisher = Node(
+        package="jrb_strategy2",
+        executable="marker_publisher",
+        output="screen",
+        parameters=[marker_publisher_params, {"use_sim_time": True}],
+        remappings=[("markers", "/debug/table_mesh")],
+    )
+
     # Launch them all!
     return LaunchDescription(
         [
             rsp,
-            map_manager,
-            sample_detector,
-            go_to_goal,
+            # sample_detector,
+            # go_to_goal,
             twist_mux,
             joystick,
+            marker_publisher,
             rviz,
             gazebo,
             spawn_entity,

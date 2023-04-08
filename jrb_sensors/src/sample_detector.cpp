@@ -147,7 +147,7 @@ private:
 
                 tf2::Matrix3x3 rotation_matrix;
                 double angle_z = atan2(rotationMatrix.at<double>(1, 0), rotationMatrix.at<double>(0, 0));
-                rotation_matrix.setRPY(0, 0, angle_z);
+                rotation_matrix.setEulerYPR(angle_z, 0, 0);
                 tf2::Quaternion q;
                 rotation_matrix.getRotation(q);
 

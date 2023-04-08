@@ -8,10 +8,10 @@
 class ParameterException : public std::runtime_error
 {
 public:
-  explicit ParameterException(const std::string & what)
-  : std::runtime_error(what)
-  {
-  }
+    explicit ParameterException(const std::string &what)
+        : std::runtime_error(what)
+    {
+    }
 };
 
 class MarkerPublisher : public rclcpp::Node
@@ -45,10 +45,11 @@ public:
         visualization_msgs::msg::MarkerArray marker_array;
         int marker_id = 0;
         rcl_interfaces::msg::ListParametersResult list = list_parameters({"markers"}, 10);
-        
-        for (auto prefix : list.prefixes) {
+
+        for (auto prefix : list.prefixes)
+        {
             RCLCPP_DEBUG(get_logger(), "Prefix: %s", prefix.c_str());
-            
+
             visualization_msgs::msg::Marker marker;
 
             marker.header.frame_id = fetch_param<std::string>(prefix + ".frame_id");
@@ -70,13 +71,14 @@ public:
             marker.scale.z = fetch_param_or<double>(prefix + ".scale_z", 1.0);
 
             marker.color.r = fetch_param_or<double>(prefix + ".color_r", 1.0);
-            marker.color.g = fetch_param_or<double>(prefix + ".color_g", 0.0);
-            marker.color.b = fetch_param_or<double>(prefix + ".color_b", 0.0);
+            marker.color.g = fetch_param_or<double>(prefix + ".color_g", 1.0);
+            marker.color.b = fetch_param_or<double>(prefix + ".color_b", 1.0);
             marker.color.a = fetch_param_or<double>(prefix + ".color_a", 1.0);
 
             if (marker.type == visualization_msgs::msg::Marker::MESH_RESOURCE)
             {
                 marker.mesh_resource = "file://" + ament_index_cpp::get_package_share_directory(fetch_param<std::string>(prefix + ".package_name")) + "/" + fetch_param<std::string>(prefix + ".mesh_file");
+                marker.mesh_use_embedded_materials = fetch_param<bool>(prefix + ".use_embedded_materials");
             }
 
             marker_array.markers.push_back(marker);
@@ -88,15 +90,16 @@ public:
 
 private:
     template <class T>
-    T fetch_param_or(const std::string& param_name, const T& default_value) const
+    T fetch_param_or(const std::string &param_name, const T &default_value) const
     {
         rclcpp::Parameter parameter;
         T value;
 
-        if (!get_parameter(param_name, parameter)) 
+        if (!get_parameter(param_name, parameter))
         {
             value = default_value;
-        } else 
+        }
+        else
         {
             value = parameter.get_value<T>();
         }
@@ -105,11 +108,11 @@ private:
     }
 
     template <class T>
-    T fetch_param(const std::string& param_name) const
+    T fetch_param(const std::string &param_name) const
     {
         rclcpp::Parameter parameter;
 
-        if (!get_parameter(param_name, parameter)) 
+        if (!get_parameter(param_name, parameter))
         {
             std::ostringstream err_msg;
             err_msg << "Could not load parameter '" << param_name << "'. (namespace: " << get_namespace() << ")";
@@ -129,4 +132,4 @@ int main(int argc, char **argv)
     rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;
-}   
+}

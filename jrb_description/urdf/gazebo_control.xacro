@@ -10,8 +10,8 @@
     
 
             <!-- Limits -->
-            <max_wheel_torque>200</max_wheel_torque>
-            <max_wheel_acceleration>10.0</max_wheel_acceleration>
+            <max_wheel_torque>400</max_wheel_torque>
+            <max_wheel_acceleration>20.0</max_wheel_acceleration>
     
 
             <!-- Output -->
@@ -19,8 +19,8 @@
             <robot_base_frame>base_link</robot_base_frame>
 
             <publish_odom>true</publish_odom>
-            <publish_odom_tf>false</publish_odom_tf>
-            <publish_wheel_tf>true</publish_wheel_tf>
+            <publish_odom_tf>true</publish_odom_tf>
+            <publish_wheel_tf>false</publish_wheel_tf>
         </plugin>
     </gazebo>
 </robot>

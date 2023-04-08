@@ -71,7 +71,7 @@ class MapManager(Node):
 
         self.map_marker_msg.pose.position.x = 0.0
         self.map_marker_msg.pose.position.y = 0.0
-        self.map_marker_msg.pose.position.z = 0.0
+        self.map_marker_msg.pose.position.z = -0.01
 
         self.map_marker_msg.scale.x = 1.0
         self.map_marker_msg.scale.y = 1.0
