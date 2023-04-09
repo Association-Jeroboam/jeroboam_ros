@@ -31,13 +31,13 @@ public:
             std::bind(&GpioNode::readSerialCallback, this));
 
         // Initial read of gpio values
-        sendStringOverSerial("m umuxe\n");
-        sendStringOverSerial("r\n");
+        sendStringOverSerial("m umuxe");
+        sendStringOverSerial("r");
     }
 
     void sendStringOverSerial(const std::string &stringToSend)
     {
-        serialConnection.write(stringToSend);
+        serialConnection.write(stringToSend+"\n");
     }
 
 private:
@@ -115,7 +115,7 @@ private:
         // Log
         case 'l':
         {
-            RCLCPP_INFO_STREAM(get_logger(), "ARDUINO_LOG " << values);
+            RCLCPP_INFO_STREAM(get_logger(), "ARDUINO_LOG: " << values);
             break;
         }
 

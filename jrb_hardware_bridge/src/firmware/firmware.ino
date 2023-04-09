@@ -1,6 +1,13 @@
+#include <Adafruit_NeoPixel.h>
+
 const int PIN_STARTER = 23;
 const int PIN_TEAM = 22;
 const int PIN_STRATEGY = 21;
+const int PIN_LED = 11;
+
+const int NB_LED = 10;
+
+Adafruit_NeoPixel LEDmodule = Adafruit_NeoPixel(NB_LED, PIN_LED, NEO_GRB + NEO_KHZ800);  // création de l'objet module
 
 const int BAUDRATE = 115200;
 const int BUFFER_SIZE = 64;
@@ -63,8 +70,8 @@ void processSerialData(char *data)
 {
     char command;
     char values[BUFFER_SIZE-2];
-
     sscanf(data, "%c", &command);
+    unsigned int led,R,G,B;
 
     if (strlen(data) > 2) {
         strncpy(values, &data[2], sizeof(values));
@@ -80,6 +87,29 @@ void processSerialData(char *data)
             sendStarterValue();
             sendTeamValue();
             sendStrategyValue();
+            break;
+        }
+
+        case 'c':{
+            sscanf(values, "%d %d %d %d", &led,&R,&G,&B);
+            LEDmodule.setPixelColor(led,R,G,B);
+            Serial.print("l ");
+            Serial.print("led ");
+            Serial.print(led);
+            Serial.print(" set to ");
+            Serial.print(R);
+            Serial.print(" ");
+            Serial.print(G);
+            Serial.print(" ");
+            Serial.print(B);
+            Serial.println(" (send 's' to update state)");
+            break;
+        }
+
+        case 's':{
+            LEDmodule.show();
+            Serial.print("l ");
+            Serial.println("leds state updated");
             break;
         }
 
@@ -137,7 +167,13 @@ void setup()
     prevValues[0] = currentValues[0];
     prevValues[1] = currentValues[1];
     prevValues[2] = currentValues[2];
-}
+
+    LEDmodule.begin();
+    for(int i=0;i<NB_LED;i++)
+    {
+        LEDmodule.setPixelColor(i,0,0,0);
+    }
+    LEDmodule.show();}
 
 void loop()
 {

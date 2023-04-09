@@ -14,7 +14,7 @@
 #include <sstream>
 #include <vector>
 
-// #include "rclcpp/rclcpp.hpp"
+#include "rclcpp/rclcpp.hpp"
 #include "rcl_interfaces/msg/set_parameters_result.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "nav_msgs/msg/odometry.hpp"
