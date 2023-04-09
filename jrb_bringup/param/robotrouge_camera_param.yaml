@@ -20,8 +20,8 @@
         xdpi: -1
         ydpi: -1
     image_size:
-    - 640
-    - 480
+    - 1240
+    - 768
     output_encoding: rgb8
     pixel_format: YUYV
     power_line_frequency: 1
@@ -35,7 +35,7 @@
     saturation: 64
     sharpness: 5
     use_sim_time: false
-    video_device: /dev/video1
+    video_device: /dev/video0
     white_balance_temperature: 4600
     white_balance_temperature_auto: true
 
