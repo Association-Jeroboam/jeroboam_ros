@@ -70,8 +70,8 @@ void processSerialData(char *data)
 {
     char command;
     char values[BUFFER_SIZE-2];
-
     sscanf(data, "%c", &command);
+    unsigned int led,R,G,B;
 
     if (strlen(data) > 2) {
         strncpy(values, &data[2], sizeof(values));
@@ -87,6 +87,29 @@ void processSerialData(char *data)
             sendStarterValue();
             sendTeamValue();
             sendStrategyValue();
+            break;
+        }
+
+        case 'c':{
+            sscanf(values, "%d %d %d %d", &led,&R,&G,&B);
+            LEDmodule.setPixelColor(led,R,G,B);
+            Serial.print("l ");
+            Serial.print("led ");
+            Serial.print(led);
+            Serial.print(" set to ");
+            Serial.print(R);
+            Serial.print(" ");
+            Serial.print(G);
+            Serial.print(" ");
+            Serial.print(B);
+            Serial.println(" (send 's' to update state)");
+            break;
+        }
+
+        case 's':{
+            LEDmodule.show();
+            Serial.print("l ");
+            Serial.println("leds state updated");
             break;
         }
 
@@ -128,19 +151,6 @@ void readSerial()
     }
 }
 
-void setLed()
-{
-    int R,G,B;
-    for(int i=0;i<NB_LED;i++)
-    {
-        R = random(0, 100);
-        G = random(0, 100);
-        B = random(0, 100);
-        LEDmodule.setPixelColor(i,R,G,B);
-    }
-    LEDmodule.show();
-}
-
 void setup()
 {
     Serial.begin(BAUDRATE);
@@ -159,13 +169,11 @@ void setup()
     prevValues[2] = currentValues[2];
 
     LEDmodule.begin();
-/*    for(int i=0;i<NB_LED;i++)
-    { 
+    for(int i=0;i<NB_LED;i++)
+    {
         LEDmodule.setPixelColor(i,0,0,0);
     }
-    LEDmodule.show();*/
-    setLed();
-}
+    LEDmodule.show();}
 
 void loop()
 {
