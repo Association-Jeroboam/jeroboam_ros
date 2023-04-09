@@ -4,6 +4,7 @@
 CanBridge::CanBridge()
 : Node("can_bridge")
 {
+    send_config_enabled = false;
     // Publishers
     odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("odometry", 50);
     left_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("left_pid_state", 10);
@@ -87,7 +88,9 @@ void CanBridge::init() {
             value = this->get_parameter("pid/"+side+"/"+threshold+"/threshold").as_double();
             setAdaptPidParam(side, threshold, "threshold", value);
         }
+        sendAdaptPidConfig(side);
     }
+    send_config_enabled = true;
 }
 
 void CanBridge::setAdaptPidParam(std::string side, std::string threshold, std::string param_name, double value) {
@@ -125,31 +128,33 @@ void CanBridge::setAdaptPidParam(std::string side, std::string threshold, std::s
 
         adaptConfig->configs[conf_idx].pid[pid_idx] = value;
     }
-
-    sendAdaptPidConfig(side);
 }
 
 rcl_interfaces::msg::SetParametersResult CanBridge::parametersCallback(const std::vector<rclcpp::Parameter> &parameters) {
     for (const auto &parameter : parameters) {
-    auto name = parameter.get_name();
+        auto name = parameter.get_name();
 
-    if (name.rfind("pid/", 0) == 0) {
-        std::string side, threshold, param_name;
-        std::stringstream s(name);
-        std::string part;
-        std::vector<std::string> parts;
+        if (name.rfind("pid/", 0) == 0) {   
+            std::string side, threshold, param_name;
+            std::stringstream s(name);
+            std::string part;
+            std::vector<std::string> parts;
 
-        while (std::getline(s, part, '/')) {
-        parts.push_back(part);
+            while (std::getline(s, part, '/')) {
+                parts.push_back(part);
+            }
+
+            side = parts[1];
+            threshold = parts[2];
+            param_name = parts[3];
+            auto value = parameter.as_double();
+
+            setAdaptPidParam(side, threshold, param_name, value);
         }
-
-        side = parts[1];
-        threshold = parts[2];
-        param_name = parts[3];
-        auto value = parameter.as_double();
-
-        setAdaptPidParam(side, threshold, param_name, value);
     }
+    if(send_config_enabled) {
+        sendAdaptPidConfig("left");
+        sendAdaptPidConfig("right");
     }
 
     rcl_interfaces::msg::SetParametersResult result;
@@ -356,6 +361,8 @@ void CanBridge::initialpose_cb(const geometry_msgs::msg::PoseWithCovarianceStamp
         return;
     }
 
+    send_can_msg(ROBOT_SET_CURRENT_POSE_ID, &transfer_id, buffer, buf_size);
+    // Double it in case we restarted the node and we already sent a current pose with transfer ID 0
     send_can_msg(ROBOT_SET_CURRENT_POSE_ID, &transfer_id, buffer, buf_size);
 }
 

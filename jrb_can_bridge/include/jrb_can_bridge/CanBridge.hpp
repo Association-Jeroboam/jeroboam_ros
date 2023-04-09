@@ -84,6 +84,7 @@ class CanBridge : public rclcpp::Node
     void publishServoGenericReadResponse(jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1 * response);
     void publishServoAngle(jeroboam_datatypes_actuators_servo_ServoAngle_0_1 * servoAngle);
     void publishOdometryTicks(jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1 * odometryTicks);
+    void sendAdaptPidConfig(std::string side);
 
   private:
     static void send_can_msg(CanardPortID portID, CanardTransferID* transferID, void* buffer, size_t buf_size);
@@ -102,8 +103,6 @@ class CanBridge : public rclcpp::Node
 
     void valveRightCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg);
 
-    void sendAdaptPidConfig(std::string side);
-
     void motionConfigCB( const jrb_msgs::msg::MotionConfig msg);
 
     void servoAngleCB (const jrb_msgs::msg::ServoAngle msg);
@@ -119,32 +118,32 @@ class CanBridge : public rclcpp::Node
     void motionSpeedCommandCB (const jrb_msgs::msg::MotionSpeedCommand msg);
 
 
-      rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr       odom_pub;
-      rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       left_pid_pub;
-      rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       right_pid_pub;
-      rclcpp::Publisher<jrb_msgs::msg::PumpStatus>::SharedPtr     left_pump_pub;
-      rclcpp::Publisher<jrb_msgs::msg::PumpStatus>::SharedPtr     right_pump_pub;
-      rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    left_valve_pub;
-      rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    right_valve_pub;
-      rclcpp::Publisher<jrb_msgs::msg::ServoGenericReadResponse>::SharedPtr    servo_generic_read_response_pub;
-      rclcpp::Publisher<jrb_msgs::msg::ServoAngle>::SharedPtr     servo_angle_pub;
-      rclcpp::Publisher<jrb_msgs::msg::OdometryTicks>::SharedPtr     odometry_ticks_pub;
-    
-      rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr  twist_sub;
-      rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initialpose_sub;
-      rclcpp::Subscription<jrb_msgs::msg::PumpStatus>::SharedPtr  left_pump_sub;
-      rclcpp::Subscription<jrb_msgs::msg::PumpStatus>::SharedPtr  right_pump_sub;
-      rclcpp::Subscription<jrb_msgs::msg::ValveStatus>::SharedPtr left_valve_sub;
-      rclcpp::Subscription<jrb_msgs::msg::ValveStatus>::SharedPtr right_valve_sub;
-      rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr left_adapt_pid_conf_sub;
-      rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr right_adapt_pid_conf_sub;
-      rclcpp::Subscription<jrb_msgs::msg::MotionConfig>::SharedPtr motion_config_sub;
-      rclcpp::Subscription<jrb_msgs::msg::ServoAngle>::SharedPtr   servo_angle_sub;
-      rclcpp::Subscription<jrb_msgs::msg::ServoConfig>::SharedPtr  servo_config_sub;
-      rclcpp::Subscription<jrb_msgs::msg::ServoID>::SharedPtr      servo_reboot_sub;
-      rclcpp::Subscription<jrb_msgs::msg::ServoGenericCommand>::SharedPtr            servo_generic_command_sub;
-      rclcpp::Subscription<jrb_msgs::msg::ServoGenericRead>::SharedPtr               servo_generic_read_sub;
-      rclcpp::Subscription<jrb_msgs::msg::MotionSpeedCommand>::SharedPtr             motion_speed_command_sub;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr       odom_pub;
+    rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       left_pid_pub;
+    rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       right_pid_pub;
+    rclcpp::Publisher<jrb_msgs::msg::PumpStatus>::SharedPtr     left_pump_pub;
+    rclcpp::Publisher<jrb_msgs::msg::PumpStatus>::SharedPtr     right_pump_pub;
+    rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    left_valve_pub;
+    rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    right_valve_pub;
+    rclcpp::Publisher<jrb_msgs::msg::ServoGenericReadResponse>::SharedPtr    servo_generic_read_response_pub;
+    rclcpp::Publisher<jrb_msgs::msg::ServoAngle>::SharedPtr     servo_angle_pub;
+    rclcpp::Publisher<jrb_msgs::msg::OdometryTicks>::SharedPtr     odometry_ticks_pub;
+  
+    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr  twist_sub;
+    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initialpose_sub;
+    rclcpp::Subscription<jrb_msgs::msg::PumpStatus>::SharedPtr  left_pump_sub;
+    rclcpp::Subscription<jrb_msgs::msg::PumpStatus>::SharedPtr  right_pump_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ValveStatus>::SharedPtr left_valve_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ValveStatus>::SharedPtr right_valve_sub;
+    rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr left_adapt_pid_conf_sub;
+    rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr right_adapt_pid_conf_sub;
+    rclcpp::Subscription<jrb_msgs::msg::MotionConfig>::SharedPtr motion_config_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ServoAngle>::SharedPtr   servo_angle_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ServoConfig>::SharedPtr  servo_config_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ServoID>::SharedPtr      servo_reboot_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ServoGenericCommand>::SharedPtr            servo_generic_command_sub;
+    rclcpp::Subscription<jrb_msgs::msg::ServoGenericRead>::SharedPtr               servo_generic_read_sub;
+    rclcpp::Subscription<jrb_msgs::msg::MotionSpeedCommand>::SharedPtr             motion_speed_command_sub;
 
     OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
 
@@ -152,4 +151,5 @@ class CanBridge : public rclcpp::Node
 
     jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1 leftAdaptConfig;
     jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1 rightAdaptConfig;
+    bool send_config_enabled;
 };
