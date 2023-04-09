@@ -93,7 +93,7 @@ void processSerialData(char *data)
         case 'c':{
             sscanf(values, "%d %d %d %d", &led,&R,&G,&B);
             LEDmodule.setPixelColor(led,R,G,B);
-            Serial.print("l ");
+            /*Serial.print("l ");
             Serial.print("led ");
             Serial.print(led);
             Serial.print(" set to ");
@@ -102,7 +102,7 @@ void processSerialData(char *data)
             Serial.print(G);
             Serial.print(" ");
             Serial.print(B);
-            Serial.println(" (send 's' to update state)");
+            Serial.println(" (send 's' to update state)");*/
             break;
         }
 

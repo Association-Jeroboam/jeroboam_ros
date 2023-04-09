@@ -22,6 +22,9 @@ public:
         // Subscribers
         serialWrite_sub = this->create_subscription<std_msgs::msg::String>(
             "hardware/arduino/serial_write", 10, std::bind(&GpioNode::serialWriteCallback, this, std::placeholders::_1));
+        
+        led_sub = this->create_subscription<std_msgs::msg::Bool>(
+            "hardware/led", 10, std::bind(&GpioNode::ledCallback, this, std::placeholders::_1));  
 
         // Publishers
         auto latchedQos = rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable();
@@ -101,6 +104,28 @@ private:
     void serialWriteCallback(const std_msgs::msg::String::SharedPtr msg)
     {
         sendStringOverSerial(msg->data);
+    }
+
+    void ledCallback(const std_msgs::msg::Bool::SharedPtr msg)
+    {
+        char command[17];
+        if(msg->data)
+        {
+            for(int i=0;i<10;i++)
+            {
+                sprintf(command,"c %d 255 255 255",i);
+                sendStringOverSerial(command);
+            }
+        }
+        else
+        {
+            for(int i=0;i<10;i++)
+            {
+                sprintf(command,"c %d 0 0 0",i);
+                sendStringOverSerial(command);
+            }
+        }
+        sendStringOverSerial("s");
     }
 
     void readSerialCallback()
@@ -225,6 +250,7 @@ private:
     }
 
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr serialWrite_sub;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr led_sub;
 
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr serialRead_pub;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr starter_pub;
