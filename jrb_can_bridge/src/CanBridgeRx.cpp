@@ -59,8 +59,6 @@ void publishReceivedMessage(CanardRxTransfer * transfer);
 
 pthread_t rxThread;
 
-
-
 void RxThread::CanBridgeInitRxThread() {
     pthread_create(&rxThread, NULL, &checkRxMsg, NULL);
 }
@@ -69,161 +67,175 @@ void* RxThread::CanBridgeDeinitRxThread() {
     void* retval;
     pthread_cancel(rxThread);
     pthread_join(rxThread, &retval);
+
     return retval;
 }
 
 void* checkRxMsg(void*) {
-//  auto lastReceiveTS = std::chrono::high_resolution_clock::now();
-//  uint32_t count = 0;
-  while (true) {
-    if(canIFace !=0) {
-      struct can_frame rx_frame;
-      //this is blocking
-      int nbytes = read(canIFace, &rx_frame, sizeof(struct can_frame));
-//        auto receiveTS = std::chrono::high_resolution_clock::now();
-//        auto dt = receiveTS - lastReceiveTS;
-//        lastReceiveTS = receiveTS;
+  while (canIFace != 0) {
+    struct can_frame rx_frame;
 
-      if (nbytes >= 0) {
-        const CanardMicrosecond timestamp = 0;
-        CanardFrame frame;
-        frame.extended_can_id = rx_frame.can_id & CAN_EXT_ID_MASK;
-        frame.payload_size = rx_frame.can_dlc;
-        frame.payload = rx_frame.data;
+    // This is blocking
+    int nbytes = read(canIFace, &rx_frame, sizeof(struct can_frame));
 
-        CanardRxTransfer transfer;
-        CanardRxSubscription * sub;
-        int32_t ret = canardRxAccept(&instance, timestamp, &frame, 0, &transfer, &sub);
-        if(ret == 1) {
-          //success
-
-//          auto receiveTS = std::chrono::high_resolution_clock::now();
-//          auto dt = receiveTS - lastReceiveTS;
-//          lastReceiveTS = receiveTS;
-          // process message
-          publishReceivedMessage(&transfer);
-          //then
-          instance.memory_free(&instance, transfer.payload);
-
-//            printf("did complete %u ------------------\n", count);
-//            count = 0;
-
-        } else if (ret == 0) {
-//            printf("not complete %u\n", count);
-//            count ++;
-            // rejected because not subscribed or transfer not complete
-        }else {
-            //error
-            printf("frame error %i\n", ret);
-        }
-
-      } else {
-          printf("What?");
-      }
-//        std::cout << "dt: " << std::chrono::duration_cast<std::chrono::microseconds>(dt).count() << "µs\n";
+    if (nbytes < 0) {
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "RxThreadThread::checkRxMsg error: What?");
+        continue;
     }
+
+    const CanardMicrosecond timestamp = 0;
+    CanardFrame frame;
+    frame.extended_can_id = rx_frame.can_id & CAN_EXT_ID_MASK;
+    frame.payload_size = rx_frame.can_dlc;
+    frame.payload = rx_frame.data;
+
+    CanardRxTransfer transfer;
+    CanardRxSubscription * sub;
+    int32_t ret = canardRxAccept(&instance, timestamp, &frame, 0, &transfer, &sub);
+
+    if (ret == 1) {
+      // Success, process message
+      publishReceivedMessage(&transfer);
+      instance.memory_free(&instance, transfer.payload);
+    } else if (ret < 0) {
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "RxThreadThread::checkRxMsg error: frame error " << ret);
+    }
+    // ret == 0 is an incomplete message, nothing special to do
   }
 }
 
 void publishReceivedMessage(CanardRxTransfer * transfer) {
-  static uint32_t last_transfer_id =                    0;
+  static uint32_t last_transfer_id = 0;
   static uint64_t frameCount = 0;
   static uint64_t frameErrorCount = 0;
+
   switch (transfer->metadata.port_id)
   {
     case ROBOT_CURRENT_STATE_ID:{
         frameCount++;
-      if((last_transfer_id +1) % 32 != transfer->metadata.transfer_id) {
+      if ((last_transfer_id +1) % 32 != transfer->metadata.transfer_id) {
           frameErrorCount++;
-          printf("Transfer lost! %u %u. rate %.4f\n", last_transfer_id, transfer->metadata.transfer_id, (float)frameErrorCount/(float)frameCount);
+          RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: Transfer lost! " << last_transfer_id << " " << transfer->metadata.transfer_id << ". rate " << (float)frameErrorCount/(float)frameCount);
       }
+
       last_transfer_id = transfer->metadata.transfer_id;
       reg_udral_physics_kinematics_cartesian_State_0_1 state;
-      reg_udral_physics_kinematics_cartesian_State_0_1_deserialize_(&state,
+      int8_t res = reg_udral_physics_kinematics_cartesian_State_0_1_deserialize_(&state,
                                                                   (uint8_t *)transfer->payload,
                                                                   &transfer->payload_size);
+      if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: ROBOT_CURRENT_STATE_ID deserialize failed " << res);
+        break;
+      } 
+
       canBridge.get()->publishRobotCurrentState(&state);
       break;
     }
+
     case MOTION_PID_STATE_ID:{
       jeroboam_datatypes_actuators_motion_PIDState_0_1 pidState;
-      jeroboam_datatypes_actuators_motion_PIDState_0_1_deserialize_(&pidState,
+      int8_t res = jeroboam_datatypes_actuators_motion_PIDState_0_1_deserialize_(&pidState,
                                                                     (uint8_t *)transfer->payload,
                                                                     &transfer->payload_size);
-      if(pidState.ID == 0) {
+
+      if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: MOTION_PID_STATE_ID deserialize failed " << res);
+        break;
+      } 
+      if (pidState.ID == 0) {
         canBridge.get()->publishLeftPIDState(&pidState);
       } else {
         canBridge.get()->publishRightPIDState(&pidState);
       }
       break;
     }
+
     case ACTION_PUMP_STATUS_ID:{
       jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 status;
-      jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_deserialize_(&status,
+      int8_t res = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_deserialize_(&status,
                                                                     (uint8_t *)transfer->payload,
                                                                     &transfer->payload_size);
-      if(status.status.ID == 0) {
+
+      if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: ACTION_PUMP_STATUS_ID deserialize failed " << res);
+        break;
+      } 
+
+      if (status.status.ID == 0) {
         canBridge.get()->publishLeftPumpStatus(&status);
       } else {
         canBridge.get()->publishRightPumpStatus(&status);
       }
       break;
     }
+
     case ACTION_VALVE_STATUS_ID:{
       jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 status;
-      jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_deserialize_(&status,
+      int res = jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_deserialize_(&status,
                                                                     (uint8_t *)transfer->payload,
                                                                     &transfer->payload_size);
-      if(status.status.ID == 0) {
+      if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: ACTION_VALVE_STATUS_ID deserialize failed " << res);
+        break;
+      } 
+
+      if (status.status.ID == 0) {
         canBridge.get()->publishLeftValveStatus(&status);
-      } else {
-        canBridge.get()->publishRightValveStatus(&status);
-      }
+      } 
+
+      canBridge.get()->publishRightValveStatus(&status);
       break;
     }
+
     case ACTION_SERVO_GENERIC_READ_ID:{
       jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1 response;
       int8_t res = jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1_deserialize_(&response,
                                                                               (uint8_t *)transfer->payload,
                                                                               &transfer->payload_size);
-      if(res == NUNAVUT_SUCCESS) {
-        canBridge.get()->publishServoGenericReadResponse(&response);
-      } else {
-        printf("ACTION_SERVO_GENERIC_READ_ID deserialize failed %i\r\n", res);
-      }
-      
+      if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: ACTION_SERVO_GENERIC_READ_ID deserialize failed " << res);
+        break;
+      } 
+
+      canBridge.get()->publishServoGenericReadResponse(&response);
       break;
     }
+
     case ACTION_SERVO_CURRENT_ANGLE_ID:{
       jeroboam_datatypes_actuators_servo_ServoAngle_0_1 servoAngle;
       int8_t res = jeroboam_datatypes_actuators_servo_ServoAngle_0_1_deserialize_(&servoAngle,
                                                                                   (uint8_t *)transfer->payload,
                                                                                   &transfer->payload_size);
-      if(res == NUNAVUT_SUCCESS) {
-        canBridge.get()->publishServoAngle(&servoAngle);
-      } else {
-        printf("ACTION_SERVO_CURRENT_ANGLE_ID deserialize failed %i\r\n", res);
-      }
+      if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: ACTION_SERVO_CURRENT_ANGLE_ID deserialize failed " << res);
+        break;
+      } 
+
+      canBridge.get()->publishServoAngle(&servoAngle);
       break;
     }
+
     case MOTION_ODOM_TICKS_ID:{
       jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1 odometryTicks;
       int8_t res = jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1_deserialize_(&odometryTicks,
                                                                                       (uint8_t *)transfer->payload,
                                                                                       &transfer->payload_size);
       
-      if(res == NUNAVUT_SUCCESS) {
-        canBridge.get()->publishOdometryTicks(&odometryTicks);
-      } else {
-        printf("MOTION_ODOM_TICKS_ID deserialize failed %i\r\n", res);
-      }
+      if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: MOTION_ODOM_TICKS_ID deserialize failed " << res);
+        break;
+      } 
+
+      canBridge.get()->publishOdometryTicks(&odometryTicks);
       break;
     }
+
     case uavcan_node_Heartbeat_1_0_FIXED_PORT_ID_:
         // Heartbeat
         break;
+
     default:
-      printf("Accepted a non handled CAN message(ID %u)! Please fix me!\n", transfer->metadata.port_id);
+      RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: Accepted a non handled CAN message(ID " << transfer->metadata.port_id << ")! Please fix me!");
       break;
   }
 }

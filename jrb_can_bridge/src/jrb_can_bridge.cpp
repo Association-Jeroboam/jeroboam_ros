@@ -159,7 +159,6 @@ bool subscribe(CanardTransferKind transfer_kind, CanardPortID port_id, size_t ex
 }
 
 void initCAN(char * iface) {
-
     // stolen from the basic tutorial
     struct sockaddr_can addr;
     struct ifreq ifr;
