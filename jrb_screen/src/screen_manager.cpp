@@ -157,11 +157,14 @@ public:
     {
         if (fullscreen_)
         {
+            // Disable GNOME notifications
+            system("dconf write /org/gnome/desktop/notifications/show-banners false");
+            
             InitWindow(0, 0, "jeroboam_screen");
             ToggleFullscreen();
+            HideCursor();
             width_ = GetScreenWidth();
             height_ = GetScreenHeight();
-            RCLCPP_ERROR(get_logger(), "%d %d", width_, height_);
         }
         else
         {
@@ -208,7 +211,13 @@ public:
             EndDrawing();
         }
 
+        ShowCursor();
+        
         CloseWindow();
+
+        // Enable GNOME notifications
+        system("dconf write /org/gnome/desktop/notifications/show-banners true");
+
         rclcpp::shutdown();
     }
 
