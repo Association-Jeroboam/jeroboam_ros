@@ -1,8 +1,14 @@
+#include <sys/stat.h>
+
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/u_int8_multi_array.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "serial/serial.h"
+
+const int PIN_STARTER = 23;
+const int PIN_TEAM = 22;
+const int PIN_STRATEGY = 21;
 
 class GpioNode : public rclcpp::Node
 {
@@ -31,7 +37,6 @@ public:
             std::bind(&GpioNode::readSerialCallback, this));
 
         // Initial read of gpio values
-        sendStringOverSerial("m umuxe");
         sendStringOverSerial("r");
     }
 
@@ -43,11 +48,54 @@ public:
 private:
     void initSerial()
     {
+        readRetries = 0;
+        maxReadRetries = 3;
+
+        waitForDevice("/dev/arduino");
+
         serialConnection.setPort("/dev/arduino");
         serialConnection.setBaudrate(115200);
         serial::Timeout tt = serial::Timeout::simpleTimeout(50); // ms
         serialConnection.setTimeout(tt);                         // This should be inline except setTimeout takes a reference and so needs a variable
-        serialConnection.open();
+
+        try {
+            serialConnection.open();
+        } catch (const serial::IOException &e) {
+            RCLCPP_ERROR_STREAM(get_logger(), "Error opening the serial connection: " << e.what());
+        }
+    }
+
+    bool fileExists(const std::string &filePath)
+    {
+        struct stat buffer;
+        return (stat(filePath.c_str(), &buffer) == 0);
+    }
+
+    void waitForDevice(const std::string &devicePath, double checkFrequencyHz = 1.0)
+    {
+        rclcpp::Rate checkRate(checkFrequencyHz);
+
+        while (!fileExists(devicePath) && rclcpp::ok())
+        {
+            RCLCPP_INFO_STREAM(get_logger(), "Waiting for " << devicePath << " to become available...");
+            checkRate.sleep();
+        }
+
+        RCLCPP_INFO_STREAM(get_logger(), devicePath << " is now available.");
+    }
+
+    void restartSerial()
+    {
+        RCLCPP_INFO_STREAM(get_logger(), "Restart serial when /dev/arduino is available...");
+        readTimer->cancel();
+        serialConnection.close();
+
+        initSerial();
+        RCLCPP_INFO_STREAM(get_logger(), "Serial restarted.");
+
+        readTimer = this->create_wall_timer(
+            std::chrono::milliseconds(10),
+            std::bind(&GpioNode::readSerialCallback, this));
     }
 
     void serialWriteCallback(const std_msgs::msg::String::SharedPtr msg)
@@ -57,7 +105,29 @@ private:
 
     void readSerialCallback()
     {
-        std::string data = serialConnection.readline();
+        if (!serialConnection.isOpen()) {
+            RCLCPP_ERROR_STREAM(get_logger(), "GpioNode::readSerialCallback error: port not opened");
+            restartSerial();
+            return;
+        }
+
+        std::string data;
+        try {
+            data = serialConnection.readline();
+        } catch (const serial::SerialException &e) {
+            readRetries++;
+            RCLCPP_ERROR_STREAM(get_logger(), "GpioNode::readSerialCallback SerialException: " << e.what());
+            
+            if (readRetries > maxReadRetries) {
+                RCLCPP_ERROR_STREAM(get_logger(), "GpioNode::readSerialCallback Max retries reached. Giving up and restart serial.");
+                restartSerial();
+                return;
+            }
+
+            RCLCPP_ERROR_STREAM(get_logger(), "GpioNode::readSerialCallback retrying... (attempt " << readRetries << " of " << maxReadRetries << ")");
+            return;
+        }
+
 
         if (data == "")
         {
@@ -88,18 +158,18 @@ private:
             int value;
             sscanf(values.c_str(), "%d %d", &digitalPin, &value);
 
-            if (digitalPin == 21)
+            if (digitalPin == PIN_STARTER)
             {
                 publishStarter(value != 0);
                 RCLCPP_INFO_STREAM(get_logger(), "starter: " << value);
             }
-            else if (digitalPin == 22)
+            else if (digitalPin == PIN_TEAM)
             {
                 std::string teamValue = (value == 1) ? "yellow" : "purple";
                 publishTeam(teamValue);
                 RCLCPP_INFO_STREAM(get_logger(), "team: " << teamValue);
             }
-            else if (digitalPin == 23)
+            else if (digitalPin == PIN_STRATEGY)
             {
                 publishStrategy(value != 0);
                 RCLCPP_INFO_STREAM(get_logger(), "strategy: " << value);
@@ -164,6 +234,8 @@ private:
     rclcpp::TimerBase::SharedPtr readTimer;
 
     serial::Serial serialConnection;
+    size_t readRetries;
+    size_t maxReadRetries;
 
     bool starterValue, strategyValue;
     std::string teamValue;
