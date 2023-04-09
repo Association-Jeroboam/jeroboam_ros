@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from re import A
 import traceback
 from rclpy.node import Node

@@ -10,11 +10,10 @@
   <depend>rclpy</depend>
   <depend>rclcpp</depend>
   <depend>serial</depend>
-
-  <exec_depend>std_msgs</exec_depend>
-  <exec_depend>nav_msgs</exec_depend>
-  <exec_depend>jrb_msgs</exec_depend>
-  <exec_depend>serial_driver</exec_depend>
+  <depend>std_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>jrb_msgs</depend>
+  <depend>serial_driver</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
