@@ -85,42 +85,51 @@ private:
         static const int16_t ROLL_HEIGHT_INCREMENT = 10;
         static int16_t roll_height = 0;
 
+        bool publish_roll_height = false;
+
         if (msg->axes[7] > 0.5)
         {
             roll_height += ROLL_HEIGHT_INCREMENT;
+            publish_roll_height = true;
         }
         else if (msg->axes[7] < -0.5)
         {
             roll_height -= ROLL_HEIGHT_INCREMENT;
+            publish_roll_height = true;
         }
 
-        std_msgs::msg::Int16 roll_height_msg;
-        roll_height_msg.data = roll_height;
-        roll_height_pub_->publish(roll_height_msg);
+        if (publish_roll_height) {
+            std_msgs::msg::Int16 roll_height_msg;
+            roll_height_msg.data = roll_height;
+            roll_height_pub_->publish(roll_height_msg);
+        }
 
         // Left & right big trigger: Roll speed control
         static float prev_axes_2 = 1.0; // Left
         static float prev_axes_5 = 1.0; // right
+        static int8_t roll_speed = 0;
 
+        int8_t prev_roll_speed = roll_speed;
         float axes_2 = msg->axes[2];
         float axes_5 = msg->axes[5];
 
         if ((axes_2 != prev_axes_2) || (axes_5 != prev_axes_5))
         {
-            int8_t roll_speed = 0;
-
-            if (std::abs(axes_2 - 1.0) >= 0.1)
+            roll_speed = 0;
+            if (std::fabs(axes_2 - 1.0) >= 0.1)
             {
                 roll_speed = 1;
             }
-            if (std::abs(axes_5 - 1.0) >= 0.1)
+            if (std::fabs(axes_5 - 1.0) >= 0.1)
             {
                 roll_speed = -1;
             }
 
-            std_msgs::msg::Int8 roll_speed_msg;
-            roll_speed_msg.data = roll_speed;
-            roll_speed_pub_->publish(roll_speed_msg);
+            if (std::fabs(roll_speed - prev_roll_speed) >= 0.1) {
+                std_msgs::msg::Int8 roll_speed_msg;
+                roll_speed_msg.data = roll_speed;
+                roll_speed_pub_->publish(roll_speed_msg);
+            }
         }
 
         prev_axes_2 = axes_2;
