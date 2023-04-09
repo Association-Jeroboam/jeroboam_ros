@@ -48,6 +48,8 @@ CanBridge::CanBridge()
     "servo_generic_read", 20, std::bind(&CanBridge::servoGenericReadCB, this, std::placeholders::_1));
     motion_speed_command_sub = this->create_subscription<jrb_msgs::msg::MotionSpeedCommand>(
     "speed_command", 1, std::bind(&CanBridge::motionSpeedCommandCB, this, std::placeholders::_1));
+    turbine_speed_sub = this->create_subscription<std_msgs::msg::UInt16>(
+    "turbine_speed", 1, std::bind(&CanBridge::turbineSpeedCB, this, std::placeholders::_1));
     
     param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
 
@@ -618,4 +620,23 @@ void CanBridge::motionSpeedCommandCB(const jrb_msgs::msg::MotionSpeedCommand msg
     }
 
     send_can_msg(ROBOT_GOAL_SPEEDS_WHEELS_ID, &transfer_id, buffer, buf_size);
+}
+
+void CanBridge::turbineSpeedCB (const std_msgs::msg::UInt16 msg) {
+    static CanardTransferID transfer_id = 0;
+    jeroboam_datatypes_actuators_pneumatics_TurbineCmd_0_1 command;
+    RCLCPP_INFO_STREAM(this->get_logger(), "Turbine Speed CB");
+    command.speed = msg.data;
+
+    size_t buf_size = jeroboam_datatypes_actuators_pneumatics_TurbineCmd_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+    uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_TurbineCmd_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+    int8_t res = jeroboam_datatypes_actuators_pneumatics_TurbineCmd_0_1_serialize_(&command, buffer, &buf_size);
+
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "Failed serilializing speed command " << res);
+        return;
+    }
+
+    send_can_msg(ACTION_TURBINE_CMD_ID, &transfer_id, buffer, buf_size);
 }
