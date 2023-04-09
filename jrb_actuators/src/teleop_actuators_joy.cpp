@@ -98,8 +98,7 @@ private:
             publish_roll_height = true;
         }
 
-        if (publish_roll_height)
-        {
+        if (publish_roll_height) {
             std_msgs::msg::Int16 roll_height_msg;
             roll_height_msg.data = roll_height;
             roll_height_pub_->publish(roll_height_msg);
@@ -126,8 +125,7 @@ private:
                 roll_speed = -1;
             }
 
-            if (std::fabs(roll_speed - prev_roll_speed) >= 0.1)
-            {
+            if (std::fabs(roll_speed - prev_roll_speed) >= 0.1) {
                 std_msgs::msg::Int8 roll_speed_msg;
                 roll_speed_msg.data = roll_speed;
                 roll_speed_pub_->publish(roll_speed_msg);
