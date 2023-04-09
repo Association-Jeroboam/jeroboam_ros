@@ -85,20 +85,20 @@ def generate_launch_description():
                 ),
             ),
             rsp,
-            Node(
-                package="v4l2_camera",
-                executable="v4l2_camera_node",
-                name="v4l2_camera_node",
-                parameters=[camera_param_path],
-                output="screen",
-            ),
-            twist_mux,
-            joystick,
             # Node(
-            #     package="jrb_sensors",
-            #     executable="sample_detector",
+            #     package="v4l2_camera",
+            #     executable="v4l2_camera_node",
+            #     name="v4l2_camera",
+            #     parameters=[camera_param_path],
             #     output="screen",
             # ),
+            twist_mux,
+            joystick,
+            Node(
+                package="jrb_sensors",
+                executable="sample_detector",
+                output="screen",
+            ),
             # Node(
             #     package="jrb_actuators",
             #     executable="actuators",
@@ -109,11 +109,11 @@ def generate_launch_description():
             #     executable="map_manager",
             #     output="screen",
             # ),
-            # Node(
-            #     package="jrb_screen",
-            #     executable="screen_manager",
-            #     output="screen",
-            # ),
+            Node(
+                package="jrb_screen",
+                executable="screen_manager",
+                output="screen",
+            ),
             # Node(
             #     package="jrb_control",
             #     executable="go_to_goal",
@@ -136,11 +136,11 @@ def generate_launch_description():
             #     executable="obstacle_detector",
             #     output="screen",
             # ),
-            # Node(
-            #     package="jrb_hardware_bridge",
-            #     executable="gpio_node",
-            #     output="screen",
-            # ),
+            Node(
+                package="jrb_hardware_bridge",
+                executable="gpio_node",
+                output="screen",
+            ),
             # Node(package="jrb_strategy", executable="eurobot", output="screen"),
         ],
     )
