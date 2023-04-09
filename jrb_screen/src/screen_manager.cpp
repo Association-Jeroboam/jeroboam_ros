@@ -72,7 +72,7 @@ public:
         width_ = get_parameter("width").as_int();
         height_ = get_parameter("height").as_int();
         fps_ = get_parameter("fps").as_int();
-        
+
         fullscreen_ = !get_parameter("use_sim_time").as_bool();
 
         // Subscriptions
@@ -88,7 +88,7 @@ public:
             "screen/text", 10, std::bind(&ScreenManager::on_text, this, std::placeholders::_1));
 
         sub_starter_ = this->create_subscription<std_msgs::msg::Bool>(
-            "hardware/starter", qos_profile,
+            "hardware/starter", 10,
             std::bind(&ScreenManager::on_starter, this, std::placeholders::_1));
 
         sub_team_ = this->create_subscription<std_msgs::msg::String>(
@@ -155,16 +155,18 @@ public:
 
     void loop()
     {
-        if (fullscreen_) {
+        if (fullscreen_)
+        {
             InitWindow(0, 0, "jeroboam_screen");
             ToggleFullscreen();
-            width_ = GetScreenWidth(); 
+            width_ = GetScreenWidth();
             height_ = GetScreenHeight();
             RCLCPP_ERROR(get_logger(), "%d %d", width_, height_);
-        } else {
+        }
+        else
+        {
             InitWindow(width_, height_, "jeroboam_screen");
-        } 
-        
+        }
 
         SetTargetFPS(fps_);
         std::string data_path = ament_index_cpp::get_package_share_directory("jrb_screen");
