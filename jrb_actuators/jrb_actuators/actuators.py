@@ -160,8 +160,14 @@ class Actuators_robotrouge(Node):
         msg.len = len_
         msg.data = data_array
 
+        if(addr != 30):
+            self.get_logger().info("addr not 30")
+            self.get_logger().info(str(addr))
+
+
         if msg.id == 0:
             self.get_logger().error("msg.id == 0")
+            return
 
         # while self.last_sending+0.0005>time.time():
         #    pass
@@ -179,9 +185,9 @@ class Actuators_robotrouge(Node):
         time.sleep(10)
 
         self.left_arm = dxl.bras(self, "left", 16, 14, 22, 1, 8, 101)  # gauche
-        # self.right_arm = dxl.bras(self,"right",3, 4, 10, 9, 11, 100) #droit
+        self.right_arm = dxl.bras(self,"right",3, 4, 10, 9, 11, 100) #droit
 
-        # self.rateaux = dxl.rakes(self,7, 15, 5, 18)
+        self.rateaux = dxl.rakes(self,7, 15, 5, 18)
 
         # centre reservoir : 112.75 ; -22.5
         x = 112.75

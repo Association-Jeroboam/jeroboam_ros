@@ -88,13 +88,13 @@ class ArmTeleop(Node):
 
             #bras :
             elif value == "q":
-                self.goto_msg.pose.position.x -= 0.001
+                self.goto_msg.pose.position.x -= 0.005
             elif value == "d":
-                self.goto_msg.pose.position.x += 0.001
+                self.goto_msg.pose.position.x += 0.005
             elif value == "z":
-                self.goto_msg.pose.position.y += 0.001
+                self.goto_msg.pose.position.y += 0.005
             elif value == "s":
-                self.goto_msg.pose.position.y -= 0.001
+                self.goto_msg.pose.position.y -= 0.005
             elif value == "a":
                 self.goto_msg.pose.position.z -= 0.005
             elif value == "e":
