@@ -66,7 +66,7 @@ class GoToGoalNode(Node):
         )
 
         self.odom_sub = self.create_subscription(
-            Odometry, "/odom", self.on_odometry, 10
+            Odometry, "/odometry", self.on_odometry, 10
         )
         self.goal_sub = self.create_subscription(
             PoseStamped,
@@ -77,7 +77,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "rate",
-            10.0,
+            20.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -87,7 +87,7 @@ class GoToGoalNode(Node):
         )
         self.declare_parameter(
             "kP",
-            3.0,
+            1.5,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -98,7 +98,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "kA",
-            18.0,
+            9.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -109,7 +109,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "kB",
-            -6.0,
+            -3.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -120,7 +120,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "linear_tolerance",
-            0.05,
+            0.01,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -131,7 +131,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "angular_tolerance",
-            3.0,
+            1.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -164,7 +164,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "max_linear_acceleration",
-            1.0,
+            0.5,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -175,7 +175,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "max_angular_acceleration",
-            180.0,
+            90.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -186,7 +186,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "max_linear_jerk",
-            1.0,
+            0.5,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -197,7 +197,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "max_angular_jerk",
-            90.0,
+            45.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
