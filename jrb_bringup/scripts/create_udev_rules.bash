@@ -14,7 +14,6 @@ cd "$parent_path"
 
 # Arduino rules
 title 'Copy rules to /etc/udev/rules.d'
-echo "Copy rplidar.rules to /etc/udev/rules.d/"
 sudo cp *.rules /etc/udev/rules.d
 echo ""
 
