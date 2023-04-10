@@ -51,11 +51,12 @@ void* checkTxQueue(void*) {
     pthread_mutex_lock(&tx_exec_lock);
     pthread_cond_wait(&tx_exec_cond, &tx_exec_lock);
 
-    pthread_mutex_lock(&queue_lock);
     const CanardTxQueueItem* item = canardTxPeek(&queue);
 
     while(item != nullptr) {
+      pthread_mutex_lock(&queue_lock);
       CanardTxQueueItem* extractedItem = canardTxPop(&queue, item);
+      pthread_mutex_unlock(&queue_lock);
       uint32_t           size          = item->frame.payload_size;
 
       do {
@@ -81,7 +82,6 @@ void* checkTxQueue(void*) {
       instance.memory_free(&instance, extractedItem);
       item = canardTxPeek(&queue);
     }
-    pthread_mutex_unlock(&queue_lock);
     pthread_mutex_unlock(&tx_exec_lock);
 
   }
@@ -103,9 +103,11 @@ bool TxThread::pushQueue(const CanardTransferMetadata* const metadata,
     pthread_mutex_lock(&queue_lock); // prevents other threads from pushing in the queue at the same time
     int32_t res = canardTxPush(&queue, &instance, 0, metadata, payload_size, payload);
     pthread_mutex_unlock(&queue_lock);
+    
     pthread_mutex_lock(&tx_exec_lock);
     pthread_cond_signal(&tx_exec_cond);
     pthread_mutex_unlock(&tx_exec_lock);
+
     
     bool success = (0 <= res);
 

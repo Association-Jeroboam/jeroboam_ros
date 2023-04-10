@@ -5,6 +5,10 @@ CanBridge::CanBridge()
 : Node("can_bridge")
 {
     send_config_enabled = false;
+
+    // Tf
+    tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+    
     // Publishers
     odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("odometry", 50);
     left_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("left_pid_state", 10);
@@ -170,10 +174,14 @@ rcl_interfaces::msg::SetParametersResult CanBridge::parametersCallback(const std
 
 void CanBridge::publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 * state)
 {
+    /**
+     * Publish on the odom topic
+    */
     auto state_msg = nav_msgs::msg::Odometry();
+
     state_msg.header.stamp = get_clock()->now();
     state_msg.header.frame_id = "odom";
-    state_msg.child_frame_id = "base_footprint";
+    state_msg.child_frame_id = "base_link";
     
     state_msg.pose.pose.position.x = state->pose.position.value.meter[0];
     state_msg.pose.pose.position.y = state->pose.position.value.meter[1];
@@ -194,6 +202,21 @@ void CanBridge::publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_
     state_msg.twist.twist.angular.z = state->twist.angular.radian_per_second[2];
 
     odom_pub->publish(state_msg);
+
+    /**
+     * Publish the transform
+    */
+    geometry_msgs::msg::TransformStamped transform;
+
+    transform.header.stamp = state_msg.header.stamp;
+    transform.header.frame_id = state_msg.header.frame_id;
+    transform.child_frame_id = state_msg.child_frame_id;
+    transform.transform.translation.x = state_msg.pose.pose.position.x;
+    transform.transform.translation.y = state_msg.pose.pose.position.y;
+    transform.transform.translation.z = state_msg.pose.pose.position.z;
+    transform.transform.rotation = state_msg.pose.pose.orientation;
+
+    tf_broadcaster_->sendTransform(transform);
 }
 
 void CanBridge::publishLeftPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1* pid){

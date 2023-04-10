@@ -124,7 +124,7 @@ class EurobotStrategyNode(Node):
             Bool,
             "hardware/starter",
             self.on_starter,
-            latchedQoS,
+            1,
             callback_group=self.cb_group,
         )
         self.sub_team = self.create_subscription(

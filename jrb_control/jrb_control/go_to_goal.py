@@ -19,6 +19,7 @@ from typing import Optional
 import threading
 from action_msgs.msg import GoalStatus
 from rclpy.executors import MultiThreadedExecutor
+from rclpy.qos import QoSReliabilityPolicy, QoSProfile
 
 from .goal_controller import GoalController, Pose2D
 from jrb_msgs.action import GoToPose
@@ -28,6 +29,11 @@ class GoToGoalNode(Node):
     def __init__(self):
         super().__init__("go_to_goal")
         self.get_logger().info(f"{self.get_name()} started")
+
+        cmd_vel_qos_profile = QoSProfile(
+            depth=1,
+            reliability=QoSReliabilityPolicy(QoSReliabilityPolicy.BEST_EFFORT),
+        )
 
         self.controller = GoalController()
 
@@ -53,7 +59,7 @@ class GoToGoalNode(Node):
         )
 
         self.dist_pub = self.create_publisher(Float32, "/distance_to_goal", 10)
-        self.twist_pub = self.create_publisher(Twist, "/cmd_vel", 10)
+        self.twist_pub = self.create_publisher(Twist, "/cmd_vel_nav", cmd_vel_qos_profile)
         self.goal_achieved_pub = self.create_publisher(Bool, "/goal_achieved", 1)
         self.pub_debug_current_goal = self.create_publisher(
             Marker, "/debug/current_goal", 1

@@ -3,28 +3,25 @@
 # Exit on error
 set -e
 
+# Write a small title of the current action (first param)
+function title {
+		echo -e "\e[1;36m===== $1 =====\e[0m"
+}
+
 # cd into parent directory of the script so the relative path are working
 parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 cd "$parent_path"
 
 # Arduino rules
-echo "Remap the integrated arduino serial port (/dev/ttyACMX) to /dev/arduino"
-echo "Copy rplidar.rules to /etc/udev/rules.d/"
-sudo cp arduino.rules  /etc/udev/rules.d
-
+title 'Copy rules to /etc/udev/rules.d'
+sudo cp *.rules /etc/udev/rules.d
 echo ""
 
-# Lidar rules
-echo "Remap lidar serial port (/dev/ttyUSBX) to /dev/rplidar"
-echo "Copy rplidar.rules to /etc/udev/rules.d/"
-sudo cp rplidar.rules  /etc/udev/rules.d
-
-echo ""
-echo "Restarting udev"
+title "Restarting udev"
 echo ""
 
 sudo service udev reload
 sudo service udev restart
 
-echo "Finished"
+title "Finished"
 
