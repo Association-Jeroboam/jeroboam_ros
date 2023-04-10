@@ -66,7 +66,7 @@ class GoToGoalNode(Node):
         )
 
         self.odom_sub = self.create_subscription(
-            Odometry, "/odom", self.on_odometry, 10
+            Odometry, "/odometry", self.on_odometry, 10
         )
         self.goal_sub = self.create_subscription(
             PoseStamped,
@@ -77,7 +77,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "rate",
-            10.0,
+            20.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
