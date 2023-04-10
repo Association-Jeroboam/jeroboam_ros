@@ -16,7 +16,7 @@ from jrb_msgs.msg import (
     ServoID,
 )
 from std_msgs.msg import Bool, Float32
-from .lib import dxl
+from jrb_actuators.lib import dxl
 import time
 import numpy as np
 from functools import partial
@@ -188,6 +188,7 @@ class Actuators_robotrouge(Node):
         y = -22.5
 
         self.startPump("left")
+        time.sleep(2)
         # self.rateaux.setTorque(1)
         # self.rateaux.close()
         self.stopPump("left")
