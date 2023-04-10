@@ -49,7 +49,7 @@ CanBridge::CanBridge()
     motion_speed_command_sub = this->create_subscription<jrb_msgs::msg::MotionSpeedCommand>(
     "speed_command", 1, std::bind(&CanBridge::motionSpeedCommandCB, this, std::placeholders::_1));
     turbine_speed_sub = this->create_subscription<std_msgs::msg::UInt16>(
-    "turbine_speed", 1, std::bind(&CanBridge::turbineSpeedCB, this, std::placeholders::_1));
+    "hardware/turbine/speed", 1, std::bind(&CanBridge::turbineSpeedCB, this, std::placeholders::_1));
     
     param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
 
