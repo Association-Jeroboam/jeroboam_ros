@@ -520,6 +520,10 @@ void CanBridge::servoAngleCB(const jrb_msgs::msg::ServoAngle msg) {
     jeroboam_datatypes_actuators_servo_ServoAngle_0_1 servoAngle;
 
     servoAngle.ID = msg.id;
+    if(servoAngle.id==0)
+    {
+        RCLCPP_WARN_STREAM(this->get_logger(), "servoAngle.id = 0");
+    }
     servoAngle.angle.radian = msg.radian;
 
     size_t buf_size = jeroboam_datatypes_actuators_servo_ServoAngle_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
@@ -546,6 +550,11 @@ void CanBridge::servoConfigCB(const jrb_msgs::msg::ServoConfig msg) {
     servoConfig.pid.pid[1] = msg.pid.pid[1];
     servoConfig.pid.pid[2] = msg.pid.pid[2];
 
+    if(servoConfig.id==0)
+    {
+        RCLCPP_WARN_STREAM(this->get_logger(), "servoConfig.id = 0");
+    }
+
     size_t buf_size = jeroboam_datatypes_actuators_servo_ServoConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_servo_ServoConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
@@ -565,6 +574,10 @@ void CanBridge::servoRebootCB(const jrb_msgs::msg::ServoID msg) {
     jeroboam_datatypes_actuators_servo_ServoID_0_1 servoID;
 
     servoID.ID = msg.id;
+    if(servoID.id==0)
+    {
+        RCLCPP_WARN_STREAM(this->get_logger(), "servoID.id = 0");
+    }
 
     size_t buf_size = jeroboam_datatypes_actuators_servo_ServoID_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_servo_ServoID_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
@@ -586,6 +599,10 @@ void CanBridge::servoGenericCommandCB(const jrb_msgs::msg::ServoGenericCommand m
     command.id = msg.id;
     command.addr = msg.addr;
     command.data.count = msg.len;
+    if(command.id==0)
+    {
+        RCLCPP_WARN_STREAM(this->get_logger(), "command.id = 0");
+    }
     for (int i=0; i<msg.len; ++i)
     {
       command.data.elements[i] = msg.data[i];
