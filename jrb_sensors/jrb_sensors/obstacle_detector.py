@@ -72,7 +72,7 @@ class ObstacleDetector(Node):
         )
 
         lidar_qos_profile = QoSProfile(
-            depth=10,
+            depth=1,
             reliability=QoSReliabilityPolicy(QoSReliabilityPolicy.BEST_EFFORT),
         )
         self._lidar_subscriber = message_filters.Subscriber(
