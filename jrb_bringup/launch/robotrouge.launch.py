@@ -112,11 +112,11 @@ def generate_launch_description():
                 executable="sample_detector",
                 output="screen",
             ),
-            Node(
-                package="jrb_actuators",
-                executable="actuators",
-                output="screen",
-            ),
+            # Node(
+            #     package="jrb_actuators",
+            #     executable="actuators.py",
+            #     output="screen",
+            # ),
             Node(
                 package="jrb_actuators",
                 executable="teleop_actuators_joy",
@@ -146,7 +146,7 @@ def generate_launch_description():
             ),
             Node(
                 package="jrb_sensors",
-                executable="obstacle_detector",
+                executable="obstacle_detector.py",
                 output="screen",
             ),
             Node(
@@ -154,6 +154,6 @@ def generate_launch_description():
                 executable="gpio_node",
                 output="screen",
             ),
-            Node(package="jrb_strategy", executable="eurobot", output="screen"),
+            # Node(package="jrb_strategy", executable="eurobot", output="screen"),
         ],
     )
