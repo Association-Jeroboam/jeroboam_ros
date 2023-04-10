@@ -61,6 +61,18 @@ def generate_launch_description():
         remappings=[("cmd_vel_out", "/cmd_vel")],
     )
 
+    marker_publisher_params = os.path.join(
+        get_package_share_directory("jrb_bringup"), "param", "marker_publisher.yaml"
+    )
+
+    marker_publisher = Node(
+        package="jrb_strategy2",
+        executable="marker_publisher",
+        output="screen",
+        parameters=[marker_publisher_params],
+        remappings=[("markers", "/debug/table_mesh")],
+    )
+
     return LaunchDescription(
         [
             DeclareLaunchArgument(
@@ -85,15 +97,16 @@ def generate_launch_description():
                 ),
             ),
             rsp,
-            # Node(
-            #     package="v4l2_camera",
-            #     executable="v4l2_camera_node",
-            #     name="v4l2_camera",
-            #     parameters=[camera_param_path],
-            #     output="screen",
-            # ),
+            Node(
+                package="v4l2_camera",
+                executable="v4l2_camera_node",
+                name="v4l2_camera",
+                parameters=[camera_param_path],
+                output="screen",
+            ),
             twist_mux,
             joystick,
+            marker_publisher,
             Node(
                 package="jrb_sensors",
                 executable="sample_detector",
@@ -101,41 +114,41 @@ def generate_launch_description():
             ),
             # Node(
             #     package="jrb_actuators",
-            #     executable="actuators",
+            #     executable="actuators.py",
             #     output="screen",
             # ),
-            # Node(
-            #     package="jrb_localization",
-            #     executable="map_manager",
-            #     output="screen",
-            # ),
+            Node(
+                package="jrb_actuators",
+                executable="teleop_actuators_joy",
+                output="screen",
+            ),
             Node(
                 package="jrb_screen",
                 executable="screen_manager",
                 output="screen",
             ),
-            # Node(
-            #     package="jrb_control",
-            #     executable="go_to_goal",
-            #     output="screen",
-            # ),
+            Node(
+                package="jrb_control",
+                executable="go_to_goal",
+                output="screen",
+            ),
             Node(
                 package="jrb_can_bridge",
                 executable="jrb_can_bridge",
                 output="screen",
                 parameters=[can_bridge_param_path],
             ),
-            # Node(
-            #     package="rplidar_ros2",
-            #     executable="rplidar_scan_publisher",
-            #     parameters=[lidar_param_path],
-            #     output="screen",
-            # ),
-            # Node(
-            #     package="jrb_sensors",
-            #     executable="obstacle_detector",
-            #     output="screen",
-            # ),
+            Node(
+                package="rplidar_ros2",
+                executable="rplidar_scan_publisher",
+                parameters=[lidar_param_path],
+                output="screen",
+            ),
+            Node(
+                package="jrb_sensors",
+                executable="obstacle_detector.py",
+                output="screen",
+            ),
             Node(
                 package="jrb_hardware_bridge",
                 executable="gpio_node",

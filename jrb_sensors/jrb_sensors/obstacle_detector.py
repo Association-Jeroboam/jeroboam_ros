@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import traceback
 import rclpy
 from rclpy.node import Node
@@ -12,8 +14,8 @@ from rcl_interfaces.msg import (
 from sensor_msgs.msg import LaserScan
 from builtin_interfaces.msg import Duration
 import numpy as np
-from .ClusterBuffer import ClusterBuffer
-from .TfMessageFilters import TfMessageFilter
+from jrb_sensors.ClusterBuffer import ClusterBuffer
+from jrb_sensors.TfMessageFilters import TfMessageFilter
 import message_filters
 from geometry_msgs.msg import PoseArray, Pose, TransformStamped, Transform
 from rcl_interfaces.msg import SetParametersResult
@@ -70,7 +72,7 @@ class ObstacleDetector(Node):
         )
 
         lidar_qos_profile = QoSProfile(
-            depth=10,
+            depth=1,
             reliability=QoSReliabilityPolicy(QoSReliabilityPolicy.BEST_EFFORT),
         )
         self._lidar_subscriber = message_filters.Subscriber(

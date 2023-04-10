@@ -5,6 +5,10 @@ CanBridge::CanBridge()
 : Node("can_bridge")
 {
     send_config_enabled = false;
+
+    // Tf
+    tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+    
     // Publishers
     odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("odometry", 50);
     left_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("left_pid_state", 10);
@@ -48,6 +52,8 @@ CanBridge::CanBridge()
     "servo_generic_read", 20, std::bind(&CanBridge::servoGenericReadCB, this, std::placeholders::_1));
     motion_speed_command_sub = this->create_subscription<jrb_msgs::msg::MotionSpeedCommand>(
     "speed_command", 1, std::bind(&CanBridge::motionSpeedCommandCB, this, std::placeholders::_1));
+    turbine_speed_sub = this->create_subscription<std_msgs::msg::UInt16>(
+    "hardware/turbine/speed", 1, std::bind(&CanBridge::turbineSpeedCB, this, std::placeholders::_1));
     
     param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
 
@@ -168,10 +174,14 @@ rcl_interfaces::msg::SetParametersResult CanBridge::parametersCallback(const std
 
 void CanBridge::publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 * state)
 {
+    /**
+     * Publish on the odom topic
+    */
     auto state_msg = nav_msgs::msg::Odometry();
+
     state_msg.header.stamp = get_clock()->now();
     state_msg.header.frame_id = "odom";
-    state_msg.child_frame_id = "base_footprint";
+    state_msg.child_frame_id = "base_link";
     
     state_msg.pose.pose.position.x = state->pose.position.value.meter[0];
     state_msg.pose.pose.position.y = state->pose.position.value.meter[1];
@@ -192,6 +202,21 @@ void CanBridge::publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_
     state_msg.twist.twist.angular.z = state->twist.angular.radian_per_second[2];
 
     odom_pub->publish(state_msg);
+
+    /**
+     * Publish the transform
+    */
+    geometry_msgs::msg::TransformStamped transform;
+
+    transform.header.stamp = state_msg.header.stamp;
+    transform.header.frame_id = state_msg.header.frame_id;
+    transform.child_frame_id = state_msg.child_frame_id;
+    transform.transform.translation.x = state_msg.pose.pose.position.x;
+    transform.transform.translation.y = state_msg.pose.pose.position.y;
+    transform.transform.translation.z = state_msg.pose.pose.position.z;
+    transform.transform.rotation = state_msg.pose.pose.orientation;
+
+    tf_broadcaster_->sendTransform(transform);
 }
 
 void CanBridge::publishLeftPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1* pid){
@@ -618,4 +643,23 @@ void CanBridge::motionSpeedCommandCB(const jrb_msgs::msg::MotionSpeedCommand msg
     }
 
     send_can_msg(ROBOT_GOAL_SPEEDS_WHEELS_ID, &transfer_id, buffer, buf_size);
+}
+
+void CanBridge::turbineSpeedCB (const std_msgs::msg::UInt16 msg) {
+    static CanardTransferID transfer_id = 0;
+    jeroboam_datatypes_actuators_pneumatics_TurbineCmd_0_1 command;
+    RCLCPP_INFO_STREAM(this->get_logger(), "Turbine Speed CB");
+    command.speed = msg.data;
+
+    size_t buf_size = jeroboam_datatypes_actuators_pneumatics_TurbineCmd_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+    uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_TurbineCmd_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+    int8_t res = jeroboam_datatypes_actuators_pneumatics_TurbineCmd_0_1_serialize_(&command, buffer, &buf_size);
+
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "Failed serilializing speed command " << res);
+        return;
+    }
+
+    send_can_msg(ACTION_TURBINE_CMD_ID, &transfer_id, buffer, buf_size);
 }

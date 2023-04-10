@@ -172,7 +172,12 @@ private:
     {
 
         char command = data.front();
-        std::string values = data.substr(2);
+
+        std::string values = "";
+
+        if (data.length() > 2) {
+            values = data.substr(2);
+        }
 
         switch (command)
         {
@@ -211,6 +216,13 @@ private:
         case 'l':
         {
             RCLCPP_INFO_STREAM(get_logger(), "ARDUINO_LOG: " << values);
+            break;
+        }
+
+        // Ack
+        case 'a':
+        {
+            // Nothing to do yet, can be used to implement services
             break;
         }
 

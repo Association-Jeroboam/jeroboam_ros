@@ -16,10 +16,13 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "rcl_interfaces/msg/set_parameters_result.hpp"
+#include "tf2_ros/transform_broadcaster.h"
 #include "std_msgs/msg/string.hpp"
+#include "std_msgs/msg/u_int16.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
 #include "jrb_msgs/msg/pid_state.hpp"
 #include "jrb_msgs/msg/pump_status.hpp"
 #include "jrb_msgs/msg/valve_status.hpp"
@@ -43,6 +46,7 @@
 #include "PIDConfig_0_1.h"
 #include "AdaptativePIDConfig_0_1.h"
 #include "MotionConfig_0_1.h"
+#include "TurbineCmd_0_1.h"
 #include "jrb_can_bridge/param_utils.hpp"
 #include "jrb_msgs/msg/servo_angle.hpp"
 #include "jrb_msgs/msg/servo_config.hpp"
@@ -117,7 +121,9 @@ class CanBridge : public rclcpp::Node
 
     void motionSpeedCommandCB (const jrb_msgs::msg::MotionSpeedCommand msg);
 
+    void turbineSpeedCB (const std_msgs::msg::UInt16 msg);
 
+    std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr       odom_pub;
     rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       left_pid_pub;
     rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       right_pid_pub;
@@ -144,6 +150,8 @@ class CanBridge : public rclcpp::Node
     rclcpp::Subscription<jrb_msgs::msg::ServoGenericCommand>::SharedPtr            servo_generic_command_sub;
     rclcpp::Subscription<jrb_msgs::msg::ServoGenericRead>::SharedPtr               servo_generic_read_sub;
     rclcpp::Subscription<jrb_msgs::msg::MotionSpeedCommand>::SharedPtr             motion_speed_command_sub;
+
+    rclcpp::Subscription<std_msgs::msg::UInt16>::SharedPtr       turbine_speed_sub;
 
     OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
 

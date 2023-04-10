@@ -102,6 +102,7 @@ void* checkRxMsg(void*) {
     }
     // ret == 0 is an incomplete message, nothing special to do
   }
+  return nullptr;
 }
 
 void publishReceivedMessage(CanardRxTransfer * transfer) {

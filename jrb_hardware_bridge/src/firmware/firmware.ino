@@ -108,8 +108,7 @@ void processSerialData(char *data)
 
         case 's':{
             LEDmodule.show();
-            Serial.print("l ");
-            Serial.println("leds state updated");
+            Serial.println("a");
             break;
         }
 
