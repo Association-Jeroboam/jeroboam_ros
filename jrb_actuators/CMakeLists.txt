@@ -38,6 +38,7 @@ ament_python_install_package(${PROJECT_NAME})
 install(PROGRAMS
   ${PROJECT_NAME}/arm_teleop.py
   ${PROJECT_NAME}/actuators.py
+  ${PROJECT_NAME}/arm_action_server.py
   DESTINATION lib/${PROJECT_NAME}
 )
 ament_package()
