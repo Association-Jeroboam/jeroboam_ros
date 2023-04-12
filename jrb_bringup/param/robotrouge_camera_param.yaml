@@ -21,7 +21,7 @@
         ydpi: -1
     image_size:
     - 1240
-    - 768
+    - 760
     output_encoding: rgb8
     pixel_format: YUYV
     power_line_frequency: 1
