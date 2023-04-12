@@ -120,7 +120,7 @@ class ArmActionServer(Node):
                         return GoToPose.Result(success=False)
 
                     # Loop and end the work loop if there is a result
-                    if result := self.loop(goal_handle) is not None:
+                    if (result := self.loop(goal_handle)) is not None:
                         return result
 
         except Exception:
@@ -144,7 +144,9 @@ class ArmActionServer(Node):
             return GoToPose.Result(success=True)
 
         # Work
-        self.wait_for_seconds(2.0, goal_handle)
+
+        # Simulate blocking calls
+        self.wait_for_seconds(0.5, goal_handle)
         self.partial_sequence.append(
             self.partial_sequence[self.i] + self.partial_sequence[self.i - 1]
         )
