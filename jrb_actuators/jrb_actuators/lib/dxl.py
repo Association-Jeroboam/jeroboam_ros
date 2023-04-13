@@ -1,8 +1,9 @@
 import time
 import math
 
-connected_XL430=[]
-connected_XL320=[]
+rawToRad=math.radians(300)/1023
+
+connected_XL320={}
 
 def formatAngle(angle):
     angle = angle % 360
@@ -33,10 +34,13 @@ class XL320():
         self.torque=0
         self.reverseRotation=0
         self.node=node
+        self.radian_target=0
+        self.radian_state=0
+        self.target_reached= False
 
         #if 350 == getModel(DXL_ID):
         #     self.model_number = 350
-        connected_XL320.append(DXL_ID)
+        connected_XL320[self.ID] = self
 
         #else:
         #    #print("Error : DXL with ID ", DXL_ID, " does not appear to be XL320")
@@ -56,6 +60,16 @@ class XL320():
 
         #print("XL320 ", DXL_ID, " was well initialized (temp:",self.getPresentTemperature(),"°C  Voltage:",self.getPresentVoltage(),"V)")
 
+    def setRadianState(self,radian):
+        if radian < 0 :
+            self.node.get_logger().error(f"radian_state can't be negative ({radian})")
+            return
+        self.radian_state=radian
+        #self.node.get_logger().info(f"XL320 with ID {self.ID} has its radian_state set to {self.radian_state}.")
+        if abs( self.radian_state - self.radian_target ) < 0.05 :
+            self.target_reached=True
+            #self.node.get_logger().info(f"XL320 with ID {self.ID} has its target reached ({self.radian_state}).")
+
     def setPunch(self, punch):
         self.node.sendGenericCommand(2, self.ID, 51, punch)
 
@@ -66,7 +80,6 @@ class XL320():
         self.reverseRotation=value
         self.setAngleLimits(self.CW_Angle_Limit, self.CCW_Angle_Limit)
         self.node.get_logger().info(f"XL320 with ID {self.ID} has its rotation reversed.")
-
 
     def setHomingOffset(self, offset):
         oldOffset = self.offset
@@ -110,10 +123,6 @@ class XL320():
 
         self.setTorque(torque)
 
-
-
-
-
     def setMaxTorque(self, Max_Torque):
         if Max_Torque < 0:
             self.node.get_logger().error(f"Error for ID {self.ID}: Max_Torque<0")
@@ -154,18 +163,19 @@ class XL320():
 
     def setGoalPosition(self, POSITION):
         POSITION+=self.offset
-
         if self.CW_Angle_Limit > POSITION:
             self.node.get_logger().warning(F"ID {self.ID}: Position goal ({POSITION}) < CW_Angle_Limit ({self.CW_Angle_Limit})")
             POSITION = self.CW_Angle_Limit
         elif self.CCW_Angle_Limit < POSITION:
             self.node.get_logger().warning(f"ID {self.ID}: Position goal ({POSITION}) > CCW_Angle_Limit ({self.CCW_Angle_Limit})")
             POSITION = self.CCW_Angle_Limit
-        self.goalPosition = POSITION
         if self.reverseRotation :
             POSITION=1023-POSITION
+        self.target_reached=False
+        self.radian_target(int(POSITION)*rawToRad)
         self.node.sendGenericCommand(2, self.ID, 30, int(POSITION))
 #       self.setTorque(self.torque)  # Updating the goal_position register seems to enable torque, so this line releases the motor if it haven't to be enabled
+
 
 #    def getPresentPosition(self):
 #        dxl_present_position = readValue(portHandler, 2, self.ID, 37)
@@ -333,11 +343,8 @@ class bras:
         self.joinE.setTorque(value)
  #        self.slider.setTorque(value)
 
-    def getState(self):
-        pos_to_rad = math.radians(300) / 1024
-
+    def getAngles(self):
         joints = []
-
         joints.append(self.joinA.getPresentPosition())
         time.sleep(0.001)
         joints.append(self.joinB.getPresentPosition())
@@ -348,9 +355,15 @@ class bras:
         time.sleep(0.001)
         joints.append(self.joinE.getPresentPosition())
         time.sleep(0.001)
+        return [self.getSlidePosition_mm() / 1000] + [pos * rawToRad for pos in joints]
 
-        return [self.getSlidePosition_mm() / 1000] + [pos * pos_to_rad for pos in joints]
-
+    def isTargetReached(self):
+        #todo : check slider
+        if(self.joinA.target_reached and self.joinB.target_reached and self.joinC.target_reached and self.joinD.target_reached and self.joinE.target_reached):
+            return True
+        else:
+            return False
+        
     def goToAngle(self, join, angle):
         ratio = 614 / 180
         if join == "A":
@@ -403,9 +416,9 @@ class bras:
         self.slider.setMaxSpeed(500)
 
         self.slider.setHomingOffset(0)  # reset de l'offset pour avoir presentPosition=ActualPosition
-        self.node.get_logger().debug("reset offset done")
+        self.node.get_logger().info("reset offset done")
         offset = self.slider.getPresentPosition()  # actual position
-        self.node.get_logger().debug(f"actual position ={offset}")
+        self.node.get_logger().info(f"actual position ={offset}")
         self.slider.setHomingOffset(offset)  # offset = actualPosition => presentPosition=0
 
         #self.slider.setTorque(1)
@@ -413,15 +426,13 @@ class bras:
         #self.slider.waitMoveEnd(5)
 
         pos = self.slider.getPresentPosition()
-        self.node.get_logger().debug(f"final pos ={pos}")
+        self.node.get_logger().info(f"final pos ={pos}")
         self.setTorque(0)
-        self.node.get_logger().debug(f"calculated offset={(positionEnButeeHaute - (pos - offset))}")
+        self.node.get_logger().info(f"calculated offset={(positionEnButeeHaute - (pos - offset))}")
         self.slider.setHomingOffset(positionEnButeeHaute - (pos - offset))
-        # self.node.get_logger().debug(f"Final Position={self.slider.getPresentPosition()}")
+        # self.node.get_logger().info(f"Final Position={self.slider.getPresentPosition()}")
 
         self.slider.setMaxSpeed(speed_setup)
-
-
 
     def setSliderPosition_mm(self, mm):
         value = int(-36.93191489 * mm + 8679)

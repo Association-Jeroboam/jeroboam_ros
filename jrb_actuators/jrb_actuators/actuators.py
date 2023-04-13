@@ -30,33 +30,10 @@ from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 import math
 
-
-CAN_PROTOCOL_SERVO_ARM_LEFT_A = 0
-CAN_PROTOCOL_SERVO_ARM_LEFT_B = 1
-CAN_PROTOCOL_SERVO_ARM_LEFT_C = 2
-CAN_PROTOCOL_SERVO_ARM_LEFT_D = 3
-CAN_PROTOCOL_SERVO_ARM_LEFT_E = 4
-CAN_PROTOCOL_SERVO_ARM_RIGHT_A = 5
-CAN_PROTOCOL_SERVO_ARM_RIGHT_B = 6
-CAN_PROTOCOL_SERVO_ARM_RIGHT_C = 7
-CAN_PROTOCOL_SERVO_ARM_RIGHT_D = 8
-CAN_PROTOCOL_SERVO_ARM_RIGHT_E = 9
-CAN_PROTOCOL_SERVO_RAKE_LEFT_TOP = 10
-CAN_PROTOCOL_SERVO_RAKE_LEFT_BOTTOM = 11
-CAN_PROTOCOL_SERVO_RAKE_RIGHT_TOP = 12
-CAN_PROTOCOL_SERVO_RAKE_RIGHT_BOTTOM = 13
-CAN_PROTOCOL_SERVO_PUSH_ARM_LEFT = 14
-CAN_PROTOCOL_SERVO_PUSH_ARM_RIGHT = 15
-CAN_PROTOCOL_SERVO_MEASURE_FORK = 16
-CAN_PROTOCOL_SERVO_PLIERS_INCLINATION = 17
-CAN_PROTOCOL_SERVO_PLIERS = 18
-
-
 def speed2rapportCyclique(speed):
     # speed entre -100 et 100
     # Si speed < 0 alors voltage A > voltage B
     return 0.025 * speed + 7
-
 
 class Actuators_robotrouge(Node):
     def __init__(self):
@@ -113,6 +90,10 @@ class Actuators_robotrouge(Node):
             StackSample, "stack_sample", self.stackSample_cb, 10
         )
 
+        self.sub_stack_sample = self.create_subscription(
+            ServoAngle, "servo_angle", self.servoAngle_cb, 10 
+        )
+
         self.init_actuators()
 
         publish_state_rate = 1 / 6  # Hz
@@ -124,7 +105,7 @@ class Actuators_robotrouge(Node):
         dxl.setTorque4All(self, 0)
         self.stopPump("left")
         self.stopPump("right")
-        self.serial_actionBoard.close()
+        #self.serial_actionBoard.close()
 
     def on_state_publish_timer(self):
         now = self.get_clock().now().to_msg()
@@ -160,9 +141,9 @@ class Actuators_robotrouge(Node):
         msg.len = len_
         msg.data = data_array
 
-        if(addr != 30):
-            self.get_logger().info("addr not 30")
-            self.get_logger().info(str(addr))
+        #if(addr != 30):
+        #    self.get_logger().info("addr not 30")
+        #    self.get_logger().info(str(addr))
 
 
         if msg.id == 0:
@@ -182,10 +163,10 @@ class Actuators_robotrouge(Node):
     def init_actuators(self):
         # self.last_sending=time.time()
         self.sendRebootCommand(254)  # 254 for broadcast
-        time.sleep(10)
+        time.sleep(2)
 
-        self.left_arm = dxl.bras(self, "left", 16, 14, 22, 1, 8, 101)  # gauche
-        self.right_arm = dxl.bras(self,"right",3, 4, 10, 9, 11, 100) #droit
+        #self.left_arm = dxl.bras(self, "left", 16, 14, 22, 1, 8, 101)  # gauche
+        #self.right_arm = dxl.bras(self,"right",3, 4, 10, 9, 11, 100) #droit
 
         self.rateaux = dxl.rakes(self,7, 15, 5, 18)
 
@@ -194,26 +175,27 @@ class Actuators_robotrouge(Node):
         y = -22.5
 
         self.startPump("left")
-        time.sleep(2)
+        #time.sleep(2)
         # self.rateaux.setTorque(1)
         # self.rateaux.close()
         self.stopPump("left")
-        self.left_arm.setTorque(1)
+        #self.left_arm.setTorque(1)
         # self.right_arm.setTorque(1)
-        self.left_arm.setArmPosition(20, 120)
+        #self.left_arm.setArmPosition(20, 120)
         # self.right_arm.setArmPosition(-20,120)
-        time.sleep(1)
+        #time.sleep(1)
         # self.left_arm.initSlider()
         # self.right_arm.initSlider()
-        self.left_arm.setTorque(1)
+        #self.left_arm.setTorque(1)
         # self.right_arm.setTorque(1)
         # self.rateaux.open()
-        self.get_logger().info("init OK")
 
         # self.storeArm("left")
         # self.storeArm("right")
-        time.sleep(2)
+        #time.sleep(2)
+        self.get_logger().info("init OK")
         # self.cycle_cool()
+
 
     def cycle_cool(self):
         while True:
@@ -256,6 +238,12 @@ class Actuators_robotrouge(Node):
             self.rateaux.open()
         else:
             self.rateaux.close()
+
+    def servoAngle_cb(self, msg: ServoAngle):
+        if msg.id in dxl.connected_XL320:
+            dxl.connected_XL320[msg.id].setRadianState(msg.radian)
+        else:
+            self.get_logger().warn(f"XL320 with ID {msg.id} is unknown.")
 
     def arm_goto_cb(self, side: str, msg: PoseStamped):
         pos = np.array(
@@ -435,7 +423,6 @@ class Actuators_robotrouge(Node):
 
         return transform
 
-
 class Actuators_robotbleu(Node):
     def __init__(self):
         super().__init__("actuators")
@@ -577,7 +564,6 @@ class Actuators_robotbleu(Node):
         angle_msg.id = self.plier_config_msg.id
         angle_msg.radian = math.radians(50)
         self.pub_xl320_target.publish(angle_msg)
-
 
 def main(args=None):
     rclpy.init(args=args)
