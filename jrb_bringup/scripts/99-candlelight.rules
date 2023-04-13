@@ -1,0 +1,1 @@
+SUBSYSTEM=="net", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="606f", NAME="can0"

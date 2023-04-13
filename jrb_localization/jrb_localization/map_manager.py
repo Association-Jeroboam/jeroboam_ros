@@ -38,7 +38,7 @@ class MapManager(Node):
 
         # Subscribers
         self.sub_odometry = self.create_subscription(
-            Odometry, "odometry", self.on_odometry, 10
+            Odometry, "/odom", self.on_odometry, 10
         )
         # Publishers
         latchedQoS = QoSProfile(
@@ -47,7 +47,7 @@ class MapManager(Node):
             depth=1,
         )
         self.map_marker_publisher = self.create_publisher(
-            Marker, "debug/table_mesh", latchedQoS
+            Marker, "/debug/table_mesh", latchedQoS
         )
 
         # Tf publisher
@@ -71,14 +71,14 @@ class MapManager(Node):
 
         self.map_marker_msg.pose.position.x = 0.0
         self.map_marker_msg.pose.position.y = 0.0
-        self.map_marker_msg.pose.position.z = 0.0
+        self.map_marker_msg.pose.position.z = -0.01
 
         self.map_marker_msg.scale.x = 1.0
         self.map_marker_msg.scale.y = 1.0
         self.map_marker_msg.scale.z = 1.0
 
         self.map_marker_msg.mesh_resource = "file://" + os.path.join(
-            DATA_PATH, "meshes/table.dae"
+            DATA_PATH, "meshes/table2023.dae"
         )
         self.map_marker_msg.mesh_use_embedded_materials = True
 

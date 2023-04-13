@@ -90,18 +90,27 @@ int main(int argc, char * argv[])
 
   rclcpp::init(argc, argv);
   
-
+  rclcpp::executors::MultiThreadedExecutor executor;
   canBridge = std::make_shared<CanBridge>();
+  executor.add_node(canBridge);
+  
+  // Threads init
   std::this_thread::sleep_for(100ms);
   TxThread::CanBridgeInitTxThread();
   RxThread::CanBridgeInitRxThread();
   std::this_thread::sleep_for(100ms);
+
   canBridge.get()->init();
-  rclcpp::spin(canBridge);
+  executor.spin();
+
   rclcpp::shutdown();
+
+  // Threads join
   TxThread::CanBridgeDeinitTxThread();
   RxThread::CanBridgeDeinitRxThread();
+  
   close(canIFace);
+
   return 0;
 }
 
@@ -159,7 +168,6 @@ bool subscribe(CanardTransferKind transfer_kind, CanardPortID port_id, size_t ex
 }
 
 void initCAN(char * iface) {
-
     // stolen from the basic tutorial
     struct sockaddr_can addr;
     struct ifreq ifr;

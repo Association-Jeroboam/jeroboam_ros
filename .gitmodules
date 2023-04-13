@@ -4,3 +4,6 @@
 [submodule "extern/rplidar_ros2"]
 	path = extern/rplidar_ros2
 	url = git@github.com:lopenguin/rplidar_ros2.git
+[submodule "extern/serial"]
+	path = extern/serial
+	url = git@github.com:joshnewans/serial.git

@@ -51,7 +51,7 @@ fi
 # UNDERLAY=/opt/ros/eloquent
 # UNDERLAY=/opt/ros/foxy
 # UNDERLAY=/opt/ros/rolling
-UNDERLAY=/opt/ros/galactic
+UNDERLAY=/opt/ros/humble
 # UNDERLAY= # no underlay
 
 ################# CHOOSE A MIDDLEWARE

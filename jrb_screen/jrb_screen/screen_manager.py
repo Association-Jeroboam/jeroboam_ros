@@ -140,7 +140,7 @@ class ScreenManager(Node):
         pass
 
     def loop(self):
-        init_window(self.width, self.height, "raylib [core] example - basic window")
+        init_window(self.width, self.height, "jeroboam screen")
         set_target_fps(self.fps)
 
         image = load_image(os.path.join(DATA_PATH, "assets/Jeroboam.png"))

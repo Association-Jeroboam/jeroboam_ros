@@ -6,9 +6,11 @@ if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
 endif()
 
+# Add the following line to enable debugging symbols
+set(CMAKE_BUILD_TYPE Debug)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra -Wpedantic -g)
 endif()
 
 find_package(ament_cmake REQUIRED)
@@ -17,6 +19,9 @@ find_package(std_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(jrb_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+
+add_definitions(-DNDEBUG)
 
 include_directories(CanProtocol/Cyphal/libcanard/libcanard)
 include_directories(CanProtocol/)
@@ -132,7 +137,7 @@ add_executable(jrb_can_bridge
   src/param_utils.cpp
   CanProtocol/Cyphal/libcanard/libcanard/canard.c
 )
-ament_target_dependencies(jrb_can_bridge rclcpp std_msgs nav_msgs geometry_msgs jrb_msgs)
+ament_target_dependencies(jrb_can_bridge rclcpp std_msgs nav_msgs geometry_msgs jrb_msgs tf2_ros)
 target_include_directories(jrb_can_bridge PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)

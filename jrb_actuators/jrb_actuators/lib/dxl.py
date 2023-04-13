@@ -34,13 +34,13 @@ class XL320():
         self.reverseRotation=0
         self.node=node
 
-#        if 350 == getModel(DXL_ID):
-#            self.model_number = 350
+        #if 350 == getModel(DXL_ID):
+        #     self.model_number = 350
         connected_XL320.append(DXL_ID)
 
-#        else:
-#            #print("Error : DXL with ID ", DXL_ID, " does not appear to be XL320")
-#            return
+        #else:
+        #    #print("Error : DXL with ID ", DXL_ID, " does not appear to be XL320")
+        #    return
         self.setTorque(0)
         self.setDriveMode(2)
         time.sleep(0.01)
@@ -51,10 +51,10 @@ class XL320():
 
         self.setAngleLimits(CW_Angle_Limit, CCW_Angle_Limit)
 
-#        self.goalPosition = self.getPresentPosition()
+        #self.goalPosition = self.getPresentPosition()
         self.setLED(3)
 
-#        print("XL320 ", DXL_ID, " was well initialized (temp:",self.getPresentTemperature(),"°C  Voltage:",self.getPresentVoltage(),"V)")
+        #print("XL320 ", DXL_ID, " was well initialized (temp:",self.getPresentTemperature(),"°C  Voltage:",self.getPresentVoltage(),"V)")
 
     def setPunch(self, punch):
         self.node.sendGenericCommand(2, self.ID, 51, punch)
@@ -165,9 +165,7 @@ class XL320():
         if self.reverseRotation :
             POSITION=1023-POSITION
         self.node.sendGenericCommand(2, self.ID, 30, int(POSITION))
-        self.setTorque(
-            self.torque
-        )  # Updating the goal_position register seems to enable torque, so this line releases the motor if it haven't to be enabled
+#       self.setTorque(self.torque)  # Updating the goal_position register seems to enable torque, so this line releases the motor if it haven't to be enabled
 
 #    def getPresentPosition(self):
 #        dxl_present_position = readValue(portHandler, 2, self.ID, 37)
@@ -237,9 +235,9 @@ class bras:
             self.joinD.setReverseRotation(1)
             # self.joinE.setReverseRotation(1)
             
-#            self.slider.setReverseRotation(1)
+ #            self.slider.setReverseRotation(1)
 
-#        self.slider.setDriveMode(4)
+ #        self.slider.setDriveMode(4)
 
         # self.joinD.setPunch(32)
         # self.joinD.setPunch(70)
@@ -333,7 +331,7 @@ class bras:
         self.joinC.setTorque(value)
         self.joinD.setTorque(value)
         self.joinE.setTorque(value)
-#        self.slider.setTorque(value)
+ #        self.slider.setTorque(value)
 
     def getState(self):
         pos_to_rad = math.radians(300) / 1024
