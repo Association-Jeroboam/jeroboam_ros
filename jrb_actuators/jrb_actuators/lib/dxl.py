@@ -17,6 +17,9 @@ def setTorque4All(node, VALUE):
         node.sendGenericCommand(1, 254, 24, VALUE) #pour les XL320
         node.sendGenericCommand(1, 254, 64, VALUE) #pour les XL430
 
+def mirrorAngle(angle):
+    return 1024-angle
+
 class XL320():
     def __init__(
         self,
@@ -155,12 +158,6 @@ class XL320():
         self.pid_I = I
         self.pid_D = D
 
-#    def printPositionPID(self):
-#        P = readValue(portHandler, 2, self.ID, 29)
-#        I = readValue(portHandler, 2, self.ID, 28)
-#        D = readValue(portHandler, 2, self.ID, 27)
-#        print("P:", P, "  I:", I, "  D:", D)
-
     def setGoalPosition(self, POSITION):
         POSITION+=self.offset
         if self.CW_Angle_Limit > POSITION:
@@ -174,23 +171,24 @@ class XL320():
         self.target_reached=False
         self.radian_target(int(POSITION)*rawToRad)
         self.node.sendGenericCommand(2, self.ID, 30, int(POSITION))
-#       self.setTorque(self.torque)  # Updating the goal_position register seems to enable torque, so this line releases the motor if it haven't to be enabled
+        #self.setTorque(self.torque)  # Updating the goal_position register seems to enable torque, so this line releases the motor if it haven't to be enabled
 
+    """
+    def getPresentPosition(self):
+        dxl_present_position = readValue(portHandler, 2, self.ID, 37)
+        if self.reverseRotation :
+            dxl_present_position=1023-dxl_present_position
+        dxl_present_position-=self.offset
+        return dxl_present_position
 
-#    def getPresentPosition(self):
-#        dxl_present_position = readValue(portHandler, 2, self.ID, 37)
-#        if self.reverseRotation :
-#            dxl_present_position=1023-dxl_present_position
-#        dxl_present_position-=self.offset
-#        return dxl_present_position
-#
-#    def getPresentTemperature(self):
-#        present_temp = readValue(portHandler, 1, self.ID, 46)
-#        return present_temp
-#
-#    def getPresentVoltage(self):
-#        present_voltage=readValue(portHandler, 1, self.ID, 45)/10.0
-#        return present_voltage
+    def getPresentTemperature(self):
+        present_temp = readValue(portHandler, 1, self.ID, 46)
+        return present_temp
+
+    def getPresentVoltage(self):
+        present_voltage=readValue(portHandler, 1, self.ID, 45)/10.0
+        return present_voltage
+    """
 
     def reboot(self):
         self.node.sendRebootCommand(self.ID)
@@ -204,24 +202,6 @@ class XL320():
         self.node.sendGenericCommand(1, self.ID, 24, VALUE)
         if VALUE : self.setLED(6)
         else : self.setLED(7)
-
-
-#    def getPresentVelocity(self):
-#        #todo
-#        pass
-    
-#    def waitMoveEnd(self,timeout):
-#        t_speed = time.time() + timeout  # timeout en secondes
-#        speed = 0
-#        while t_speed > time.time() :
-#            lastspeed = speed
-#            speed = self.getPresentVelocity()
-#            if speed == 0 and lastspeed != 0:
-#                return 1  # arret après un front descendant sur speed
-#            time.sleep(0.1)
-#        return 0
-
-
 
 class bras:
     def __init__(self, node, side, ID_A, ID_B, ID_C, ID_D, ID_E, ID_Slider):
@@ -245,9 +225,9 @@ class bras:
             self.joinD.setReverseRotation(1)
             # self.joinE.setReverseRotation(1)
             
- #            self.slider.setReverseRotation(1)
+        #self.slider.setReverseRotation(1)
 
- #        self.slider.setDriveMode(4)
+        #self.slider.setDriveMode(4)
 
         # self.joinD.setPunch(32)
         # self.joinD.setPunch(70)
@@ -341,7 +321,7 @@ class bras:
         self.joinC.setTorque(value)
         self.joinD.setTorque(value)
         self.joinE.setTorque(value)
- #        self.slider.setTorque(value)
+        #self.slider.setTorque(value)
 
     def getAngles(self):
         joints = []
@@ -441,9 +421,6 @@ class bras:
     def getSlidePosition_mm(self):
         return (self.slider.getPresentPosition() - 8679) * (1 / -36.93191489)
 
-def mirrorAngle(angle):
-    return 1024-angle
-
 class rakes:
     def __init__(self, node, ID_gauche_bas=7, ID_droit_bas=15, ID_gauche_haut=5, ID_droit_haut=18):
         self.node = node
@@ -468,7 +445,6 @@ class rakes:
         self.gaucheH.setGoalPosition(mirrorAngle(471))
         self.droitB.setGoalPosition(607)
         self.droitH.setGoalPosition(mirrorAngle(607))
-
 
     def close(self):
         self.node.get_logger().info("Closing rakes...")
