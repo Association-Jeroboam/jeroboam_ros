@@ -18,6 +18,7 @@
   <exec_depend>tf_transformations</exec_depend>
   <exec_depend>jrb_msgs</exec_depend>
   <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>rosbag2_py</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

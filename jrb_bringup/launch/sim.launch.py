@@ -7,12 +7,15 @@ from launch.actions import IncludeLaunchDescription, GroupAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import ThisLaunchFileDir, PathJoinSubstitution
 from launch_ros.actions import SetRemap
-
+from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.actions import Node
-
+from launch.substitutions import LaunchConfiguration
+from launch.actions import DeclareLaunchArgument
 
 def generate_launch_description():
     package_name = "jrb_bringup"
+
+    global_localization = LaunchConfiguration('global_localization')
 
     rsp = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -90,7 +93,7 @@ def generate_launch_description():
         executable="go_to_goal",
         output="screen",
         parameters=[{"use_sim_time": True}],
-        remappings=[("/cmd_vel", "/cmd_vel_nav")],
+        remappings=[("/cmd_vel", "/cmd_vel_nav"), ("/odometry", "/odom")],
     )
 
     twist_mux = Node(
@@ -109,12 +112,28 @@ def generate_launch_description():
         remappings=[("markers", "/debug/table_mesh")],
     )
 
+    static_transform_broadcaster = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="static_transform_publisher",
+        output="screen",
+        arguments=["0", "0", "0", "0", "0", "0", "map", "odom"],
+        parameters=[marker_publisher_params, {"use_sim_time": True}],
+        condition=UnlessCondition(global_localization)
+    )
+
     # Launch them all!
     return LaunchDescription(
         [
+            DeclareLaunchArgument(
+                "global_localization",
+                description="Use a global localization node such as amcl to have the tf map->odom",
+                default_value="False"
+            ),
             rsp,
-            # sample_detector,
-            # go_to_goal,
+            static_transform_broadcaster,
+            sample_detector,
+            go_to_goal,
             twist_mux,
             joystick,
             marker_publisher,

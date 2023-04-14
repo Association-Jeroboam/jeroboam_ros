@@ -12,6 +12,7 @@ setup(
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
         (os.path.join("share", package_name), glob("launch/*.launch.py")),
+        (os.path.join("share", package_name, "bags"), glob("bags/**/*")),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
@@ -24,6 +25,8 @@ setup(
         "console_scripts": [
             "arm_to_sample = jrb_strategy.arm_to_sample:main",
             "eurobot = jrb_strategy.eurobot:main",
+            "bag_recorder = jrb_strategy.bag_recorder:main",
+            "bag_player = jrb_strategy.bag_player:main",
         ],
     },
 )

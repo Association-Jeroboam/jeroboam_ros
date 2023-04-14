@@ -23,7 +23,7 @@ def generate_launch_description():
     camera_param_path = LaunchConfiguration("camera_param_path")
     lidar_param_path = LaunchConfiguration("lidar_param_path")
     can_bridge_param_path = LaunchConfiguration("can_bridge_param_path")
-    sim_motionboard = LaunchConfiguration("sim_motionboard")
+    global_localization = LaunchConfiguration('global_localization')
 
     rsp = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -73,6 +73,15 @@ def generate_launch_description():
         remappings=[("markers", "/debug/table_mesh")],
     )
 
+    static_transform_broadcaster = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="static_transform_publisher",
+        output="screen",
+        arguments=["0", "0", "0", "0", "0", "0", "map", "odom"],
+        condition=UnlessCondition(global_localization)
+    )
+
     return LaunchDescription(
         [
             DeclareLaunchArgument(
@@ -96,7 +105,13 @@ def generate_launch_description():
                     [this_pkg, "param", "robotrouge_can_bridge_param.yaml"]
                 ),
             ),
+            DeclareLaunchArgument(
+                "global_localization",
+                description="Use a global localization node such as amcl to have the tf map->odom",
+                default_value="False"
+            ),
             rsp,
+            static_transform_broadcaster,
             Node(
                 package="v4l2_camera",
                 executable="v4l2_camera_node",
