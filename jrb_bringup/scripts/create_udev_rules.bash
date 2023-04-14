@@ -12,13 +12,15 @@ function title {
 parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 cd "$parent_path"
 
-# Arduino rules
 title 'Copy rules to /etc/udev/rules.d'
 sudo cp *.rules /etc/udev/rules.d
 echo ""
 
 title "Restarting udev"
 echo ""
+
+sudo udevadm control --reload-rules
+sudo udevadm trigger
 
 sudo service udev reload
 sudo service udev restart

@@ -117,6 +117,7 @@ def generate_launch_description():
                 executable="v4l2_camera_node",
                 name="v4l2_camera",
                 parameters=[camera_param_path],
+                namespace="/camera",
                 output="screen",
             ),
             twist_mux,

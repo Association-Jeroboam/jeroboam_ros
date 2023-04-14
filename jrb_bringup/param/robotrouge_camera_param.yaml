@@ -35,7 +35,7 @@
     saturation: 64
     sharpness: 5
     use_sim_time: false
-    video_device: /dev/video0
+    video_device: /dev/camera
     white_balance_temperature: 4600
     white_balance_temperature_auto: true
 
