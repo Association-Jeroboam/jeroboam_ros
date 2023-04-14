@@ -38,8 +38,8 @@
 #include <linux/can/raw.h>
 #include "canard.h"
 #include "Heartbeat_1_0.h"
-#include "cartesian/State_0_1.h"
-#include "cartesian/Twist_0_1.h"
+#include "State2D_1_0.h"
+#include "Twist2D_1_0.h"
 #include "CanProtocol.hpp"
 #include "PIDState_0_1.h"
 #include "PumpStatus_0_1.h"
@@ -81,7 +81,7 @@ class CanBridge : public rclcpp::Node
 
     rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
   
-    void publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 * state);
+    void publishRobotCurrentState(jeroboam_datatypes_sensors_odometry_State2D_1_0 * state);
     void publishLeftPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1* pid);
     void publishRightPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1* pid);
     void publishLeftPumpStatus(jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 * status);

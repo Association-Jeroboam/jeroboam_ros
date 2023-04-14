@@ -1,6 +1,9 @@
 #include "CanBridge.hpp"
 #include <rclcpp/qos.hpp>
 #include <rmw/qos_profiles.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 CanBridge::CanBridge()
     : Node("can_bridge"), send_config_enabled(false), init_done(false)
@@ -183,7 +186,6 @@ rcl_interfaces::msg::SetParametersResult CanBridge::parametersCallback(const std
 
     return result;
 }
-
 
 void CanBridge::send_can_msg(CanardPortID portID, CanardTransferID* transferID, void* buffer, size_t buf_size) {
     if (buffer == nullptr || buf_size == 0) {

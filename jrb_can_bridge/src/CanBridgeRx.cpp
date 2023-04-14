@@ -124,8 +124,8 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
       }
 
       last_transfer_id = transfer->metadata.transfer_id;
-      reg_udral_physics_kinematics_cartesian_State_0_1 state;
-      int8_t res = reg_udral_physics_kinematics_cartesian_State_0_1_deserialize_(&state,
+      jeroboam_datatypes_sensors_odometry_State2D_1_0 state;
+      int8_t res = jeroboam_datatypes_sensors_odometry_State2D_1_0_deserialize_(&state,
                                                                   (uint8_t *)transfer->payload,
                                                                   &transfer->payload_size);
       if (res != NUNAVUT_SUCCESS) {
