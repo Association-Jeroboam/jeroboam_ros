@@ -506,7 +506,7 @@ class Actuators_robotrouge(Actuators):
         #self.serial_actionBoard.write(("pump "+side+" 0\r").encode('utf-8'))
         #time.sleep(0.1)
         #self.serial_actionBoard.write(("valve "+side+" 0\r").encode('utf-8'))
-        pump_msg=Bool(data=True)
+        pump_msg=Bool(data=False)
         valve_msg=Bool(data=True)
         if side == "left" :
             self.pub_pump_left.publish(pump_msg)
