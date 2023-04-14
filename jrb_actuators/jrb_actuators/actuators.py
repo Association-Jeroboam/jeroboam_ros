@@ -5,7 +5,7 @@ import traceback
 from rclpy.node import Node
 import rclpy
 from geometry_msgs.msg import PoseStamped
-from jrb_msgs.msg import StackSample, PumpStatus, ValveStatus, ServoStatus, ServoConfig, ServoAngle
+from jrb_msgs.msg import StackSample, ServoStatus, ServoConfig, ServoAngle
 from std_msgs.msg import Bool, Float32
 #from .lib import custom_dxl_API as API
 #from dynamixel_sdk import *  # Uses Dynamixel SDK library
@@ -61,48 +61,52 @@ class Actuators_robotrouge(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
+        # Publishers
         self.pub_actuator_state = self.create_publisher(
             JointState, "actuator_state", 10
         )
 
         self.pub_pump_left = self.create_publisher(
-            PumpStatus, "left_pump_status", 10
+            Bool, "/hardware/pump/left/set_status", 10
         )
 
         self.pub_pump_right = self.create_publisher(
-            PumpStatus, "right_pump_status", 10
+            Bool, "/hardware/pump/right/set_status", 10
         )
 
         self.pub_valve_left = self.create_publisher(
-            ValveStatus, "left_valve_status", 10
+            Bool, "/hardware/valve/left/set_status", 10
         )
 
         self.pub_valve_right = self.create_publisher(
-            ValveStatus, "right_valve_status", 10
+            Bool, "/hardware/valve/right/set_status", 10
         )
 
+        # Subscribers
         self.sub_left_arm = self.create_subscription(
-            PoseStamped, "left_arm_goto", partial(self.arm_goto_cb, "left"), 10
+            PoseStamped, "/actuators/arm/left/go_to", partial(self.arm_goto_cb, "left"), 10
         )
 
         self.sub_right_arm = self.create_subscription(
-            PoseStamped, "right_arm_goto", partial(self.arm_goto_cb, "right"), 10
+            PoseStamped, "/actuators/arm/right/go_to", partial(self.arm_goto_cb, "right"), 10
         )
 
         self.sub_rakes = self.create_subscription(
-            Bool, "open_rakes", self.rakes_cb, 10
+            Bool, "/actuators/set_open_rakes", self.rakes_cb, 10
         )
 
         self.sub_pump_left = self.create_subscription(
-            Bool, "pump_left", partial(self.pump_cb, "left"), 10
-        )
-        self.sub_pump_right = self.create_subscription(
-            Bool, "pump_right", partial(self.pump_cb, "right"), 10
+            Bool, "/actuators/pump/left/set_enabled", partial(self.pump_cb, "left"), 10
         )
 
-        self.sub_stack_sample = self.create_subscription(
-            StackSample, "stack_sample", self.stackSample_cb, 10
+        self.sub_pump_right = self.create_subscription(
+            Bool, "/actuators/pump/right/set_enabled", partial(self.pump_cb, "right"), 10
         )
+
+        # TODO: @lucas see if this is still relevant
+        # self.sub_stack_sample = self.create_subscription(
+        #     StackSample, "stack_sample", self.stackSample_cb, 10
+        # )
 
         self.init_actuators()
 
@@ -203,8 +207,7 @@ class Actuators_robotrouge(Node):
 
     def startPump(self, side):
         #self.serial_actionBoard.write(("pump "+side+" 1\r").encode('utf-8'))
-        pump_msg=PumpStatus()
-        pump_msg.enabled=True
+        pump_msg=Bool(data=True)
         if side == "left" :
             self.pub_pump_left.publish(pump_msg)
         else :
@@ -215,10 +218,8 @@ class Actuators_robotrouge(Node):
         #self.serial_actionBoard.write(("pump "+side+" 0\r").encode('utf-8'))
         #time.sleep(0.1)
         #self.serial_actionBoard.write(("valve "+side+" 0\r").encode('utf-8'))
-        pump_msg=PumpStatus()
-        valve_msg=ValveStatus()
-        pump_msg.enabled=False
-        valve_msg.enabled=True
+        pump_msg=Bool(data=True)
+        valve_msg=Bool(data=True)
         if side == "left" :
             self.pub_pump_left.publish(pump_msg)
             self.pub_valve_left.publish(valve_msg)
