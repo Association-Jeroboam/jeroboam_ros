@@ -4,6 +4,8 @@
 #include <memory>
 #include <stdexcept>
 #include <raylib.h>
+#include <cstdlib>
+
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -30,7 +32,15 @@ public:
           strategy_(""),
           fullscreen_(false)
     {
-        RCLCPP_INFO(this->get_logger(), "init");
+        RCLCPP_INFO(this->get_logger(), "ScreenManager Node created");
+
+        const char *display_env = std::getenv("DISPLAY");
+        if (display_env == nullptr)
+        {
+            RCLCPP_FATAL(this->get_logger(), "The DISPLAY environment variable is not defined.");
+            rclcpp::shutdown();
+            exit(EXIT_FAILURE);
+        }
 
         // Parameters
         rcl_interfaces::msg::IntegerRange integer_range_width;
