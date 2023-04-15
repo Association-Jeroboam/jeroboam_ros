@@ -22,8 +22,6 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 #include "jrb_msgs/msg/pid_state.hpp"
-#include "jrb_msgs/msg/pump_status.hpp"
-#include "jrb_msgs/msg/valve_status.hpp"
 #include "jrb_msgs/msg/pid_config.hpp"
 #include "jrb_msgs/msg/adaptative_pid_config.hpp"
 #include "jrb_msgs/msg/motion_config.hpp"

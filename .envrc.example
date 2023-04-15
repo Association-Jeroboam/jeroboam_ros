@@ -94,6 +94,7 @@ fi
 
 ################# Runtime preferences
 
+export ROBOT_NAME=$(cat /etc/hostname)
 export ROS_DOMAIN_ID=42 # make this number different than your coworkers' to isolate your ROS from theirs
 # export COLCON_HOME=/opt/ros/_common/colcon
 # export COLCON_DEFAULTS_FILE=$PWD/colcon.yaml
@@ -130,6 +131,6 @@ print('Python:', platform.python_implementation(), platform.python_version())
 print('   RMW:', os.environ.get('RMW_IMPLEMENTATION','?'))
 print('   ROS:', os.environ.get('ROS_DISTRO','distro?'))
 print('   DOMAIN_ID:', os.environ.get('ROS_DOMAIN_ID'))
-print('🤖 Welcome to ROS on', platform.node())
+print('🤖 ', os.environ.get('ROBOT_NAME'),' 🔴')
 print()
 "

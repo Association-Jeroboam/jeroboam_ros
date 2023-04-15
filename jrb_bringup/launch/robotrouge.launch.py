@@ -12,13 +12,21 @@ from launch.actions import IncludeLaunchDescription, GroupAction
 from launch_ros.substitutions import FindPackageShare
 from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.actions import SetRemap
+import rclpy
+from rclpy.logging import get_logger
 import os
 
 
 def generate_launch_description():
-    package_name = "jrb_bringup"
+    rclpy.init()
+    logger = get_logger('launch_logger')
 
+    package_name = "jrb_bringup"
     this_pkg = FindPackageShare("jrb_bringup")
+
+    if not os.environ.get("ROBOT_NAME"):
+        logger.warn("ROBOT_NAME is not set, default to robotrouge")
+        os.environ["ROBOT_NAME"] = "robotrouge"
 
     camera_param_path = LaunchConfiguration("camera_param_path")
     lidar_param_path = LaunchConfiguration("lidar_param_path")
@@ -131,11 +139,13 @@ def generate_launch_description():
             #     package="jrb_actuators",
             #     executable="actuators.py",
             #     output="screen",
+            #     parameters=[{"robot_name": os.environ.get("ROBOT_NAME")}],
             # ),
             Node(
                 package="jrb_actuators",
                 executable="teleop_actuators_joy",
                 output="screen",
+                parameters=[{"robot_name": os.environ.get("ROBOT_NAME")}],
             ),
             Node(
                 package="jrb_screen",
@@ -151,7 +161,7 @@ def generate_launch_description():
                 package="jrb_can_bridge",
                 executable="jrb_can_bridge",
                 output="screen",
-                parameters=[can_bridge_param_path],
+                parameters=[can_bridge_param_path, {"robot_name": os.environ.get("ROBOT_NAME")}],
             ),
             Node(
                 package="rplidar_ros2",
@@ -168,6 +178,7 @@ def generate_launch_description():
                 package="jrb_hardware_bridge",
                 executable="gpio_node",
                 output="screen",
+                parameters=[{"robot_name": os.environ.get("ROBOT_NAME")}],
             ),
             # Node(package="jrb_strategy", executable="eurobot", output="screen"),
         ],
