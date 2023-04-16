@@ -22,8 +22,6 @@ from tf_transformations import quaternion_from_euler, euler_from_quaternion
 from jrb_msgs.msg import (
     SampleDetectedArray,
     StackSample,
-    PumpStatus,
-    ValveStatus,
     ServoStatus,
     ServoConfig,
     ServoAngle,
