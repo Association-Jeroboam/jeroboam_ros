@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include <sstream>
 #include <vector>
+#include <net/if.h>
 
 #include "rclcpp/rclcpp.hpp"
 #include "rcl_interfaces/msg/set_parameters_result.hpp"
@@ -81,13 +82,14 @@ unsigned int subCnt;
 
 int main(int argc, char * argv[])
 {
+  rclcpp::init(argc, argv);
+
   char iface[] = "can0";
 
   initCAN(iface);
   initCanard();
   createSubscriptions();
 
-  rclcpp::init(argc, argv);
   
   rclcpp::executors::MultiThreadedExecutor executor;
   canBridge = std::make_shared<CanBridge>();
@@ -170,13 +172,22 @@ bool subscribe(CanardTransferKind transfer_kind, CanardPortID port_id, size_t ex
 }
 
 void initCAN(char * iface) {
+    // Check if the provided CAN interface exists
+    if (if_nametoindex(iface) == 0) {
+        RCLCPP_ERROR(rclcpp::get_logger("initCAN"), "CAN interface '%s' not found", iface);
+        rclcpp::shutdown();
+        exit(EXIT_FAILURE);
+        return;
+    }
+
     // stolen from the basic tutorial
     struct sockaddr_can addr;
     struct ifreq ifr;
 
-
     if ((canIFace = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
-        perror("Socket");
+        RCLCPP_ERROR(rclcpp::get_logger("initCAN"), "Error creating socket: %s", strerror(errno));
+        rclcpp::shutdown();
+        exit(EXIT_FAILURE);
         return;
     }
 
@@ -188,9 +199,13 @@ void initCAN(char * iface) {
     addr.can_ifindex = ifr.ifr_ifindex;
 
     if (bind(canIFace, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-        perror("Bind");
+        RCLCPP_ERROR(rclcpp::get_logger("initCAN"), "Error binding socket: %s", strerror(errno));
+        rclcpp::shutdown();
+        exit(EXIT_FAILURE);
         return;
     }
+
+    RCLCPP_INFO(rclcpp::get_logger("initCAN"), "CAN interface '%s' initialized successfully", iface);
 }
 
 bool check_parameter(char * iface, char * name, size_t n) {
