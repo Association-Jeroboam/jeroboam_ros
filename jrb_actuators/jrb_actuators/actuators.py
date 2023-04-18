@@ -126,12 +126,12 @@ class Actuators_robotrouge(Node):
         ]
 
         #left
-        self.arm_state_msg.position = self.left_arm.getAngles()
+        self.arm_state_msg.gap = self.left_arm.getGapAngles()
         self.arm_state_msg.target_reached = self.left_arm.getJoinStatus() 
         self.pub_arm_state_left.publish(self.arm_state_msg)
         
         #right
-        self.arm_state_msg.position = self.right_arm.getAngles()
+        self.arm_state_msg.gap = self.right_arm.getGapAngles()
         self.arm_state_msg.target_reached = self.right_arm.getJoinStatus() 
         self.pub_arm_state_right.publish(self.arm_state_msg)
 
@@ -175,12 +175,14 @@ class Actuators_robotrouge(Node):
     def init_actuators(self):
         # self.last_sending=time.time()
         self.sendRebootCommand(254)  # 254 for broadcast
-        time.sleep(2)
+        time.sleep(0.5)
+        self.sendRebootCommand(254)  # 254 for broadcast
+        time.sleep(1)
 
-        self.left_arm = dxl.bras(self, "left", 16, 14, 22, 1, 8, 101)  # gauche
+        self.left_arm = dxl.bras(self, "left", 16, 14, 22, 2, 8, 101)  # gauche
         self.right_arm = dxl.bras(self,"right",3, 4, 10, 9, 11, 100) #droit
 
-        #self.rateaux = dxl.rakes(self,7, 15, 5, 18)
+        self.rateaux = dxl.rakes(self,7, 15, 5, 18)
 
         # centre reservoir : 112.75 ; -22.5
         x = 112.75
@@ -253,11 +255,11 @@ class Actuators_robotrouge(Node):
     def servoAngle_cb(self, msg: ServoAngle):
         if msg.id in dxl.connected_XL320:
             dxl.connected_XL320[msg.id].setRadianState(msg.radian)
+            #self.get_logger().info(f"XL320 with ID {msg.id} is at {msg.radian} radians.")
         else:
-            self.get_logger().warn(f"XL320 with ID {msg.id} is unknown.")
+            self.get_logger().debug(f"XL320 with ID {msg.id} is unknown.")
 
     def arm_goto_cb(self, side: str, msg: PoseStamped):
-        print("in arm_goto_cb")
         pos = np.array(
             [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1]
         )

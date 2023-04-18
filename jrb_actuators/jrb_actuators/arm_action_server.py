@@ -146,6 +146,7 @@ class ArmActionServer(Node):
 
         msg=PoseStamped()
         msg.header.stamp = goal_handle.request.pose.header.stamp
+        msg.header.frame_id= goal_handle.request.pose.header.frame_id
         msg.pose = goal_handle.request.pose.pose
         self.pub_arm_goto.publish(msg)
 
@@ -165,10 +166,10 @@ class ArmActionServer(Node):
                 self.get_logger().warn(f"{self.action_name} action timeout. No data received for at least one of the 6 joints (topic: {self.arm_state.topic_name})")
             else :
                 joins=[]
+                self.get_logger().warn(f"{self.action_name} action timeout. Target not reached for :")
                 for index, value in enumerate(self.arm_state_msg.target_reached) :
                     if not value :
-                        joins.append(self.arm_state_msg.name[index])
-                self.get_logger().warn(f"{self.action_name} action timeout. Target not reached for f{joins}")
+                        self.get_logger().info(f"=> {self.arm_state_msg.name[index]} : {self.arm_state_msg.gap[index]:.4f}rad from target")
             goal_handle.abort()
             return GoToPose.Result(success=False)
     

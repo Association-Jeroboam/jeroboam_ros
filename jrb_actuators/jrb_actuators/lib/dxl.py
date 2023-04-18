@@ -70,9 +70,12 @@ class XL320():
             return
         self.radian_state=radian
         #self.node.get_logger().info(f"XL320 with ID {self.ID} has its radian_state set to {self.radian_state}.")
-        if abs( self.radian_state - self.radian_target ) < 0.05 :
+        if abs( self.radian_state - self.radian_target ) < 0.08 :
             self.target_reached=True
             #self.node.get_logger().info(f"XL320 with ID {self.ID} has its target reached ({self.radian_state}).")
+        else :
+            #self.node.get_logger().info(f"For ID {self.ID} : radian_state - radian_target ={abs( self.radian_state - self.radian_target )}")
+            pass
 
     def setPunch(self, punch):
         self.node.sendGenericCommand(2, self.ID, 51, punch)
@@ -160,6 +163,7 @@ class XL320():
         self.pid_D = D
 
     def setGoalPosition(self, POSITION):
+        POSITION=int(POSITION)
         POSITION+=self.offset
         if self.CW_Angle_Limit > POSITION:
             self.node.get_logger().warning(F"ID {self.ID}: Position goal ({POSITION}) < CW_Angle_Limit ({self.CW_Angle_Limit})")
@@ -170,8 +174,8 @@ class XL320():
         if self.reverseRotation :
             POSITION=1023-POSITION
         self.target_reached=False
-        self.radian_target(int(POSITION)*rawToRad)
-        self.node.sendGenericCommand(2, self.ID, 30, int(POSITION))
+        self.radian_target=POSITION * rawToRad
+        self.node.sendGenericCommand(2, self.ID, 30, POSITION)
         #self.setTorque(self.torque)  # Updating the goal_position register seems to enable torque, so this line releases the motor if it haven't to be enabled
 
     """
@@ -201,8 +205,8 @@ class XL320():
     def setTorque(self, VALUE):
         self.torque = VALUE
         self.node.sendGenericCommand(1, self.ID, 24, VALUE)
-        if VALUE : self.setLED(6)
-        else : self.setLED(7)
+        #if VALUE : self.setLED(6)
+        #else : self.setLED(7)
 
 class XL430:
     def __init__(
@@ -417,18 +421,27 @@ class bras:
         self.node=node
         self.side=side
         self.joinA = XL320(node, ID_A, 360, 700, 160)
+        time.sleep(0.01)
         self.joinB = XL320(node, ID_B, 512 - 333, 512 + 333, 250)
+        time.sleep(0.01)
         self.joinC = XL320(node, ID_C, 160, 580, 450)
+        time.sleep(0.01)
         self.joinD = XL320(node, ID_D, 205, 819, 500)
+        time.sleep(0.01)
         self.joinE = XL320(node, ID_E,0,1023,150)
-
+        time.sleep(0.01)
         self.slider = XL430(node, ID_Slider)
+        time.sleep(0.01)
 
         if side=="right" :
             self.joinA.setAngleLimits(1023-self.joinA.CCW_Angle_Limit,1023-self.joinA.CW_Angle_Limit)
+            time.sleep(0.01)
             self.joinB.setAngleLimits(1023-self.joinB.CCW_Angle_Limit,1023-self.joinB.CW_Angle_Limit)
+            time.sleep(0.01)
             self.joinC.setReverseRotation(1)
+            time.sleep(0.01)
             self.joinD.setReverseRotation(1)
+            time.sleep(0.01)
             # self.joinE.setReverseRotation(1)
             
         #self.slider.setReverseRotation(1)
@@ -439,10 +452,15 @@ class bras:
         # self.joinD.setPunch(70)
 
         self.joinA.setPositionPID(60, 10, 0)
+        time.sleep(0.01)
         self.joinB.setPositionPID(60, 25, 0)
+        time.sleep(0.01)
         self.joinC.setPositionPID(70, 30, 0)
+        time.sleep(0.01)
         self.joinD.setPositionPID(120, 30, 0)
+        time.sleep(0.01)
         self.joinE.setPositionPID(70, 30, 0)
+        time.sleep(0.01)
 
     def xy2angles(self,x_sucker,y_sucker):
         h1 = 54  # entraxe A et B
@@ -459,6 +477,11 @@ class bras:
         if d < 0 :
             self.node.get_logger().error(f"d<0 donc sqrt impossible. a={a}  b={b}  c={c}  d={d}  x_sucker={x_sucker}  y_sucker={y_sucker}")
             return []
+        
+        if a+b == 0 :
+            self.node.get_logger().error(f"a+b=0 donc imposible d'effectuer la division")
+            return []
+
         xB1 = (2 * a * c - math.sqrt(d)) / (2 * (a**2 + b**2))
         xB2 = (2 * a * c + math.sqrt(d)) / (2 * (a**2 + b**2))
 
@@ -532,16 +555,31 @@ class bras:
     def getAngles(self):
         joints = []
         joints.append(self.joinA.radian_state)
-        time.sleep(0.001)
         joints.append(self.joinB.radian_state)
-        time.sleep(0.001)
         joints.append(self.joinC.radian_state)
-        time.sleep(0.001)
         joints.append(self.joinD.radian_state)
-        time.sleep(0.001)
         joints.append(self.joinE.radian_state)
-        time.sleep(0.001)
         return [self.getSlidePosition_mm() / 1000] + [pos * rawToRad for pos in joints]
+
+    def getTargetAngles(self):
+        joints = []
+        joints.append(self.joinA.radian_target)
+        joints.append(self.joinB.radian_target)
+        joints.append(self.joinC.radian_target)
+        joints.append(self.joinD.radian_target)
+        joints.append(self.joinE.radian_target)
+        return [self.getSlidePosition_mm() / 1000] + [pos * rawToRad for pos in joints]
+    
+    def getGapAngles(self):
+        joints = []
+        joints.append(abs(self.joinA.radian_target-self.joinA.radian_state))
+        joints.append(abs(self.joinB.radian_target-self.joinB.radian_state))
+        joints.append(abs(self.joinC.radian_target-self.joinC.radian_state))
+        joints.append(abs(self.joinD.radian_target-self.joinD.radian_state))
+        joints.append(abs(self.joinE.radian_target-self.joinE.radian_state))
+        return [self.getSlidePosition_mm() / 1000] + [pos * rawToRad for pos in joints]
+
+
 
     def getJoinStatus(self):
         joints = []
@@ -562,6 +600,7 @@ class bras:
         
     def goToAngle(self, join, angle):
         ratio = 614 / 180
+    
         if join == "A":
             self.joinA.setGoalPosition(1023 - (angle * ratio + (512 - 307)))
         elif join == "B":
@@ -645,6 +684,8 @@ class rakes:
 
         self.gaucheH = XL320(node,ID_gauche_haut, mirrorAngle(500), mirrorAngle(520 - 220), 300)
         self.droitH = XL320(node,ID_droit_haut, mirrorAngle(570 + 220), mirrorAngle(590), 300)
+
+        self.torque=False
 
         self.droitH.setHomingOffset(55)
 
