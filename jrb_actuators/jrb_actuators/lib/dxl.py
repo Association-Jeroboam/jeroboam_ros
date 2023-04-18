@@ -4,6 +4,7 @@ import math
 rawToRad=math.radians(300)/1023
 
 connected_XL320={}
+connected_XL430={}
 
 def formatAngle(angle):
     angle = angle % 360
@@ -82,7 +83,7 @@ class XL320():
     def setReverseRotation(self,value):
         self.reverseRotation=value
         self.setAngleLimits(self.CW_Angle_Limit, self.CCW_Angle_Limit)
-        self.node.get_logger().info(f"XL320 with ID {self.ID} has its rotation reversed.")
+        #self.node.get_logger().info(f"XL320 with ID {self.ID} has its rotation reversed.")
 
     def setHomingOffset(self, offset):
         oldOffset = self.offset
@@ -203,6 +204,211 @@ class XL320():
         if VALUE : self.setLED(6)
         else : self.setLED(7)
 
+class XL430:
+    def __init__(
+        self,
+        node,
+        DXL_ID,
+        CW_Angle_Limit=0,
+        driveMode=4,
+        CCW_Angle_Limit=4095,
+        Moving_Speed=1023,
+    ):
+        self.node=node
+        self.ID = DXL_ID
+        self.driveMode = driveMode
+        #if 1060 == getModel(DXL_ID):
+        self.model_number = 1060
+        connected_XL430[self.ID] = self
+        """
+        else:
+            print(
+                "Error for ID",
+                self.ID,
+                ": DXL with ID ",
+                DXL_ID,
+                " does not appear to be XL430",
+            )
+        """
+        self.setTorque(0)
+        if driveMode == 3:
+            self.setAngleLimits(CW_Angle_Limit, CCW_Angle_Limit)
+            time.sleep(0.005)
+        self.setMaxSpeed(Moving_Speed)
+        self.setDriveMode(driveMode)
+        self.setPositionPID(640, 0, 4000)
+        self.setReverseRotation(0)
+        self.target_reached=False
+
+        #print("XL430 ", DXL_ID, " was well initialized (temp:",self.getPresentTemperature(),"°C  Voltage:",self.getPresentVoltage(),"V)")
+
+    def setAngleLimits(self, CW_Angle_Limit, CCW_Angle_Limit):
+        if self.driveMode != 3:
+            print(
+                "Warning for ID",
+                self.ID,
+                ": Angle limits are not used for selected drive mode (",
+                self.driveMode,
+                ")",
+            )
+            return
+
+        if CW_Angle_Limit > CCW_Angle_Limit:
+            print("Error for ID", self.ID, ": CW_Angle_Limit>CCW_Angle_Limit")
+        if CW_Angle_Limit < 0:
+            print("Error for ID", self.ID, ": CW_Angle_Limit<0")
+            CW_Angle_Limit = 0
+        if CCW_Angle_Limit > 4095:
+            print("Error for ID", self.ID, ": CCW_Angle_Limit>1023")
+            CCW_Angle_Limit = 4095
+
+        self.node.sendGenericCommand(4, self.ID, 52, CW_Angle_Limit)
+
+        time.sleep(0.005)
+        self.node.sendGenericCommand(4, self.ID, 48, CCW_Angle_Limit)
+
+        self.CW_Angle_Limit = CW_Angle_Limit
+        self.CCW_Angle_Limit = CCW_Angle_Limit
+
+    def setMaxSpeed(self, Max_Speed):
+        self.maxSpeed = Max_Speed
+        if Max_Speed < 0:
+            print("Error for ID", self.ID, ": Max_Speed<0")
+            Max_Speed = 0
+        if Max_Speed > 4095:
+            print("Error for ID", self.ID, ": Max_Speed>4095")
+            Max_Speed = 4095
+
+        self.node.sendGenericCommand(4, self.ID, 44, Max_Speed)
+
+    def setPositionPID(self, P, I, D):
+        self.P = P
+        self.I = I
+        self.D = D
+        self.node.sendGenericCommand(2, self.ID, 78, P)
+        self.node.sendGenericCommand(2, self.ID, 76, I)
+        self.node.sendGenericCommand(2, self.ID, 80, D)
+
+    """
+    def printPositionPID(self):
+        P = readValue(portHandler, 2, self.ID, 78)
+        I = readValue(portHandler, 2, self.ID, 76)
+        D = readValue(portHandler, 2, self.ID, 80)
+        print("P:", P, "  I:", I, "  D:", D)
+
+    def getPresentTemperature(self):
+        return readValue(portHandler, 1, self.ID, 146)
+
+    def getPresentVoltage(self):
+        return readValue(portHandler, 2, self.ID, 144)/10
+        
+    def getPresentVelocity(self):
+        dxl_present_velocity = readValue(portHandler, 4, self.ID, 128)
+        return dxl_present_velocity
+       
+    def getPresentLoad(self):
+        dxl_present_load = readValue(portHandler, 2, self.ID, 126)
+        print("load=",dxl_present_load)
+        return dxl_present_load
+
+    def printTorqueEnable(self, debug=""):
+        torqueEnable = readValue(portHandler, 1, self.ID, 64)
+        print(debug, "torqueEnable=", torqueEnable)
+    """
+    def getPresentPosition(self): #todo
+        #dxl_present_position = readValue(portHandler, 4, self.ID, 132)
+        dxl_present_position=0
+        return dxl_present_position
+
+    def setGoalPosition(self, POSITION):
+        if self.driveMode == 3:
+            if self.CW_Angle_Limit > POSITION:
+                print(
+                    "Error for ID",
+                    self.ID,
+                    ": Position goal (",
+                    POSITION,
+                    ") < CW_Angle_Limit (",
+                    self.CW_Angle_Limit,
+                    ")",
+                )
+                POSITION = self.CW_Angle_Limit
+            elif self.CCW_Angle_Limit < POSITION:
+                print(
+                    "Error for ID",
+                    self.ID,
+                    ": Position goal (",
+                    POSITION,
+                    ") > CCW_Angle_Limit (",
+                    self.CCW_Angle_Limit,
+                    ")",
+                )
+                POSITION = self.CCW_Angle_Limit
+
+        self.node.sendGenericCommand(4, self.ID, 116, POSITION)
+        self.setTorque(
+            self.torque
+        )  # Updating the goal_position register seems to enable torque, so this line releases the motor if it haven't to be enabled
+
+    def setGoalSpeed(self, SPEED):
+        if self.driveMode == 1:
+            self.node.sendGenericCommand(4, self.ID, 104, SPEED)
+            self.setTorque(
+                self.torque
+            )  # Updating the goal_position register seems to enable torque, so this line releases the motor if it haven't to be enabled
+        else:
+            print("You can't set speed goal if you are not in Velocity Mode")
+
+    def reboot(self):
+        packetHandler.reboot(portHandler, self.ID)
+
+    def setReverseRotation(self,value):
+        if value :
+            driveModeValue=5
+        else :
+            driveModeValue=4
+        self.node.sendGenericCommand(1, self.ID, 10, driveModeValue)        
+        self.reverseRotation = value
+        print("XL430 with ID",self.ID,"has its rotation reversed.")
+
+    def setDriveMode(self, MODE): #dans la doc c'est pas appelé driveMode mais operatingMode car driveMode est utilisé pour autre chose
+        self.node.sendGenericCommand(1, self.ID, 11, MODE)  # XL320 : 1: wheel mode   2: joint mode   // XL430 : 1:Velocity  3:Position  4:Extended position  16:PWM
+        self.driveMode = MODE
+
+    def setTorque(self, VALUE):
+        self.torque = VALUE
+        self.node.sendGenericCommand(1, self.ID, 64, VALUE)
+
+    def reboot(self):
+        packetHandler.reboot(portHandler, self.ID)
+
+    def setHomingOffset(self, offset):
+        # if self.reverseRotation :
+        #     offset=1044479-offset
+        if offset > 1044479 :
+            print("Erreur : offset (",offset,") trop grand ( > 1044479 ) pour XL430 avec ID",self.ID)
+            return
+        elif offset < -1044479 :
+            print("Erreur : offset (",offset,") trop petit ( < -1044479 ) pour XL430 avec ID",self.ID)
+            return
+
+        self.offset = offset
+
+        self.node.sendGenericCommand(4, self.ID, 20, offset)
+
+    def waitMoveEnd(self,timeout):
+        t_speed = time.time() + timeout  # timeout en secondes
+        speed = 1
+        lastspeed = 0
+        while t_speed > time.time() :
+            if speed == 0 and lastspeed != 0:  #arret après un front descendant sur speed
+                return 1
+            else :
+                lastspeed = speed
+                speed = self.getPresentVelocity()
+            time.sleep(0.1)
+        return 0
+
 class bras:
     def __init__(self, node, side, ID_A, ID_B, ID_C, ID_D, ID_E, ID_Slider):
         if side != "left" and side != "right" :
@@ -216,7 +422,7 @@ class bras:
         self.joinD = XL320(node, ID_D, 205, 819, 500)
         self.joinE = XL320(node, ID_E,0,1023,150)
 
-        #self.slider = XL430(node, ID_Slider)
+        self.slider = XL430(node, ID_Slider)
 
         if side=="right" :
             self.joinA.setAngleLimits(1023-self.joinA.CCW_Angle_Limit,1023-self.joinA.CW_Angle_Limit)
@@ -325,17 +531,27 @@ class bras:
 
     def getAngles(self):
         joints = []
-        joints.append(self.joinA.getPresentPosition())
+        joints.append(self.joinA.radian_state)
         time.sleep(0.001)
-        joints.append(self.joinB.getPresentPosition())
+        joints.append(self.joinB.radian_state)
         time.sleep(0.001)
-        joints.append(self.joinC.getPresentPosition())
+        joints.append(self.joinC.radian_state)
         time.sleep(0.001)
-        joints.append(self.joinD.getPresentPosition())
+        joints.append(self.joinD.radian_state)
         time.sleep(0.001)
-        joints.append(self.joinE.getPresentPosition())
+        joints.append(self.joinE.radian_state)
         time.sleep(0.001)
         return [self.getSlidePosition_mm() / 1000] + [pos * rawToRad for pos in joints]
+
+    def getJoinStatus(self):
+        joints = []
+        joints.append(bool(self.slider.target_reached))
+        joints.append(self.joinA.target_reached)
+        joints.append(self.joinB.target_reached)
+        joints.append(self.joinC.target_reached)
+        joints.append(self.joinD.target_reached)
+        joints.append(self.joinE.target_reached)
+        return joints
 
     def isTargetReached(self):
         #todo : check slider

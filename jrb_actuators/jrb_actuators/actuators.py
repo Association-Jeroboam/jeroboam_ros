@@ -14,6 +14,8 @@ from jrb_msgs.msg import (
     ServoAngle,
     ServoGenericCommand,
     ServoID,
+    BoolArray,
+    ArmStatus,
 )
 from std_msgs.msg import Bool, Float32
 from jrb_actuators.lib import dxl
@@ -53,8 +55,12 @@ class Actuators_robotrouge(Node):
 
         self.pub_reboot_command = self.create_publisher(ServoID, "servo_reboot", 10)
 
-        self.pub_actuator_state = self.create_publisher(
-            JointState, "actuator_state", 10
+        self.pub_arm_state_left = self.create_publisher(
+            ArmStatus, "arm_state_left", 10
+        )
+
+        self.pub_arm_state_right = self.create_publisher(
+            ArmStatus, "arm_state_right", 10
         )
 
         self.pub_pump_left = self.create_publisher(PumpStatus, "left_pump_status", 10)
@@ -96,10 +102,10 @@ class Actuators_robotrouge(Node):
 
         self.init_actuators()
 
-        publish_state_rate = 1 / 6  # Hz
-        # self.state_publish_timer = self.create_timer(publish_state_rate, self.on_state_publish_timer)
+        arm_publish_state_rate = 1 / 2  # Hz
+        self.arm_state_publish_timer = self.create_timer(arm_publish_state_rate, self.on_arm_state_publish_timer)
 
-        self.actuator_state_msg = JointState()
+        self.arm_state_msg = ArmStatus()
 
     def __del__(self):
         dxl.setTorque4All(self, 0)
@@ -107,21 +113,27 @@ class Actuators_robotrouge(Node):
         self.stopPump("right")
         #self.serial_actionBoard.close()
 
-    def on_state_publish_timer(self):
+    def on_arm_state_publish_timer(self):
         now = self.get_clock().now().to_msg()
-        state = self.left_arm.getState()
-        self.actuator_state_msg.header.stamp = now
-        self.actuator_state_msg.name = [
-            "left_arm_joint",
-            "left_b_joint",
-            "left_c_joint",
-            "left_d_joint",
-            "left_e_joint",
-            "left_f_joint",
+        self.arm_state_msg.header.stamp = now
+        self.arm_state_msg.name = [
+            "slider",
+            "a_joint",
+            "b_joint",
+            "c_joint",
+            "d_joint",
+            "e_joint",
         ]
-        self.actuator_state_msg.position = state
 
-        self.pub_actuator_state.publish(self.actuator_state_msg)
+        #left
+        self.arm_state_msg.position = self.left_arm.getAngles()
+        self.arm_state_msg.target_reached = self.left_arm.getJoinStatus() 
+        self.pub_arm_state_left.publish(self.arm_state_msg)
+        
+        #right
+        self.arm_state_msg.position = self.right_arm.getAngles()
+        self.arm_state_msg.target_reached = self.right_arm.getJoinStatus() 
+        self.pub_arm_state_right.publish(self.arm_state_msg)
 
     def sendGenericCommand(self, len_, id, addr, data):
         data_array = []
@@ -165,10 +177,10 @@ class Actuators_robotrouge(Node):
         self.sendRebootCommand(254)  # 254 for broadcast
         time.sleep(2)
 
-        #self.left_arm = dxl.bras(self, "left", 16, 14, 22, 1, 8, 101)  # gauche
-        #self.right_arm = dxl.bras(self,"right",3, 4, 10, 9, 11, 100) #droit
+        self.left_arm = dxl.bras(self, "left", 16, 14, 22, 1, 8, 101)  # gauche
+        self.right_arm = dxl.bras(self,"right",3, 4, 10, 9, 11, 100) #droit
 
-        self.rateaux = dxl.rakes(self,7, 15, 5, 18)
+        #self.rateaux = dxl.rakes(self,7, 15, 5, 18)
 
         # centre reservoir : 112.75 ; -22.5
         x = 112.75
@@ -195,7 +207,6 @@ class Actuators_robotrouge(Node):
         #time.sleep(2)
         self.get_logger().info("init OK")
         # self.cycle_cool()
-
 
     def cycle_cool(self):
         while True:
@@ -246,6 +257,7 @@ class Actuators_robotrouge(Node):
             self.get_logger().warn(f"XL320 with ID {msg.id} is unknown.")
 
     def arm_goto_cb(self, side: str, msg: PoseStamped):
+        print("in arm_goto_cb")
         pos = np.array(
             [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1]
         )
@@ -568,6 +580,7 @@ class Actuators_robotbleu(Node):
 def main(args=None):
     rclpy.init(args=args)
     # node = Actuators()
+    
     node = Actuators_robotrouge()
 
     try:
