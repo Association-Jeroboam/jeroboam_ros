@@ -10,9 +10,11 @@ from rclpy.action import ActionServer, GoalResponse, CancelResponse
 from action_msgs.msg import GoalStatus
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
-
+from jrb_msgs.msg import ArmStatus
 from jrb_msgs.action import GoToPose
 from std_msgs.msg import String
+from geometry_msgs.msg import PoseStamped
+
 
 
 class ArmActionServer(Node):
@@ -23,9 +25,16 @@ class ArmActionServer(Node):
         self.action_name = arm_name + "_arm_go_to_goal"
 
         # Subscribers
-        self.subscription = self.create_subscription(
-            String, "/test", self.test_callback, 10
+        self.arm_state = self.create_subscription(
+            ArmStatus, "/arm_state_"+arm_name, self.arm_state_cb, 10
         )
+
+        # Publisher
+        self.pub_arm_goto = self.create_publisher(PoseStamped, self.arm_name+"_arm_goto", 10)
+
+        self.arm_state_msg = ArmStatus()
+        self.start_time = 0
+        self.end_time = 0
 
         # Internal data state
         self.goal_handle_lock = threading.Lock()
@@ -96,7 +105,7 @@ class ArmActionServer(Node):
             with self.execute_lock:
                 self.get_logger().info("Executing goal...")
 
-                self.setup()
+                self.setup(goal_handle)
 
                 # Work loop
                 while True:
@@ -128,36 +137,49 @@ class ArmActionServer(Node):
             goal_handle.abort()
             return GoToPose.Result(success=False)
 
-    def test_callback(self, msg):
-        self.get_logger().info("test: " + msg.data)
-        self.test = msg.data
+    def arm_state_cb(self, msg):
+        self.arm_state_msg=msg
 
-    def setup(self):
-        self.i = 1
-        self.partial_sequence = [0, 1]
-        self.test = None
+    def setup(self,goal_handle):
+        #Reset local data to avoid early validation of the action
+        self.arm_state_msg = ArmStatus()
+
+        msg=PoseStamped()
+        msg.header.stamp = goal_handle.request.pose.header.stamp
+        msg.pose = goal_handle.request.pose.pose
+        self.pub_arm_goto.publish(msg)
+
+        self.start_time = time.time()
+        timeout=2 #seconds
+        self.end_time = self.start_time + timeout
 
     def loop(self, goal_handle):
         # Success condition
-        if self.i >= 10:
+        if all(self.arm_state_msg.target_reached) and len(self.arm_state_msg.target_reached) >= 6:
             goal_handle.succeed()
             return GoToPose.Result(success=True)
 
+        # Timeout condition
+        elif self.end_time - time.time() < 0 :
+            if len(self.arm_state_msg.target_reached) < 6 :
+                self.get_logger().warn(f"{self.action_name} action timeout. No data received for at least one of the 6 joints (topic: {self.arm_state.topic_name})")
+            else :
+                joins=[]
+                for index, value in enumerate(self.arm_state_msg.target_reached) :
+                    if not value :
+                        joins.append(self.arm_state_msg.name[index])
+                self.get_logger().warn(f"{self.action_name} action timeout. Target not reached for f{joins}")
+            goal_handle.abort()
+            return GoToPose.Result(success=False)
+    
         # Work
-
-        # Simulate blocking calls
-        self.wait_for_seconds(0.5, goal_handle)
-        self.partial_sequence.append(
-            self.partial_sequence[self.i] + self.partial_sequence[self.i - 1]
-        )
-
-        print("test: ", self.test)
-
+        self.wait_for_seconds(0.2, goal_handle)
+       
         # Publish feedback
-        self.get_logger().info("Feedback: {0}".format(self.partial_sequence))
-        goal_handle.publish_feedback(GoToPose.Feedback(processing=True))
+        #self.get_logger().info("Feedback: {0}".format(self.partial_sequence))
+        #goal_handle.publish_feedback(GoToPose.Feedback(processing=True))
 
-        self.i += 1
+        
 
 
 def main(args=None):

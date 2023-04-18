@@ -130,7 +130,17 @@ def generate_launch_description():
             ),
             # Node(
             #     package="jrb_actuators",
-            #     executable="actuators.py",
+            #     executable="actuators",
+            #     output="screen",
+            # ),
+            Node(
+                package="jrb_actuators",
+                executable="teleop_actuators_joy",
+                output="screen",
+            ),
+            # Node(
+            #     package="jrb_localization",
+            #     executable="map_manager",
             #     output="screen",
             # ),
             Node(
