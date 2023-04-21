@@ -139,7 +139,10 @@ void createSubscriptions(void) {
             jeroboam_datatypes_actuators_servo_ServoAngle_0_1_EXTENT_BYTES_);
   subscribe(CanardTransferKindMessage,
             MOTION_ODOM_TICKS_ID,
-            jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1_EXTENT_BYTES_); 
+            jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1_EXTENT_BYTES_);
+  subscribe(CanardTransferKindResponse,
+            ACTION_SERVO_GENERIC_COMMAND_ID,
+            uavcan_primitive_scalar_Integer8_1_0_EXTENT_BYTES_);    
 }
 
 bool subscribe(CanardTransferKind transfer_kind, CanardPortID port_id, size_t extent){

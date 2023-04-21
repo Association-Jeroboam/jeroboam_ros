@@ -56,6 +56,7 @@
 #include "jrb_msgs/msg/servo_generic_read_response.hpp"
 #include "jrb_msgs/msg/motion_speed_command.hpp"
 #include "jrb_msgs/msg/odometry_ticks.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "ServoAngle_0_1.h"
 #include "ServoConfig_0_1.h"
 #include "ServoID_0_1.h"
@@ -64,6 +65,7 @@
 #include "GenericReadResponse_0_1.h"
 #include "SpeedCommand_0_1.h"
 #include "OdometryTicks_0_1.h"
+#include "scalar/Integer8_1_0.h"
 #include "CanBridgeTx.hpp"
 #include "CanBridgeRx.hpp"
 
@@ -89,6 +91,7 @@ class CanBridge : public rclcpp::Node
     void publishServoAngle(jeroboam_datatypes_actuators_servo_ServoAngle_0_1 * servoAngle);
     void publishOdometryTicks(jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1 * odometryTicks);
     void sendAdaptPidConfig(std::string side);
+    void publishServoGenericCommandResponse(uavcan_primitive_scalar_Integer8_1_0 * status);
 
   private:
     static void send_can_msg(CanardPortID portID, CanardTransferID* transferID, void* buffer, size_t buf_size);
@@ -133,7 +136,8 @@ class CanBridge : public rclcpp::Node
     rclcpp::Publisher<jrb_msgs::msg::ValveStatus>::SharedPtr    right_valve_pub;
     rclcpp::Publisher<jrb_msgs::msg::ServoGenericReadResponse>::SharedPtr    servo_generic_read_response_pub;
     rclcpp::Publisher<jrb_msgs::msg::ServoAngle>::SharedPtr     servo_angle_pub;
-    rclcpp::Publisher<jrb_msgs::msg::OdometryTicks>::SharedPtr     odometry_ticks_pub;
+    rclcpp::Publisher<jrb_msgs::msg::OdometryTicks>::SharedPtr  odometry_ticks_pub;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr           servo_generic_cmd_response_pub;
   
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr  twist_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initialpose_sub;

@@ -49,6 +49,7 @@
 #include "jrb_msgs/msg/servo_config.hpp"
 #include "ServoAngle_0_1.h"
 #include "ServoConfig_0_1.h"
+#include "scalar/Integer8_1_0.h"
 #include "jrb_can_bridge.hpp"
 
 
@@ -199,6 +200,22 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
       } 
 
       canBridge.get()->publishServoGenericReadResponse(&response);
+      break;
+    }
+
+    case ACTION_SERVO_GENERIC_COMMAND_ID:{
+      uavcan_primitive_scalar_Integer8_1_0 response;
+      int8_t res = uavcan_primitive_scalar_Integer8_1_0_deserialize_(&response,
+                                                                     (uint8_t *)transfer->payload,
+                                                                     &transfer->payload_size);
+      if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: ACTION_SERVO_GENERIC_COMMAND_ID deserialize failed " << res);
+        break;
+      } else {
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx ACTION_SERVO_GENERIC_COMMAND_ID received ack of transmision " << transfer->metadata.transfer_id);
+      }
+
+      canBridge.get()->publishServoGenericCommandResponse(&response);
       break;
     }
 

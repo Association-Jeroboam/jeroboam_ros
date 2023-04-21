@@ -21,6 +21,7 @@ CanBridge::CanBridge()
     servo_generic_read_response_pub = this->create_publisher<jrb_msgs::msg::ServoGenericReadResponse>("servo_generic_read_response", 10);
     servo_angle_pub = this->create_publisher<jrb_msgs::msg::ServoAngle>("servo_angle", 10);
     odometry_ticks_pub = this->create_publisher<jrb_msgs::msg::OdometryTicks>("odometry_ticks", 10);
+    servo_generic_cmd_response_pub = this->create_publisher<std_msgs::msg::Bool>("servo/generic_cmd/response", 10);
 
     rclcpp::QoS cmd_vel_qos = rclcpp::SensorDataQoS().keep_last(1);
     static const rclcpp::QoS qos_profile = rclcpp::QoS(10)
@@ -302,6 +303,14 @@ void CanBridge::publishOdometryTicks(jeroboam_datatypes_sensors_odometry_Odometr
     odometry_ticks_pub->publish(ticks);
 }
 
+void CanBridge::publishServoGenericCommandResponse(uavcan_primitive_scalar_Integer8_1_0 * status) {
+    std_msgs::msg::Bool pub_status;
+    pub_status.data = false;
+    if(status->value == CAN_PROTOCOL_RESPONSE_SUCCESS) {
+        pub_status.data = true;
+    }
+    servo_generic_cmd_response_pub->publish(pub_status);
+}
 
 void CanBridge::send_can_msg(CanardPortID portID, CanardTransferID* transferID, void* buffer, size_t buf_size) {
     if (buffer == nullptr || buf_size == 0) {
@@ -320,7 +329,7 @@ void CanBridge::send_can_msg(CanardPortID portID, CanardTransferID* transferID, 
     bool success = TxThread::pushQueue(&metadata, buf_size, buffer);
     if (!success ) {
         RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "Queue push failed\n");
-    }
+    }   
     (*transferID)++;
 }
 
@@ -609,7 +618,7 @@ void CanBridge::servoGenericCommandCB(const jrb_msgs::msg::ServoGenericCommand m
     }
     //if(command.addr != 30)
     //{
-        RCLCPP_INFO(this->get_logger(), "id=%d / addr=%d",command.id,command.addr);
+        // RCLCPP_INFO(this->get_logger(), "id=%d / addr=%d",command.id,command.addr);
     //}
     for (int i=0; i<msg.len; ++i)
     {
@@ -625,7 +634,7 @@ void CanBridge::servoGenericCommandCB(const jrb_msgs::msg::ServoGenericCommand m
         return;
     }
 
-    send_can_msg(ACTION_SERVO_GENERIC_COMMAND_ID, &transfer_id, buffer, buf_size);
+    send_can_request(ACTION_SERVO_GENERIC_COMMAND_ID, CAN_PROTOCOL_ACTION_BOARD_ID, &transfer_id, buffer, buf_size);
 }
 
 void CanBridge::servoGenericReadCB(const jrb_msgs::msg::ServoGenericRead msg) {
