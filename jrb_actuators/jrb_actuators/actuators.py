@@ -4,6 +4,8 @@ from re import A
 import traceback
 from rclpy.node import Node
 import rclpy
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
+
 from geometry_msgs.msg import PoseStamped
 from jrb_msgs.msg import (
     StackSample,
@@ -49,11 +51,17 @@ class Actuators_robotrouge(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        self.pub_generic_command = self.create_publisher(
-            ServoGenericCommand, "servo_generic_command", 10
+        qos_profile = QoSProfile(
+            history=QoSHistoryPolicy.KEEP_ALL,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            durability=QoSDurabilityPolicy.VOLATILE 
         )
 
-        self.pub_reboot_command = self.create_publisher(ServoID, "servo_reboot", 10)
+        self.pub_generic_command = self.create_publisher(
+            ServoGenericCommand, "servo_generic_command", qos_profile
+        )
+
+        self.pub_reboot_command = self.create_publisher(ServoID, "servo_reboot", qos_profile)
 
         self.pub_arm_state_left = self.create_publisher(
             ArmStatus, "arm_state_left", 10
@@ -165,6 +173,7 @@ class Actuators_robotrouge(Node):
         # while self.last_sending+0.0005>time.time():
         #    pass
         # self.last_sending=time.time()
+        self.get_logger().info(f"Publishing GenericCommand id={id}")
         self.pub_generic_command.publish(msg)
 
     def sendRebootCommand(self, id):
@@ -174,8 +183,6 @@ class Actuators_robotrouge(Node):
 
     def init_actuators(self):
         # self.last_sending=time.time()
-        self.sendRebootCommand(254)  # 254 for broadcast
-        time.sleep(0.5)
         self.sendRebootCommand(254)  # 254 for broadcast
         time.sleep(1)
 
@@ -442,148 +449,114 @@ class Actuators_robotbleu(Node):
         super().__init__("actuators")
         self.get_logger().info("init")
 
-        self.xl320_status = {}
-        self.present_resistance = 0
+        # Tf subscriber
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        self.sub_xl320_status = self.create_subscription(
-            ServoStatus, "servo_status", self.xl320_status_cb, 10
+        qos_profile = QoSProfile(
+            history=QoSHistoryPolicy.KEEP_ALL,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            durability=QoSDurabilityPolicy.VOLATILE 
         )
-        self.sub_xl320_status = self.create_subscription(
-            Float32, "resistance_status", self.present_resistance_cb, 10
-        )
-        self.pub_xl320_target = self.create_publisher(
-            ServoAngle, "servo_angle_target", 10
-        )
-        self.pub_xl320_config = self.create_publisher(ServoConfig, "servo_config", 10)
 
-        # config msg
-        self.arm_left_config_msg = ServoConfig()
-        self.arm_right_config_msg = ServoConfig()
-        self.ohm_reader_config_msg = ServoConfig()
-        self.plier_tilt_config_msg = ServoConfig()
-        self.plier_config_msg = ServoConfig()
+        self.pub_generic_command = self.create_publisher(
+            ServoGenericCommand, "servo_generic_command", qos_profile=qos_profile
+        )
+
+        self.pub_reboot_command = self.create_publisher(ServoID, "servo_reboot", qos_profile)
+
+        #self.sub_rakes = self.create_subscription(Bool, "open_rakes", self.rakes_cb, 10)
+
+        self.sub_stack_sample = self.create_subscription(
+            ServoAngle, "servo_angle", self.servoAngle_cb, 10 
+        )
 
         self.init_actuators()
 
-    def xl320_status_cb(self, msg: ServoStatus):
-        if not msg.id in self.xl320_status:
-            self.xl320_status[msg.id] = ServoStatus()
-        self.xl320_status[msg.id] = msg
+    def __del__(self):
+        dxl.setTorque4All(self, 0)
+        #Todo : stop turbine
 
-    def present_resistance_cb(self, msg: Float32):
-        self.present_resistance = msg.data
+    def sendGenericCommand(self, len_, id, addr, data):
+        data_array = []
+        while data > 0:
+            data_array.append(data % 255)
+            data = data // 255
 
-    def init_actuators(self):
-        # config servo
-        self.arm_left_config_msg.id = CAN_PROTOCOL_SERVO_PUSH_ARM_LEFT
-        self.arm_right_config_msg.id = CAN_PROTOCOL_SERVO_PUSH_ARM_RIGHT
-        self.ohm_reader_config_msg.id = CAN_PROTOCOL_SERVO_MEASURE_FORK
-        self.plier_tilt_config_msg.id = CAN_PROTOCOL_SERVO_PLIERS_INCLINATION
-        self.plier_config_msg.id = CAN_PROTOCOL_SERVO_PLIERS
+        if len(data_array) > len_:
+            self.get_logger().warn("Data does not fit on specified command lenght")
 
-        self.arm_left_config_msg.torque_limit = (
-            self.arm_right_config_msg.torque_limit
-        ) = (
-            self.ohm_reader_config_msg.torque_limit
-        ) = self.plier_tilt_config_msg.torque_limit = 1023
+        while len(data_array) < 8:
+            data_array.append(0)
 
-        self.arm_left_config_msg.moving_speed = 512  # max: 1024
-        self.arm_right_config_msg.moving_speed = 512  # max: 1024
-        self.ohm_reader_config_msg.moving_speed = 300  # max: 1024
-        self.plier_tilt_config_msg.moving_speed = 200  # max: 1024
+        msg = ServoGenericCommand()
+        msg.id = id
+        msg.addr = addr
+        msg.len = len_
+        msg.data = data_array
 
-        self.arm_left_config_msg.pid.pid = (
-            self.arm_right_config_msg.pid.pid
-        ) = self.ohm_reader_config_msg.pid.pid = self.plier_tilt_config_msg.pid.pid = [
-            32.0,
-            0.0,
-            0.0,
-        ]
+        #if(addr != 30):
+        #    self.get_logger().info("addr not 30")
+        #    self.get_logger().info(str(addr))
 
-        self.pub_xl320_config.publish(self.arm_left_config_msg)
-        self.pub_xl320_config.publish(self.arm_right_config_msg)
-        self.pub_xl320_config.publish(self.ohm_reader_config_msg)
-        self.pub_xl320_config.publish(self.plier_tilt_config_msg)
-        self.pub_xl320_config.publish(self.plier_config_msg)
 
-        self.get_logger().info("configs published")
-        time.sleep(3)
-
-        # test servo
-        self.setArm("left", "out")
-        self.setArm("right", "out")
-        self.setOhmReader(135)
-        self.setPlierTilt("out")
-        self.openPlier()
-        time.sleep(1)
-        self.setArm("left", "in")
-        self.setArm("right", "in")
-        self.setOhmReader(200)
-        self.setPlierTilt("in")
-        self.closePlier()
-        time.sleep(1)
-
-        # todo : servomoteur pince
-
-        self.get_logger().info("init OK")
-
-    def setArm(self, side, state):
-        angle_msg = ServoAngle()
-
-        if side == "left":
-            angle_msg.id = self.arm_left_config_msg.id
-            if state == "in":
-                angle_msg.radian = math.radians(150)
-            elif state == "out ":
-                angle_msg.radian = math.radians(50)
-
-        elif side == "right":
-            angle_msg.id = self.arm_right_config_msg.id
-            if state == "in":
-                angle_msg.radian = math.radians(150)
-            elif state == "out ":
-                angle_msg.radian = math.radians(250)
-
-        else:
+        if msg.id == 0:
+            self.get_logger().error("msg.id == 0")
             return
 
-        self.pub_xl320_target.publish(angle_msg)
+        # while self.last_sending+0.0005>time.time():
+        #    pass
+        # self.last_sending=time.time()
+        self.pub_generic_command.publish(msg)
 
-    def setOhmReader(self, degrees):
-        angle_msg = ServoAngle()
-        angle_msg.id = self.ohm_reader_config_msg.id
-        angle_msg.radian = math.radians(degrees)
-        self.pub_xl320_target.publish(angle_msg)
+    def sendRebootCommand(self, id):
+        msg = ServoID()
+        msg.id = id
+        self.pub_reboot_command.publish(msg)
 
-    def setPlierTilt(self, state):
-        if state == "in":
-            self.setPlierTiltAngle(245)
-        elif state == "out":
-            self.setPlierTiltAngle(155)
+    def servoAngle_cb(self, msg: ServoAngle):
+        if msg.id in dxl.connected_XL320:
+            dxl.connected_XL320[msg.id].setRadianState(msg.radian)
+            #self.get_logger().info(f"XL320 with ID {msg.id} is at {msg.radian} radians.")
+        else:
+            self.get_logger().debug(f"XL320 with ID {msg.id} is unknown.")
 
-    def setPlierTiltAngle(self, degrees):
-        angle_msg = ServoAngle()
-        angle_msg.id = self.plier_tilt_config_msg.id
-        angle_msg.radian = math.radians(degrees)
-        self.pub_xl320_target.publish(angle_msg)
+    def init_actuators(self):
+        self.sendRebootCommand(254)  # 254 for broadcast
+        time.sleep(2)
 
-    def openPlier(self):
-        angle_msg = ServoAngle()
-        angle_msg.id = self.plier_config_msg.id
-        angle_msg.radian = math.radians(15)
-        self.pub_xl320_target.publish(angle_msg)
+        self.ballSystem = dxl.ball_system(self)
+        
+        self.get_logger().info("init OK")
+        time.sleep(0.5)
+        self.get_logger().info("setTorque")
+        self.ballSystem.setTorque(True)
 
-    def closePlier(self):
-        angle_msg = ServoAngle()
-        angle_msg.id = self.plier_config_msg.id
-        angle_msg.radian = math.radians(50)
-        self.pub_xl320_target.publish(angle_msg)
+        time.sleep(1)
+        self.get_logger().info("IN")
+        self.ballSystem.startRoller_in()
+'''
+        time.sleep(3)
+
+        self.get_logger().info("IN")
+        self.ballSystem.startRoller_in()
+        self.ballSystem.roller_right.setLED(4)
+        time.sleep(2)
+        self.get_logger().info("OUT")
+        self.ballSystem.roller_right.setLED(7)
+        self.ballSystem.startRoller_out()
+        time.sleep(2)
+        self.get_logger().info("STOP")
+        self.ballSystem.roller_right.setLED(5)
+        self.ballSystem.stopRoller()
+        '''
+        
 
 def main(args=None):
     rclpy.init(args=args)
     # node = Actuators()
     
-    node = Actuators_robotrouge()
+    node = Actuators_robotbleu()
 
     try:
         rclpy.spin(node)

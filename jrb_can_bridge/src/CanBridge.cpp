@@ -1,5 +1,6 @@
 #include "CanBridge.hpp"
-
+#include <rclcpp/qos.hpp>
+#include <rmw/qos_profiles.h>
 
 CanBridge::CanBridge()
 : Node("can_bridge")
@@ -22,7 +23,10 @@ CanBridge::CanBridge()
     odometry_ticks_pub = this->create_publisher<jrb_msgs::msg::OdometryTicks>("odometry_ticks", 10);
 
     rclcpp::QoS cmd_vel_qos = rclcpp::SensorDataQoS().keep_last(1);
-
+    static const rclcpp::QoS qos_profile = rclcpp::QoS(10)
+            .history(RMW_QOS_POLICY_HISTORY_KEEP_ALL)
+            .reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE)
+            .durability(RMW_QOS_POLICY_DURABILITY_VOLATILE);
     // Subscribers
     twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
     "cmd_vel", cmd_vel_qos, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
@@ -39,19 +43,19 @@ CanBridge::CanBridge()
     right_valve_sub = this->create_subscription<jrb_msgs::msg::ValveStatus>(
     "right_valve_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
     motion_config_sub = this->create_subscription<jrb_msgs::msg::MotionConfig>(
-    "motion_config", 20, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
+    "motion_config", qos_profile, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
     servo_angle_sub = this->create_subscription<jrb_msgs::msg::ServoAngle>(
-    "servo_angle_target", 4, std::bind(&CanBridge::servoAngleCB, this, std::placeholders::_1));
+    "servo_angle_target", qos_profile, std::bind(&CanBridge::servoAngleCB, this, std::placeholders::_1));
     servo_config_sub = this->create_subscription<jrb_msgs::msg::ServoConfig>(
-    "servo_config", 20, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
+    "servo_config", qos_profile, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
     servo_reboot_sub = this->create_subscription<jrb_msgs::msg::ServoID>(
-    "servo_reboot", 20, std::bind(&CanBridge::servoRebootCB, this, std::placeholders::_1));
+    "servo_reboot", qos_profile, std::bind(&CanBridge::servoRebootCB, this, std::placeholders::_1));
     servo_generic_command_sub = this->create_subscription<jrb_msgs::msg::ServoGenericCommand>(
-    "servo_generic_command", 20, std::bind(&CanBridge::servoGenericCommandCB, this, std::placeholders::_1));
+    "servo_generic_command", qos_profile, std::bind(&CanBridge::servoGenericCommandCB, this, std::placeholders::_1));
     servo_generic_read_sub = this->create_subscription<jrb_msgs::msg::ServoGenericRead>(
-    "servo_generic_read", 20, std::bind(&CanBridge::servoGenericReadCB, this, std::placeholders::_1));
+    "servo_generic_read", qos_profile, std::bind(&CanBridge::servoGenericReadCB, this, std::placeholders::_1));
     motion_speed_command_sub = this->create_subscription<jrb_msgs::msg::MotionSpeedCommand>(
-    "speed_command", 1, std::bind(&CanBridge::motionSpeedCommandCB, this, std::placeholders::_1));
+    "speed_command", qos_profile, std::bind(&CanBridge::motionSpeedCommandCB, this, std::placeholders::_1));
     turbine_speed_sub = this->create_subscription<std_msgs::msg::UInt16>(
     "hardware/turbine/speed", 1, std::bind(&CanBridge::turbineSpeedCB, this, std::placeholders::_1));
     
@@ -520,7 +524,7 @@ void CanBridge::servoAngleCB(const jrb_msgs::msg::ServoAngle msg) {
     jeroboam_datatypes_actuators_servo_ServoAngle_0_1 servoAngle;
 
     servoAngle.ID = msg.id;
-    if(servoAngle.id==0)
+    if(servoAngle.ID==0)
     {
         RCLCPP_WARN_STREAM(this->get_logger(), "servoAngle.id = 0");
     }
@@ -550,7 +554,7 @@ void CanBridge::servoConfigCB(const jrb_msgs::msg::ServoConfig msg) {
     servoConfig.pid.pid[1] = msg.pid.pid[1];
     servoConfig.pid.pid[2] = msg.pid.pid[2];
 
-    if(servoConfig.id==0)
+    if(servoConfig.ID==0)
     {
         RCLCPP_WARN_STREAM(this->get_logger(), "servoConfig.id = 0");
     }
@@ -574,7 +578,7 @@ void CanBridge::servoRebootCB(const jrb_msgs::msg::ServoID msg) {
     jeroboam_datatypes_actuators_servo_ServoID_0_1 servoID;
 
     servoID.ID = msg.id;
-    if(servoID.id==0)
+    if(servoID.ID==0)
     {
         RCLCPP_WARN_STREAM(this->get_logger(), "servoID.id = 0");
     }
@@ -603,6 +607,10 @@ void CanBridge::servoGenericCommandCB(const jrb_msgs::msg::ServoGenericCommand m
     {
         RCLCPP_WARN_STREAM(this->get_logger(), "command.id = 0");
     }
+    //if(command.addr != 30)
+    //{
+        RCLCPP_INFO(this->get_logger(), "id=%d / addr=%d",command.id,command.addr);
+    //}
     for (int i=0; i<msg.len; ++i)
     {
       command.data.elements[i] = msg.data[i];
