@@ -24,8 +24,6 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "sample_detector = jrb_sensors.sample_detector:main",
-            "obstacle_detector = jrb_sensors.obstacle_detector:main",
             "cherries_counter = jrb_sensors.cherries_counter:main",
         ],
     },
