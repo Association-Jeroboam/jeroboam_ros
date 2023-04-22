@@ -45,6 +45,7 @@ ament_python_install_package(${PROJECT_NAME})
 install(PROGRAMS
   ${PROJECT_NAME}/obstacle_detector.py
   ${PROJECT_NAME}/sample_detector.py
+  ${PROJECT_NAME}/cherries_counter.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
