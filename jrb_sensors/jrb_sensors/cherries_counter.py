@@ -110,14 +110,30 @@ class CherriesCounter(Node):
 
         return SetParametersResult(successful=True)
 
+    def undistort_image(self, img):
+        h,  w = img.shape[:2]
+        newcameramtx, roi = cv2.getOptimalNewCameraMatrix(self.cameraMatrix,self.distCoeffs, (w,h), 1, (w,h))
+
+        # undistort
+        mapx, mapy = cv2.initUndistortRectifyMap(self.cameraMatrix, self.distCoeffs, None, newcameramtx, (w,h), 5)
+        dst = cv2.remap(img, mapx, mapy, cv2.INTER_LINEAR)
+        # crop the image
+        x, y, w, h = roi
+        dst = dst[y:y+h, x:x+w]
+        return dst
+
     def on_camera_info(self, msg):
         self.get_logger().info("Got camera info, unsubscribing")
 
-#        self.cameraMatrix = np.array(msg.k).reshape(3, 3)
-#        self.distCoeffs = np.array(msg.d).reshape(1, 5)
+        self.cameraMatrix = np.array(msg.k).reshape(3, 3)
+        self.distCoeffs = np.array(msg.d).reshape(1, 5)
 
-        self.cameraMatrix = np.array([1532.310544, 0, 473.564903 ,   0, 1521.222457 , 314.656573 , 0, 0, 1]).reshape(3, 3)
-        self.distCoeffs = np.array([-0.428682, 0.241646, 0.006020, 0.003566, 0.      ]).reshape(1,5)
+        #self.get_logger().info(f"cameraMatrix: {self.cameraMatrix}")
+        #self.get_logger().info(f"distCoeffs: {self.distCoeffs}")
+
+
+        #self.cameraMatrix = np.array([1532.310544, 0, 473.564903 ,   0, 1521.222457 , 314.656573 , 0, 0, 1]).reshape(3, 3)
+        #self.distCoeffs = np.array([-0.428682, 0.241646, 0.006020, 0.003566, 0.      ]).reshape(1,5)
         self.destroy_subscription(self.camera_info_subscriber)
 
     def on_image_compressed(self, msg):
@@ -128,7 +144,7 @@ class CherriesCounter(Node):
         now = self.get_clock().now().to_msg()
 
         img_origin = self.cv_bridge.compressed_imgmsg_to_cv2(msg)
-        #img_origin = cv2.undistort(img,self.cameraMatrix,self.distCoeffs,None)
+        img_origin = self.undistort_image(img_origin)
 
         img = cv2.GaussianBlur(img_origin, (5, 5), 0)
         hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
