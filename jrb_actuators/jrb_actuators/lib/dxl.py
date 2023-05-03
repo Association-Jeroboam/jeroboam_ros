@@ -24,6 +24,12 @@ def setTorque4All(node, VALUE):
 def mirrorAngle(angle):
     return 1024-angle
 
+def toUnsigned(n,base):
+    if(n<0) : n2 = (n+2**base)
+    else : n2=n
+    #print("to unsigned : ",n,"=>",n2)
+    return n2
+
 class XL320():
     def __init__(
         self,

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+USB_BOARD = True
+
 from re import A
 import traceback
 from rclpy.node import Node
@@ -34,6 +36,8 @@ from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 import math
 
+if USB_BOARD : from dynamixel_sdk import *
+
 def speed2rapportCyclique(speed):
     # speed entre -100 et 100
     # Si speed < 0 alors voltage A > voltage B
@@ -57,12 +61,15 @@ class Actuators_robotrouge(Node):
             durability=QoSDurabilityPolicy.VOLATILE 
         )
 
-        self.pub_generic_command = self.create_publisher(
-            ServoGenericCommand, "servo_generic_command", qos_profile
-        )
-
-        self.pub_reboot_command = self.create_publisher(ServoID, "servo_reboot", qos_profile)
-
+        if not USB_BOARD :
+            self.pub_generic_command = self.create_publisher(ServoGenericCommand, "servo_generic_command", qos_profile)
+            self.pub_reboot_command = self.create_publisher(ServoID, "servo_reboot", qos_profile)
+        else :    
+            self.servo_angle_publish_timer = self.create_timer(0.5, self.on_servo_angle_publish_timer)
+            self.pub_servo_angle = self.create_publisher(ServoAngle, "servo_angle", 10 )
+        
+        self.sub_servo_angle = self.create_subscription(ServoAngle, "servo_angle", self.servoAngle_cb, 10)
+        
         self.pub_arm_state_left = self.create_publisher(
             ArmStatus, "arm_state_left", 10
         )
@@ -104,9 +111,7 @@ class Actuators_robotrouge(Node):
             StackSample, "stack_sample", self.stackSample_cb, 10
         )
 
-        self.sub_stack_sample = self.create_subscription(
-            ServoAngle, "servo_angle", self.servoAngle_cb, 10 
-        )
+        if USB_BOARD : self.initHandlers("/dev/ttyACM0", 57600, 2.0)
 
         self.init_actuators()
 
@@ -120,6 +125,81 @@ class Actuators_robotrouge(Node):
         self.stopPump("left")
         self.stopPump("right")
         #self.serial_actionBoard.close()
+
+
+    def initHandlers(self, DEVICENAME, BAUDRATE, PROTOCOL_VERSION):
+        # Initialize PortHandler instance
+        # Set the port pathsudo ap
+        # Get methods and members of PortHandlerLinux or PortHandlerWindows
+        self.portHandler = self.PortHandler(DEVICENAME)
+
+        # Initialize PacketHandler instance
+        # Set the protocol version
+        # Get methods and members of Protocol1PacketHandler or Protocol2PacketHandler
+        self.packetHandler = self.PacketHandler(PROTOCOL_VERSION)
+
+        # Open port
+        if self.portHandler.openPort():
+            self.get_logger().info("Succeeded to open the port")
+        else:
+            self.get_logger().error("Failed to open the port")
+            return
+
+        # Set port baudrate
+        if self.portHandler.setBaudRate(BAUDRATE):
+            self.get_logger().info("Succeeded to change the baudrate")
+        else:
+            self.get_logger().error("Failed to change the baudrate")
+            return
+
+    def writeValue(self, size, ID, address, value):
+        if ( ID in dxl.connected_XL320 ) or ( ID in dxl.connected_XL430 ) or ID==254:
+            value=dxl.toUnsigned(value,size*8)
+            if size == 1:
+                dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(
+                    self.portHandler, ID, address, value
+                )
+            elif size == 2:
+                dxl_comm_result, dxl_error = self.packetHandler.write2ByteTxRx(
+                    self.portHandler, ID, address, value
+                )
+            elif size == 3:
+                dxl_comm_result, dxl_error = self.packetHandler.write3ByteTxRx(
+                    self.portHandler, ID, address, value
+                )
+            elif size == 4:
+                dxl_comm_result, dxl_error = self.packetHandler.write4ByteTxRx(
+                    self.portHandler, ID, address, value
+                )
+            else:
+                self.get_logger().error("writeValue : Incorrect size")
+                return
+
+            if dxl_comm_result != COMM_SUCCESS:
+                # print(
+                #     "Comm_result for ID",
+                #     ID,
+                #     " address",
+                #     address,
+                #     ": %s" % packetHandler.getTxRxResult(dxl_comm_result),
+                # )
+                pass
+            elif dxl_error != 0:
+                error_msg=self.packetHandler.getRxPacketError(dxl_error)
+                self.get_logger().error(f"DXL error for ID {ID} address {address} : {error_msg}")
+                if(error_msg == "[RxPacketError] The data value exceeds the limit value!"):
+                    self.get_logger().error(f"value :{value}  size :{size}")
+
+                if(error_msg == "[RxPacketError] Hardware error occurred. Check the error at Control Table (Hardware Error Status)!"):
+                    #error_msg=getHardwareError(ID)
+                    pass
+
+    def on_servo_angle_publish_timer(self):
+        msg = ServoAngle()
+        for servo in dxl.connected_XL320 :
+            msg.id= servo.id
+            msg.radian = servo.getPresentPosition()*dxl.rawToRad
+            self.pub_servo_angle.publish(msg)
 
     def on_arm_state_publish_timer(self):
         now = self.get_clock().now().to_msg()
@@ -144,42 +224,48 @@ class Actuators_robotrouge(Node):
         self.pub_arm_state_right.publish(self.arm_state_msg)
 
     def sendGenericCommand(self, len_, id, addr, data):
-        data_array = []
-        while data > 0:
-            data_array.append(data % 255)
-            data = data // 255
+        if USB_BOARD :
+            self.writeValue(len_, id, addr, data)
+        else :
+            data_array = []
+            while data > 0:
+                data_array.append(data % 255)
+                data = data // 255
 
-        if len(data_array) > len_:
-            self.get_logger().warn("Data does not fit on specified command lenght")
+            if len(data_array) > len_:
+                self.get_logger().warn("Data does not fit on specified command lenght")
 
-        while len(data_array) < 8:
-            data_array.append(0)
+            while len(data_array) < 8:
+                data_array.append(0)
 
-        msg = ServoGenericCommand()
-        msg.id = id
-        msg.addr = addr
-        msg.len = len_
-        msg.data = data_array
+            msg = ServoGenericCommand()
+            msg.id = id
+            msg.addr = addr
+            msg.len = len_
+            msg.data = data_array
 
-        #if(addr != 30):
-        #    self.get_logger().info("addr not 30")
-        #    self.get_logger().info(str(addr))
+            #if(addr != 30):
+            #    self.get_logger().info("addr not 30")
+            #    self.get_logger().info(str(addr))
 
 
-        if msg.id == 0:
-            self.get_logger().error("msg.id == 0")
-            return
+            if msg.id == 0:
+                self.get_logger().error("msg.id == 0")
+                return
 
-        # while self.last_sending+0.0005>time.time():
-        #    pass
-        # self.last_sending=time.time()
-        self.get_logger().info(f"Publishing GenericCommand id={id}")
-        self.pub_generic_command.publish(msg)
+            # while self.last_sending+0.0005>time.time():
+            #    pass
+            # self.last_sending=time.time()
+            self.get_logger().info(f"Publishing GenericCommand id={id}")
+            self.pub_generic_command.publish(msg)
 
     def sendRebootCommand(self, id):
-        msg = ServoID()
-        msg.id = id
-        self.pub_reboot_command.publish(msg)
+        if USB_BOARD :
+                self.packetHandler.reboot(self.portHandler, id)
+        else :
+            msg = ServoID()
+            msg.id = id
+            self.pub_reboot_command.publish(msg)
 
     def init_actuators(self):
         # self.last_sending=time.time()
@@ -467,7 +553,7 @@ class Actuators_robotbleu(Node):
 
         #self.sub_rakes = self.create_subscription(Bool, "open_rakes", self.rakes_cb, 10)
 
-        self.sub_stack_sample = self.create_subscription(
+        self.sub_servo_angle = self.create_subscription(
             ServoAngle, "servo_angle", self.servoAngle_cb, 10 
         )
 
