@@ -248,6 +248,20 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
       }
       break;
     }
+    case EMERGENCY_STOP_ID:{
+      // Emergency stop
+      jeroboam_datatypes_actuators_common_EmergencyState_0_1 emgcyState;
+      int8_t res = jeroboam_datatypes_actuators_common_EmergencyState_0_1_deserialize_(&emgcyState,
+                                                                                       (uint8_t *)transfer->payload,
+                                                                                       &transfer->payload_size);
+      if(res == NUNAVUT_SUCCESS) {
+        canBridge.get()->publishEmergencyStop(&emgcyState.emergency.value);
+      } else {
+        printf("EMERGENCY_STOP_ID deserialize failed %i\r\n", res);
+      }
+      break;
+    }
+
     default:
       RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: Accepted a non handled CAN message(ID " << transfer->metadata.port_id << ")! Please fix me!");
       break;

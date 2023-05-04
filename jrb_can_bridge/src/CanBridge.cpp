@@ -21,6 +21,7 @@ CanBridge::CanBridge()
     servo_generic_read_response_pub = this->create_publisher<jrb_msgs::msg::ServoGenericReadResponse>("servo_generic_read_response", 10);
     servo_angle_pub = this->create_publisher<jrb_msgs::msg::ServoAngle>("servo_angle", 10);
     odometry_ticks_pub = this->create_publisher<jrb_msgs::msg::OdometryTicks>("odometry_ticks", 10);
+    emergency_pub = this->create_publisher<std_msgs::msg::Bool>("emergency/status", 1);
 
     rclcpp::QoS cmd_vel_qos = rclcpp::SensorDataQoS().keep_last(1);
     static const rclcpp::QoS qos_profile = rclcpp::QoS(10)
@@ -302,6 +303,12 @@ void CanBridge::publishOdometryTicks(jeroboam_datatypes_sensors_odometry_Odometr
     odometry_ticks_pub->publish(ticks);
 }
 
+
+void CanBridge::publishEmergencyStop(bool * emergency) {
+    std_msgs::msg::Bool emerency_msg;
+    emergency_msg.data = *emergency;
+    emergency_pub->publish(emergency_msg);
+}
 
 void CanBridge::send_can_msg(CanardPortID portID, CanardTransferID* transferID, void* buffer, size_t buf_size) {
     if (buffer == nullptr || buf_size == 0) {
