@@ -46,52 +46,55 @@ def toSigned(n,base):
     #print("to signed : ",n,"=>",n2)
     return n2
 
-class XL320():
+class XL320:
     def __init__(
         self,
         node,
         DXL_ID,
         CW_Angle_Limit=0,
         CCW_Angle_Limit=1023,
-        Max_Speed=2047,
+        Max_Speed=1023,
         Max_Torque=1023,
         Drive_Mode=CONTROL_MODE_JOINT
     ):
         self.ID = DXL_ID
         self.offset=0
         self.torque=0
-        self.reverseRotation=0
+        self.reverseRotation=False
         self.node=node
         self.radian_target=0
         self.radian_state=0
         self.target_reached= False
         self.driveMode = Drive_Mode
+        self.maxSpeed = Max_Speed
+        self.maxTorque = Max_Torque
+        self.punch = 50
+        self.CW_Angle_Limit = CW_Angle_Limit
+        self.CCW_Angle_Limit = CCW_Angle_Limit
+        self.pid_P = 32
+        self.pid_I = 0
+        self.pid_D = 0
 
-        #self.node.get_logger().error(f"Init XL320 {self.ID} : driveMode={self.driveMode}")
-
-
-        #if 350 == getModel(DXL_ID):
-        #     self.model_number = 350
-
-        #else:
-        #    #print("Error : DXL with ID ", DXL_ID, " does not appear to be XL320")
-        #    return
-        self.setTorque(0)
-        self.setMaxSpeed(Max_Speed)
-        self.setDriveMode(Drive_Mode)
-        self.setMaxTorque(Max_Torque)
-        self.setPunch(50)
-
-        self.setAngleLimits(CW_Angle_Limit, CCW_Angle_Limit)
-
+        self.isReady=False
         connected_XL320[self.ID] = self
 
-        #self.node.get_logger().error(f"Init XL320 {self.ID} : driveMode={self.driveMode} DONE")
-
-        #self.goalPosition = self.getPresentPosition()
-        #self.setLED(3)
+        self.sendConfig()
 
         #print("XL320 ", DXL_ID, " was well initialized (temp:",self.getPresentTemperature(),"°C  Voltage:",self.getPresentVoltage(),"V)")
+
+    def sendConfig(self):
+        self.isReady=False
+        self.setTorque(0)
+        self.setDriveMode(self.driveMode)
+        self.setMaxSpeed(self.maxSpeed)
+        self.setPunch(self.punch)
+        self.setAngleLimits(self.CW_Angle_Limit, self.CCW_Angle_Limit)
+        self.setPositionPID(self.pid_P,self.pid_I,self.pid_D)
+        self.setHomingOffset(self.offset)
+        self.setReverseRotation(self.reverseRotation)
+        self.setMaxTorque(self.maxTorque)
+        self.setLED(2)
+        self.isReady=True
 
     def setRadianState(self,radian):
         if radian < 0 :
@@ -108,14 +111,16 @@ class XL320():
 
     def setPunch(self, punch):
         self.node.sendGenericCommand(2, self.ID, 51, punch)
+        self.punch = punch
 
     def setLED(self, value):
         self.node.sendGenericCommand(2, self.ID, 25, value)
 
     def setReverseRotation(self,value):
         self.reverseRotation=value
-        self.setAngleLimits(self.CW_Angle_Limit, self.CCW_Angle_Limit)
-        self.node.get_logger().info(f"XL320 with ID {self.ID} has its rotation reversed.")
+        if value :
+            self.setAngleLimits(self.CW_Angle_Limit, self.CCW_Angle_Limit)
+            self.node.get_logger().info(f"XL320 with ID {self.ID} has its rotation reversed.")
 
     def setHomingOffset(self, offset):
         oldOffset = self.offset
@@ -124,7 +129,7 @@ class XL320():
         self.setTorque(0)
         self.setAngleLimits(self.CW_Angle_Limit-oldOffset,self.CCW_Angle_Limit-oldOffset)
         self.setTorque(torque)
-        self.node.get_logger().info(f"Homing offset set to {offset} for ID {self.ID} (CW={self.CW_Angle_Limit}, CCW={self.CCW_Angle_Limit})")
+        #self.node.get_logger().info(f"Homing offset set to {offset} for ID {self.ID} (CW={self.CW_Angle_Limit}, CCW={self.CCW_Angle_Limit})")
 
     def setAngleLimits(self, CW_Angle_Limit, CCW_Angle_Limit):
         torque=self.torque
@@ -154,7 +159,6 @@ class XL320():
             CCW_Angle_Limit=1023-tmp
 
         self.node.sendGenericCommand(2, self.ID, 6, CW_Angle_Limit)
-        time.sleep(0.005)
         self.node.sendGenericCommand(2, self.ID, 8, CCW_Angle_Limit)
 
         self.setTorque(torque)
@@ -178,12 +182,12 @@ class XL320():
             if Max_Speed < 0:
                 self.node.get_logger().error(f"Error for ID {self.ID}: Max_Speed<0")
                 Max_Speed = 0
-            if Max_Speed > 2047:
-                self.node.get_logger().error(f"Error for ID {self.ID}: Max_Speed>2047")
-                Max_Speed = 2047
+            elif Max_Speed > 1023:
+                self.node.get_logger().error(f"Error for ID {self.ID}: Max_Speed>1023")
+                Max_Speed = 1023
             self.node.sendGenericCommand(2, self.ID, 32, Max_Speed)
+            #self.node.get_logger().info(f"XL320 {self.ID}: Max_Speed set to {Max_Speed} = {self.node.readValue(2, self.ID, 32)}")
         self.maxSpeed = Max_Speed
-
 
     def setPositionPID(self, P, I, D):
         self.node.sendGenericCommand(1, self.ID, 29, P)
@@ -221,10 +225,9 @@ class XL320():
             SPEED=self.maxSpeed
         if reverse ^ self.reverseRotation : SPEED += 1024 # ^ : ou exclusif
         
-        self.node.get_logger().info(F"setGoalSpeed : id={self.ID} / SPEED={SPEED} / reverse={reverse}") 
+        #self.node.get_logger().info(F"setGoalSpeed : id={self.ID} / SPEED={SPEED} / reverse={reverse}") 
         self.node.sendGenericCommand(2, self.ID, 32, SPEED)
-
-    
+  
     def getPresentPosition(self):
         dxl_present_position = self.node.readValue(2, self.ID, 37)
         if self.reverseRotation :
@@ -250,9 +253,9 @@ class XL320():
             self.node.get_logger().error(F"Impossible to set DriveMode when torque is set")
         else : 
             self.driveMode = MODE
-            if MODE == CONTROL_MODE_WHEEL : self.node.sendGenericCommand(2, self.ID, 32, 0) #Setting Moving_speed to 0
-            else : self.setMaxSpeed(self.maxSpeed)
-            self.node.sendGenericCommand(1, self.ID, 11, MODE)  # XL430 : 1:Velocity  3:Position  4:Extended position  16:PWM
+            self.node.sendGenericCommand(1, self.ID, 11, MODE)  # XL320 : 1:Wheel Mode 2:Joint Mode
+            if MODE == CONTROL_MODE_WHEEL :
+                self.node.sendGenericCommand(2, self.ID, 32, 0) #Setting Moving_speed to 0
 
     def setTorque(self, VALUE):
         self.torque = VALUE
@@ -289,7 +292,6 @@ class XL430:
         self.setTorque(0)
         if driveMode == 3:
             self.setAngleLimits(CW_Angle_Limit, CCW_Angle_Limit)
-            time.sleep(0.005)
         self.setMaxSpeed(Moving_Speed)
         self.setDriveMode(driveMode)
         self.setPositionPID(640, 0, 4000)
@@ -319,8 +321,6 @@ class XL430:
             CCW_Angle_Limit = 4095
 
         self.node.sendGenericCommand(4, self.ID, 52, CW_Angle_Limit)
-
-        time.sleep(0.005)
         self.node.sendGenericCommand(4, self.ID, 48, CCW_Angle_Limit)
 
         self.CW_Angle_Limit = CW_Angle_Limit
@@ -462,7 +462,6 @@ class XL430:
             else :
                 lastspeed = speed
                 speed = self.getPresentVelocity()
-            time.sleep(0.1)
         return 0
 
 class bras:
@@ -473,30 +472,20 @@ class bras:
         self.node=node
         self.side=side
         self.joinA = XL320(node, ID_A, 360, 700, 160)
-        time.sleep(0.01)
         self.joinB = XL320(node, ID_B, 512 - 333, 512 + 333, 250)
-        time.sleep(0.01)
         self.joinC = XL320(node, ID_C, 160, 580, 450)
-        time.sleep(0.01)
         self.joinD = XL320(node, ID_D, 205, 819, 500)
-        time.sleep(0.01)
         self.joinE = XL320(node, ID_E,0,1023,150)
-        time.sleep(0.01)
         self.slider = XL430(node, ID_Slider)
-        time.sleep(0.01)
 
         if side=="right" :
             self.joinA.setAngleLimits(1023-self.joinA.CCW_Angle_Limit,1023-self.joinA.CW_Angle_Limit)
-            time.sleep(0.01)
             self.joinB.setAngleLimits(1023-self.joinB.CCW_Angle_Limit,1023-self.joinB.CW_Angle_Limit)
-            time.sleep(0.01)
-            self.joinC.setReverseRotation(1)
-            time.sleep(0.01)
-            self.joinD.setReverseRotation(1)
-            time.sleep(0.01)
-            # self.joinE.setReverseRotation(1)
+            self.joinC.setReverseRotation(True)
+            self.joinD.setReverseRotation(True)
+            # self.joinE.setReverseRotation(True)
             
-        #self.slider.setReverseRotation(1)
+        #self.slider.setReverseRotation(True)
 
         #self.slider.setDriveMode(4)
 
@@ -504,15 +493,10 @@ class bras:
         # self.joinD.setPunch(70)
 
         self.joinA.setPositionPID(60, 10, 0)
-        time.sleep(0.01)
         self.joinB.setPositionPID(60, 25, 0)
-        time.sleep(0.01)
         self.joinC.setPositionPID(70, 30, 0)
-        time.sleep(0.01)
         self.joinD.setPositionPID(120, 30, 0)
-        time.sleep(0.01)
         self.joinE.setPositionPID(70, 30, 0)
-        time.sleep(0.01)
 
     def xy2angles(self,x_sucker,y_sucker):
         h1 = 54  # entraxe A et B
@@ -672,7 +656,6 @@ class bras:
         #     self.joinE.setGoalPosition(value)
             self.joinE.setGoalPosition(angle * ratio + 512)
 
-
         else:
             self.node.get_logger().error(f"Join inconnu : {join}")
 
@@ -801,23 +784,25 @@ class ball_system:
         
         self.node = node
 
-        self.lift_right = XL320(node,lift_right_id, Max_Speed=200)
-        self.lift_left = XL320(node,lift_left_id, Max_Speed=200)
-        self.lift_left.setReverseRotation(1)
+        self.lift_right = XL320(node,lift_right_id, Max_Speed=600)
+        self.lift_left = XL320(node,lift_left_id, Max_Speed=600)
+        self.lift_left.setReverseRotation(True)
 
         self.roller_right = XL320(node,roller_right_id,Drive_Mode=CONTROL_MODE_WHEEL)
         self.roller_left = XL320(node,roller_left_id,Drive_Mode=CONTROL_MODE_WHEEL)
-        self.roller_left.setReverseRotation(1)
+        self.roller_left.setReverseRotation(True)
+        self.roller_right.setPositionPID(120, 30, 0)
+        self.roller_left.setPositionPID(120, 30, 0)
 
-        self.figer_right = XL320(node,figer_right_id, 390, 600, 400, 300)
-        self.figer_left = XL320(node,figer_left_id, 390, 600, 400, 300)
-        self.figer_left.setReverseRotation(1)
+        self.figer_right = XL320(node,figer_right_id, 390, 600, 1023, 300)
+        self.figer_left = XL320(node,figer_left_id, 390, 600, 1023, 300)
+        self.figer_left.setReverseRotation(True)
 
         self.setTorque(False)
 
         self.start_fingers_loop = False
-        self.toggle_fingers = False
-        self.fingers_loop_timer = self.node.create_timer(0.6, self.on_fingers_loop_timer)
+        self.fingers_step = 0
+        self.fingers_loop_timer = self.node.create_timer(0.3, self.on_fingers_loop_timer)
 
     def setTorque(self, value):
         self.lift_right.setTorque(value)
@@ -842,9 +827,12 @@ class ball_system:
 
     def on_fingers_loop_timer(self):
         if self.start_fingers_loop :
-            if self.toggle_fingers : self.setFingersOnSide()
-            else : self.setFingersOnCenter()
-            self.toggle_fingers = not self.toggle_fingers
+            if self.fingers_step >= 3 :
+                self.setFingersOnCenter()
+                self.fingers_step=0
+            else :
+                self.setFingersOnSide()
+                self.fingers_step+=1
 
     def startFingersLoop(self) :
         self.start_fingers_loop = True

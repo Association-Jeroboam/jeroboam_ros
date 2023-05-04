@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 USB_BOARD = True
+MIN_TIME_BETWEEN_COM = 0.006 #seconds
 
 from re import A
 import traceback
@@ -42,18 +43,17 @@ def speed2rapportCyclique(speed):
     # speed entre -100 et 100
     # Si speed < 0 alors voltage A > voltage B
     return 0.025 * speed + 7
-"""
-class Actuators_robotrouge(Node):
+            
+class Actuators(Node):
     def __init__(self):
         super().__init__("actuators")
         self.get_logger().info("init")
 
-        # self.init_gpio()
-        # self.init_serial()
-
         # Tf subscriber
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
+
+        self.last_com_time = 0
 
         qos_profile = QoSProfile(
             history=QoSHistoryPolicy.KEEP_ALL,
@@ -61,18 +61,236 @@ class Actuators_robotrouge(Node):
             durability=QoSDurabilityPolicy.VOLATILE 
         )
 
-
         if USB_BOARD :
-            self.get_logger().info("USB_BOARD TRUE")
+            self.get_logger().info("Using USB board for dynamixel control")
             self.servo_angle_publish_timer = self.create_timer( 0.5, self.on_servo_angle_publish_timer)
             self.pub_servo_angle = self.create_publisher(ServoAngle, "servo_angle", 10 )
+            self.initHandlers("/dev/dxl", 57600, 2.0)
         else :
-            self.get_logger().info("USB_BOARD FALSE")    
+            self.get_logger().info("Using can bus for dynamixel control")    
             self.pub_generic_command = self.create_publisher(ServoGenericCommand, "servo_generic_command", qos_profile)
             self.pub_reboot_command = self.create_publisher(ServoID, "servo_reboot", qos_profile)
         
+        self.init_actuators()
+
         self.sub_servo_angle = self.create_subscription(ServoAngle, "servo_angle", self.servoAngle_cb, 10)
-        
+
+    def __del__(self):
+        dxl.setTorque4All(self, 0)
+
+    def on_servo_angle_publish_timer(self):
+        msg = ServoAngle()
+        for servo_id in dxl.connected_XL320 :
+            if dxl.connected_XL320[servo_id].isReady :
+                value=dxl.connected_XL320[servo_id].getPresentPosition()
+                if value != -1 :
+                    msg.id = servo_id
+                    msg.radian = value*dxl.rawToRad
+                    self.pub_servo_angle.publish(msg)
+                else :
+                    self.get_logger().warn(f"Dynamixel {servo_id} seems not connected")
+
+    def initHandlers(self, DEVICENAME, BAUDRATE, PROTOCOL_VERSION):
+        # Initialize PortHandler instance
+        # Set the port pathsudo ap
+        # Get methods and members of PortHandlerLinux or PortHandlerWindows
+        self.portHandler = PortHandler(DEVICENAME)
+
+        # Initialize PacketHandler instance
+        # Set the protocol version
+        # Get methods and members of Protocol1PacketHandler or Protocol2PacketHandler
+        self.packetHandler = PacketHandler(PROTOCOL_VERSION)
+
+        # Open port
+        if self.portHandler.openPort():
+            #self.get_logger().info("Succeeded to open the port")
+            pass
+        else:
+            self.get_logger().error("Failed to open the port")
+            return
+
+        # Set port baudrate
+        if self.portHandler.setBaudRate(BAUDRATE):
+            #self.get_logger().info("Succeeded to change the baudrate")
+            pass
+        else:
+            self.get_logger().error("Failed to change the baudrate")
+            return
+
+    def readValue(self, size, ID, address):
+        if ( ID in dxl.connected_XL320 ) or ( ID in dxl.connected_XL430 ):
+            while time.time() - self.last_com_time < MIN_TIME_BETWEEN_COM :
+                pass
+            self.last_com_time=time.time()
+
+            if size == 1:
+                value, dxl_comm_result, dxl_error = self.packetHandler.read1ByteTxRx(
+                    self.portHandler, ID, address
+                )
+                if dxl_comm_result != COMM_SUCCESS:
+                    
+                    value, dxl_comm_result, dxl_error = self.packetHandler.read1ByteTxRx(
+                        self.portHandler, ID, address
+                    )
+            elif size == 2:
+                value, dxl_comm_result, dxl_error = self.packetHandler.read2ByteTxRx(
+                    self.portHandler, ID, address
+                )
+                if dxl_comm_result != COMM_SUCCESS:
+                    
+                    value, dxl_comm_result, dxl_error = self.packetHandler.read2ByteTxRx(
+                        self.portHandler, ID, address
+                    )
+            elif size == 3:
+                value, dxl_comm_result, dxl_error = self.packetHandler.read3ByteTxRx(
+                    self.portHandler, ID, address
+                )
+                if dxl_comm_result != COMM_SUCCESS:
+                    
+                    value, dxl_comm_result, dxl_error = self.packetHandler.read3ByteTxRx(
+                        self.portHandler, ID, address
+                    )
+            elif size == 4:
+                value, dxl_comm_result, dxl_error = self.packetHandler.read4ByteTxRx(
+                    self.portHandler, ID, address
+                )
+                if dxl_comm_result != COMM_SUCCESS:
+                    
+                    value, dxl_comm_result, dxl_error = self.packetHandler.read4ByteTxRx(
+                        self.portHandler, ID, address
+                    )
+            else:
+                self.get_logger().error("Incorrect size")
+                return -1
+
+            if dxl_comm_result != COMM_SUCCESS:
+                self.get_logger().warn(f"Comm_result for ID {ID} address {address} : {self.packetHandler.getTxRxResult(dxl_comm_result)}")
+                pass
+            elif dxl_error != 0:
+                if ID in dxl.connected_XL320 : #C'est pas un XL430
+                    if dxl_error == 128 : #hardware error
+                        if address == 50:
+                            if (value >> 0) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overload")
+                            if (value >> 1) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overheating")
+                            if (value >> 2) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Input voltage error")
+                        else :
+                            self.readValue(1,ID,50)
+                    else :
+                        self.get_logger().warn(f"DXL error for ID {ID} address {address} : {self.packetHandler.getRxPacketError(dxl_error)} (error:{dxl_error} / value:{value})")
+            else:
+                value = dxl.toSigned(value,size*8)
+                return value
+        else :
+            self.get_logger().warn(f"ID {ID} is not in connected_XL320 or connected_XL430")
+        return -1
+
+    def writeValue(self, size, ID, address, value):
+        if ( ID in dxl.connected_XL320 ) or ( ID in dxl.connected_XL430 ) or ID==254:
+            value=dxl.toUnsigned(value,size*8)
+            #self.get_logger().info(f"Writing on ID {ID}  address {address}  value {value}  size {size}")
+            if size == 1:
+                dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(
+                    self.portHandler, ID, address, value
+                )
+            elif size == 2:
+                dxl_comm_result, dxl_error = self.packetHandler.write2ByteTxRx(
+                    self.portHandler, ID, address, value
+                )
+            elif size == 3:
+                dxl_comm_result, dxl_error = self.packetHandler.write3ByteTxRx(
+                    self.portHandler, ID, address, value
+                )
+            elif size == 4:
+                dxl_comm_result, dxl_error = self.packetHandler.write4ByteTxRx(
+                    self.portHandler, ID, address, value
+                )
+            else:
+                self.get_logger().error("writeValue : Incorrect size")
+                return
+
+            if dxl_comm_result != COMM_SUCCESS:
+                # print(
+                #     "Comm_result for ID",
+                #     ID,
+                #     " address",
+                #     address,
+                #     ": %s" % packetHandler.getTxRxResult(dxl_comm_result),
+                # )
+                pass
+            elif dxl_error != 0:
+                error_msg=self.packetHandler.getRxPacketError(dxl_error)
+                if(error_msg == "[RxPacketError] Hardware error occurred. Check the error at Control Table (Hardware Error Status)!"):
+                    if ID in dxl.connected_XL320 : #C'est pas un XL430
+                        self.readValue(1,ID,50)
+                        return
+
+                self.get_logger().error(f"DXL error for ID {ID} address {address} (value {value}) : {error_msg}")
+                if(error_msg == "[RxPacketError] The data value exceeds the limit value!"):
+                    self.get_logger().error(f"value :{value}  size :{size}")
+                    
+
+    def sendGenericCommand(self, len_, id, addr, data):
+        while time.time() - self.last_com_time < MIN_TIME_BETWEEN_COM :
+                pass
+        self.last_com_time=time.time()
+
+        if USB_BOARD :
+            self.writeValue(len_, id, addr, data)
+        else :
+            data_array = []
+            while data > 0:
+                data_array.append(data % 255)
+                data = data // 255
+
+            if len(data_array) > len_:
+                self.get_logger().warn("Data does not fit on specified command lenght")
+
+            while len(data_array) < 8:
+                data_array.append(0)
+
+            msg = ServoGenericCommand()
+            msg.id = id
+            msg.addr = addr
+            msg.len = len_
+            msg.data = data_array
+
+            #if(addr != 30):
+            #    self.get_logger().info("addr not 30")
+            #    self.get_logger().info(str(addr))
+
+
+            if msg.id == 0:
+                self.get_logger().error("msg.id == 0")
+                return
+
+            # while self.last_sending+0.0005>time.time():
+            #    pass
+            # self.last_sending=time.time()
+            self.get_logger().info(f"Publishing GenericCommand id={id}")
+            self.pub_generic_command.publish(msg)
+
+    def sendRebootCommand(self, id):
+        if USB_BOARD :
+                self.packetHandler.reboot(self.portHandler, id)
+        else :
+            msg = ServoID()
+            msg.id = id
+            self.pub_reboot_command.publish(msg)
+
+    def servoAngle_cb(self, msg: ServoAngle):
+        if msg.id in dxl.connected_XL320:
+            dxl.connected_XL320[msg.id].setRadianState(msg.radian)
+            #self.get_logger().info(f"XL320 with ID {msg.id} is at {msg.radian} radians.")
+        else:
+            self.get_logger().debug(f"XL320 with ID {msg.id} is unknown.")
+
+    def init_actuators(self):
+        pass
+
+class Actuators_robotrouge(Actuators):
+    def __init__(self):
+        super().__init__()
+
         self.pub_arm_state_left = self.create_publisher(
             ArmStatus, "arm_state_left", 10
         )
@@ -114,96 +332,16 @@ class Actuators_robotrouge(Node):
             StackSample, "stack_sample", self.stackSample_cb, 10
         )
 
-        if USB_BOARD : self.initHandlers("/dev/dxl", 57600, 2.0)
-
-        self.init_actuators()
-
         arm_publish_state_rate = 1 / 2  # Hz
         self.arm_state_publish_timer = self.create_timer(arm_publish_state_rate, self.on_arm_state_publish_timer)
 
         self.arm_state_msg = ArmStatus()
+        self.get_logger().info("init OK")
 
     def __del__(self):
         dxl.setTorque4All(self, 0)
         self.stopPump("left")
         self.stopPump("right")
-        #self.serial_actionBoard.close()
-
-
-    def initHandlers(self, DEVICENAME, BAUDRATE, PROTOCOL_VERSION):
-        # Initialize PortHandler instance
-        # Set the port pathsudo ap
-        # Get methods and members of PortHandlerLinux or PortHandlerWindows
-        self.portHandler = self.PortHandler(DEVICENAME)
-
-        # Initialize PacketHandler instance
-        # Set the protocol version
-        # Get methods and members of Protocol1PacketHandler or Protocol2PacketHandler
-        self.packetHandler = self.PacketHandler(PROTOCOL_VERSION)
-
-        # Open port
-        if self.portHandler.openPort():
-            self.get_logger().info("Succeeded to open the port")
-        else:
-            self.get_logger().error("Failed to open the port")
-            return
-
-        # Set port baudrate
-        if self.portHandler.setBaudRate(BAUDRATE):
-            self.get_logger().info("Succeeded to change the baudrate")
-        else:
-            self.get_logger().error("Failed to change the baudrate")
-            return
-
-    def writeValue(self, size, ID, address, value):
-        if ( ID in dxl.connected_XL320 ) or ( ID in dxl.connected_XL430 ) or ID==254:
-            value=dxl.toUnsigned(value,size*8)
-            if size == 1:
-                dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(
-                    self.portHandler, ID, address, value
-                )
-            elif size == 2:
-                dxl_comm_result, dxl_error = self.packetHandler.write2ByteTxRx(
-                    self.portHandler, ID, address, value
-                )
-            elif size == 3:
-                dxl_comm_result, dxl_error = self.packetHandler.write3ByteTxRx(
-                    self.portHandler, ID, address, value
-                )
-            elif size == 4:
-                dxl_comm_result, dxl_error = self.packetHandler.write4ByteTxRx(
-                    self.portHandler, ID, address, value
-                )
-            else:
-                self.get_logger().error("writeValue : Incorrect size")
-                return
-
-            if dxl_comm_result != COMM_SUCCESS:
-                # print(
-                #     "Comm_result for ID",
-                #     ID,
-                #     " address",
-                #     address,
-                #     ": %s" % packetHandler.getTxRxResult(dxl_comm_result),
-                # )
-                pass
-            elif dxl_error != 0:
-                error_msg=self.packetHandler.getRxPacketError(dxl_error)
-                self.get_logger().error(f"DXL error for ID {ID} address {address} : {error_msg}")
-                if(error_msg == "[RxPacketError] The data value exceeds the limit value!"):
-                    self.get_logger().error(f"value :{value}  size :{size}")
-
-                if(error_msg == "[RxPacketError] Hardware error occurred. Check the error at Control Table (Hardware Error Status)!"):
-                    #error_msg=getHardwareError(ID)
-                    pass
-
-    def on_servo_angle_publish_timer(self):
-        msg = ServoAngle()
-        self.get_logger().info(f"on_servo_angle_publish_timer")
-        for servo_id in dxl.connected_XL320 :
-            msg.id = servo_id
-            msg.radian = connected_XL320[servo_id].getPresentPosition()*dxl.rawToRad
-            self.pub_servo_angle.publish(msg)
 
     def on_arm_state_publish_timer(self):
         now = self.get_clock().now().to_msg()
@@ -226,51 +364,6 @@ class Actuators_robotrouge(Node):
         self.arm_state_msg.gap = self.right_arm.getGapAngles()
         self.arm_state_msg.target_reached = self.right_arm.getJoinStatus() 
         self.pub_arm_state_right.publish(self.arm_state_msg)
-
-    def sendGenericCommand(self, len_, id, addr, data):
-        if USB_BOARD :
-            self.writeValue(len_, id, addr, data)
-        else :
-            data_array = []
-            while data > 0:
-                data_array.append(data % 255)
-                data = data // 255
-
-            if len(data_array) > len_:
-                self.get_logger().warn("Data does not fit on specified command lenght")
-
-            while len(data_array) < 8:
-                data_array.append(0)
-
-            msg = ServoGenericCommand()
-            msg.id = id
-            msg.addr = addr
-            msg.len = len_
-            msg.data = data_array
-
-            #if(addr != 30):
-            #    self.get_logger().info("addr not 30")
-            #    self.get_logger().info(str(addr))
-
-
-            if msg.id == 0:
-                self.get_logger().error("msg.id == 0")
-                return
-
-            # while self.last_sending+0.0005>time.time():
-            #    pass
-            # self.last_sending=time.time()
-            self.get_logger().info(f"Publishing GenericCommand id={id}")
-            self.pub_generic_command.publish(msg)
-
-    def sendRebootCommand(self, id):
-        self.get_logger().warn(f"sendRebootCommand: USB_BOARD: {USB_BOARD}")
-        if USB_BOARD :
-                self.packetHandler.reboot(self.portHandler, id)
-        else :
-            msg = ServoID()
-            msg.id = id
-            self.pub_reboot_command.publish(msg)
 
     def init_actuators(self):
         # self.last_sending=time.time()
@@ -305,7 +398,6 @@ class Actuators_robotrouge(Node):
         # self.storeArm("left")
         # self.storeArm("right")
         #time.sleep(2)
-        self.get_logger().info("init OK")
         # self.cycle_cool()
 
     def cycle_cool(self):
@@ -349,13 +441,6 @@ class Actuators_robotrouge(Node):
             self.rateaux.open()
         else:
             self.rateaux.close()
-
-    def servoAngle_cb(self, msg: ServoAngle):
-        if msg.id in dxl.connected_XL320:
-            dxl.connected_XL320[msg.id].setRadianState(msg.radian)
-            #self.get_logger().info(f"XL320 with ID {msg.id} is at {msg.radian} radians.")
-        else:
-            self.get_logger().debug(f"XL320 with ID {msg.id} is unknown.")
 
     def arm_goto_cb(self, side: str, msg: PoseStamped):
         pos = np.array(
@@ -508,9 +593,7 @@ class Actuators_robotrouge(Node):
             time.sleep(0.8)
             self.right_arm.setArmPosition(88, 47, 90, -90, 0)
 
-    def lookupTransform(
-        self, target_frame, source_frame, time=rclpy.time.Time().to_msg()
-    ):
+    def lookupTransform(self, target_frame, source_frame, time=rclpy.time.Time().to_msg()):
         transform_msg = self.tf_buffer.lookup_transform(
             target_frame, source_frame, time
         )
@@ -534,242 +617,21 @@ class Actuators_robotrouge(Node):
         )
 
         return transform
-"""
-class Actuators_robotbleu(Node):
+
+class Actuators_robotbleu(Actuators):
     def __init__(self):
-        super().__init__("actuators")
-        self.get_logger().info("init")
+        super().__init__()
 
-        # Tf subscriber
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
-
-        qos_profile = QoSProfile(
-            history=QoSHistoryPolicy.KEEP_ALL,
-            reliability=QoSReliabilityPolicy.RELIABLE,
-            durability=QoSDurabilityPolicy.VOLATILE 
-        )
-
-        if USB_BOARD :
-            self.get_logger().info("Using USB board for dynamixel control")
-            self.servo_angle_publish_timer = self.create_timer( 0.5, self.on_servo_angle_publish_timer)
-            self.pub_servo_angle = self.create_publisher(ServoAngle, "servo_angle", 10 )
-            self.initHandlers("/dev/dxl", 57600, 2.0)
-        else :
-            self.get_logger().info("Using can bus for dynamixel control")    
-            self.pub_generic_command = self.create_publisher(ServoGenericCommand, "servo_generic_command", qos_profile)
-            self.pub_reboot_command = self.create_publisher(ServoID, "servo_reboot", qos_profile)
-        
-        self.init_actuators()
-
-        self.sub_servo_angle = self.create_subscription(ServoAngle, "servo_angle", self.servoAngle_cb, 10)
-        
         self.sub_roll_speed = self.create_subscription(Int8, "hardware/roll/speed", self.roll_speed_cb, 10)
         self.sub_roll_height = self.create_subscription(Int16, "hardware/roll/height", self.roll_height_cb, 10)
         self.sub_turbine_speed = self.create_subscription(UInt16, "hardware/turbine/speed", self.turbine_speed_cb, 10)
-
-
-
-
-
-    def __del__(self):
-        dxl.setTorque4All(self, 0)
-        #Todo : stop turbine
-
-    def on_servo_angle_publish_timer(self):
-        msg = ServoAngle()
-        for servo_id in dxl.connected_XL320 :
-            value=dxl.connected_XL320[servo_id].getPresentPosition()
-            if value != -1 :
-                msg.id = servo_id
-                msg.radian = value*dxl.rawToRad
-                self.pub_servo_angle.publish(msg)
-            else :
-                self.get_logger().warn(f"Dynamixel {servo_id} seems not connected")
-
-    def initHandlers(self, DEVICENAME, BAUDRATE, PROTOCOL_VERSION):
-        # Initialize PortHandler instance
-        # Set the port pathsudo ap
-        # Get methods and members of PortHandlerLinux or PortHandlerWindows
-        self.portHandler = PortHandler(DEVICENAME)
-
-        # Initialize PacketHandler instance
-        # Set the protocol version
-        # Get methods and members of Protocol1PacketHandler or Protocol2PacketHandler
-        self.packetHandler = PacketHandler(PROTOCOL_VERSION)
-
-        # Open port
-        if self.portHandler.openPort():
-            self.get_logger().info("Succeeded to open the port")
-        else:
-            self.get_logger().error("Failed to open the port")
-            return
-
-        # Set port baudrate
-        if self.portHandler.setBaudRate(BAUDRATE):
-            self.get_logger().info("Succeeded to change the baudrate")
-        else:
-            self.get_logger().error("Failed to change the baudrate")
-            return
-
-    def readValue(self, size, ID, address):
-        if ( ID in dxl.connected_XL320 ) or ( ID in dxl.connected_XL430 ):
-            if size == 1:
-                value, dxl_comm_result, dxl_error = self.packetHandler.read1ByteTxRx(
-                    self.portHandler, ID, address
-                )
-                if dxl_comm_result != COMM_SUCCESS:
-                    time.sleep(0.05)
-                    value, dxl_comm_result, dxl_error = self.packetHandler.read1ByteTxRx(
-                        self.portHandler, ID, address
-                    )
-            elif size == 2:
-                value, dxl_comm_result, dxl_error = self.packetHandler.read2ByteTxRx(
-                    self.portHandler, ID, address
-                )
-                if dxl_comm_result != COMM_SUCCESS:
-                    time.sleep(0.05)
-                    value, dxl_comm_result, dxl_error = self.packetHandler.read2ByteTxRx(
-                        self.portHandler, ID, address
-                    )
-            elif size == 3:
-                value, dxl_comm_result, dxl_error = self.packetHandler.read3ByteTxRx(
-                    self.portHandler, ID, address
-                )
-                if dxl_comm_result != COMM_SUCCESS:
-                    time.sleep(0.05)
-                    value, dxl_comm_result, dxl_error = self.packetHandler.read3ByteTxRx(
-                        self.portHandler, ID, address
-                    )
-            elif size == 4:
-                value, dxl_comm_result, dxl_error = self.packetHandler.read4ByteTxRx(
-                    self.portHandler, ID, address
-                )
-                if dxl_comm_result != COMM_SUCCESS:
-                    time.sleep(0.05)
-                    value, dxl_comm_result, dxl_error = self.packetHandler.read4ByteTxRx(
-                        self.portHandler, ID, address
-                    )
-            else:
-                self.get_logger().error("Incorrect size")
-                return -1
-
-            if dxl_comm_result != COMM_SUCCESS:
-                # print(
-                #     "Comm_result for ID",
-                #     ID,
-                #     " address",
-                #     address,
-                #     ": %s" % packetHandler.getTxRxResult(dxl_comm_result),
-                # )
-                pass
-            elif dxl_error != 0:
-                self.get_logger().error(f"DXL error for ID {ID} address {address} : {self.packetHandler.getRxPacketError(dxl_error)}")
-            else:
-                value = dxl.toSigned(value,size*8)
-                return value
-        return -1
-
-    def writeValue(self, size, ID, address, value):
-        if ( ID in dxl.connected_XL320 ) or ( ID in dxl.connected_XL430 ) or ID==254:
-            value=dxl.toUnsigned(value,size*8)
-            #self.get_logger().info(f"Writing on ID {ID}  address {address}  value {value}  size {size}")
-            if size == 1:
-                dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(
-                    self.portHandler, ID, address, value
-                )
-            elif size == 2:
-                dxl_comm_result, dxl_error = self.packetHandler.write2ByteTxRx(
-                    self.portHandler, ID, address, value
-                )
-            elif size == 3:
-                dxl_comm_result, dxl_error = self.packetHandler.write3ByteTxRx(
-                    self.portHandler, ID, address, value
-                )
-            elif size == 4:
-                dxl_comm_result, dxl_error = self.packetHandler.write4ByteTxRx(
-                    self.portHandler, ID, address, value
-                )
-            else:
-                self.get_logger().error("writeValue : Incorrect size")
-                return
-
-            if dxl_comm_result != COMM_SUCCESS:
-                # print(
-                #     "Comm_result for ID",
-                #     ID,
-                #     " address",
-                #     address,
-                #     ": %s" % packetHandler.getTxRxResult(dxl_comm_result),
-                # )
-                pass
-            elif dxl_error != 0:
-                error_msg=self.packetHandler.getRxPacketError(dxl_error)
-                self.get_logger().error(f"DXL error for ID {ID} address {address} (value {value}) : {error_msg}")
-                if(error_msg == "[RxPacketError] The data value exceeds the limit value!"):
-                    self.get_logger().error(f"value :{value}  size :{size}")
-
-                if(error_msg == "[RxPacketError] Hardware error occurred. Check the error at Control Table (Hardware Error Status)!"):
-                    #error_msg=getHardwareError(ID)
-                    pass
-
-    def sendGenericCommand(self, len_, id, addr, data):
-        if USB_BOARD :
-            self.writeValue(len_, id, addr, data)
-        else :
-            data_array = []
-            while data > 0:
-                data_array.append(data % 255)
-                data = data // 255
-
-            if len(data_array) > len_:
-                self.get_logger().warn("Data does not fit on specified command lenght")
-
-            while len(data_array) < 8:
-                data_array.append(0)
-
-            msg = ServoGenericCommand()
-            msg.id = id
-            msg.addr = addr
-            msg.len = len_
-            msg.data = data_array
-
-            #if(addr != 30):
-            #    self.get_logger().info("addr not 30")
-            #    self.get_logger().info(str(addr))
-
-
-            if msg.id == 0:
-                self.get_logger().error("msg.id == 0")
-                return
-
-            # while self.last_sending+0.0005>time.time():
-            #    pass
-            # self.last_sending=time.time()
-            self.get_logger().info(f"Publishing GenericCommand id={id}")
-            self.pub_generic_command.publish(msg)
-
-    def sendRebootCommand(self, id):
-        if USB_BOARD :
-                self.packetHandler.reboot(self.portHandler, id)
-        else :
-            msg = ServoID()
-            msg.id = id
-            self.pub_reboot_command.publish(msg)
-
-    def servoAngle_cb(self, msg: ServoAngle):
-        if msg.id in dxl.connected_XL320:
-            dxl.connected_XL320[msg.id].setRadianState(msg.radian)
-            #self.get_logger().info(f"XL320 with ID {msg.id} is at {msg.radian} radians.")
-        else:
-            self.get_logger().debug(f"XL320 with ID {msg.id} is unknown.")
+        self.get_logger().info("init OK")
 
     def init_actuators(self):
         self.sendRebootCommand(254)  # 254 for broadcast
-        time.sleep(2)
+        time.sleep(1)
         self.ballSystem = dxl.ball_system(self)
         self.ballSystem.setTorque(True)
-        self.get_logger().info("init OK")
 
     def roll_speed_cb(self, msg: Int8):
         if msg.data == 1 :
@@ -778,7 +640,6 @@ class Actuators_robotbleu(Node):
             self.ballSystem.startRoller_out()
         else :
             self.ballSystem.stopRoller()
-
 
     def roll_height_cb(self, msg: Int16):
         if msg.data == 0 :
@@ -794,25 +655,6 @@ class Actuators_robotbleu(Node):
         else :
             self.ballSystem.stopFingersLoop()
             self.ballSystem.setFingersOnCenter()
-
-
-
-'''
-        time.sleep(3)
-
-        self.get_logger().info("IN")
-        self.ballSystem.startRoller_in()
-        self.ballSystem.roller_right.setLED(4)
-        time.sleep(2)
-        self.get_logger().info("OUT")
-        self.ballSystem.roller_right.setLED(7)
-        self.ballSystem.startRoller_out()
-        time.sleep(2)
-        self.get_logger().info("STOP")
-        self.ballSystem.roller_right.setLED(5)
-        self.ballSystem.stopRoller()
-        '''
-        
 
 def main(args=None):
     rclpy.init(args=args)
