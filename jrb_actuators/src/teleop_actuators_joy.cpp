@@ -82,7 +82,7 @@ private:
         y_button_prev_state = msg->buttons[3];
 
         // Top / bottom arrows: Roll height control
-        static const int16_t ROLL_HEIGHT_INCREMENT = 10;
+        static const int16_t ROLL_HEIGHT_INCREMENT = 1;
         static int16_t roll_height = 0;
 
         bool publish_roll_height = false;
@@ -90,11 +90,13 @@ private:
         if (msg->axes[7] > 0.5)
         {
             roll_height += ROLL_HEIGHT_INCREMENT;
+            if(roll_height > 2) roll_height = 2;
             publish_roll_height = true;
         }
         else if (msg->axes[7] < -0.5)
         {
             roll_height -= ROLL_HEIGHT_INCREMENT;
+            if(roll_height < 0) roll_height = 0;
             publish_roll_height = true;
         }
 

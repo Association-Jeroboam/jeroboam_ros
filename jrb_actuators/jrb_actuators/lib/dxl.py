@@ -30,6 +30,22 @@ def toUnsigned(n,base):
     #print("to unsigned : ",n,"=>",n2)
     return n2
 
+def toSigned(n,base):
+    if base == 32 :
+        n1 = n & 0xffffffff
+        n2 = n1 | (-(n1 & 0x80000000))
+    elif base == 16 :
+        n1 = n & 0xffff
+        n2 = n1 | (-(n1 & 0x8000))
+    elif base == 8 :
+        n1 = n & 0xffff
+        n2 = n1 | (-(n1 & 0x8000))
+    else :
+        print("error base",base)
+
+    #print("to signed : ",n,"=>",n2)
+    return n2
+
 class XL320():
     def __init__(
         self,
@@ -56,7 +72,6 @@ class XL320():
 
         #if 350 == getModel(DXL_ID):
         #     self.model_number = 350
-        connected_XL320[self.ID] = self
 
         #else:
         #    #print("Error : DXL with ID ", DXL_ID, " does not appear to be XL320")
@@ -68,6 +83,8 @@ class XL320():
         self.setPunch(50)
 
         self.setAngleLimits(CW_Angle_Limit, CCW_Angle_Limit)
+
+        connected_XL320[self.ID] = self
 
         #self.node.get_logger().error(f"Init XL320 {self.ID} : driveMode={self.driveMode} DONE")
 
@@ -143,15 +160,18 @@ class XL320():
         self.setTorque(torque)
 
     def setMaxTorque(self, Max_Torque):
-        if Max_Torque < 0:
-            self.node.get_logger().error(f"Error for ID {self.ID}: Max_Torque<0")
-            Max_Torque = 0
-        if Max_Torque > 1023:
-            self.node.get_logger().error(f"Error for ID {self.ID}: Max_Torque>1023")
-            Max_Torque = 1023
+        if self.torque :
+            self.node.get_logger().error(F"Impossible to set MaxTorque when torque is set")
+        else : 
+            if Max_Torque < 0:
+                self.node.get_logger().error(f"Error for ID {self.ID}: Max_Torque<0")
+                Max_Torque = 0
+            if Max_Torque > 1023:
+                self.node.get_logger().error(f"Error for ID {self.ID}: Max_Torque>1023")
+                Max_Torque = 1023
 
-        self.maxTorque = Max_Torque
-        self.node.sendGenericCommand(2, self.ID, 15, Max_Torque)
+            self.maxTorque = Max_Torque
+            self.node.sendGenericCommand(2, self.ID, 15, Max_Torque)
 
     def setMaxSpeed(self, Max_Speed):
         if self.driveMode == CONTROL_MODE_JOINT :
@@ -201,17 +221,17 @@ class XL320():
             SPEED=self.maxSpeed
         if reverse ^ self.reverseRotation : SPEED += 1024 # ^ : ou exclusif
         
-        self.node.get_logger().error(F"setGoalSpeed : id={self.ID} / SPEED={SPEED} / reverse={reverse}") 
+        self.node.get_logger().info(F"setGoalSpeed : id={self.ID} / SPEED={SPEED} / reverse={reverse}") 
         self.node.sendGenericCommand(2, self.ID, 32, SPEED)
 
-    """
+    
     def getPresentPosition(self):
-        dxl_present_position = readValue(portHandler, 2, self.ID, 37)
+        dxl_present_position = self.node.readValue(2, self.ID, 37)
         if self.reverseRotation :
             dxl_present_position=1023-dxl_present_position
         dxl_present_position-=self.offset
         return dxl_present_position
-
+    """
     def getPresentTemperature(self):
         present_temp = readValue(portHandler, 1, self.ID, 46)
         return present_temp
@@ -225,7 +245,7 @@ class XL320():
         self.node.sendRebootCommand(self.ID)
 
     def setDriveMode(self, MODE):
-        self.node.get_logger().warn(F"ID {self.ID}: setDriveMode to {MODE}") 
+        #self.node.get_logger().warn(F"ID {self.ID}: setDriveMode to {MODE}")
         if self.torque :
             self.node.get_logger().error(F"Impossible to set DriveMode when torque is set")
         else : 
@@ -768,10 +788,10 @@ class rakes:
         self.droitH.setGoalPosition(mirrorAngle(790))
         time.sleep(0.3)
 
-#        self.gaucheB.setGoalPosition(self.gaucheB.getPresentPosition())
-#        self.droitB.setGoalPosition(self.droitB.getPresentPosition())
-#        self.gaucheH.setGoalPosition(self.gaucheH.getPresentPosition())
-#        self.droitH.setGoalPosition(self.droitH.getPresentPosition())
+        #self.gaucheB.setGoalPosition(self.gaucheB.getPresentPosition())
+        #self.droitB.setGoalPosition(self.droitB.getPresentPosition())
+        #self.gaucheH.setGoalPosition(self.gaucheH.getPresentPosition())
+        #self.droitH.setGoalPosition(self.droitH.getPresentPosition())
 
         time.sleep(0.1)
         self.setTorque(torqueSetup)
@@ -781,19 +801,23 @@ class ball_system:
         
         self.node = node
 
-        self.lift_right = XL320(node,lift_right_id, Max_Speed=512)
-        self.lift_left = XL320(node,lift_left_id, Max_Speed=512)
-        #self.lift_left.setReverseRotation(1)
+        self.lift_right = XL320(node,lift_right_id, Max_Speed=200)
+        self.lift_left = XL320(node,lift_left_id, Max_Speed=200)
+        self.lift_left.setReverseRotation(1)
 
         self.roller_right = XL320(node,roller_right_id,Drive_Mode=CONTROL_MODE_WHEEL)
         self.roller_left = XL320(node,roller_left_id,Drive_Mode=CONTROL_MODE_WHEEL)
-        #self.roller_left.setReverseRotation(1)
+        self.roller_left.setReverseRotation(1)
 
         self.figer_right = XL320(node,figer_right_id, 390, 600, 400, 300)
         self.figer_left = XL320(node,figer_left_id, 390, 600, 400, 300)
-        #self.figer_left.setReverseRotation(1)
+        self.figer_left.setReverseRotation(1)
 
         self.setTorque(False)
+
+        self.start_fingers_loop = False
+        self.toggle_fingers = False
+        self.fingers_loop_timer = self.node.create_timer(0.6, self.on_fingers_loop_timer)
 
     def setTorque(self, value):
         self.lift_right.setTorque(value)
@@ -805,17 +829,29 @@ class ball_system:
         self.torque = value
 
     def startRoller_in(self):
-        self.roller_left.setGoalSpeed(1023)
-        self.roller_right.setGoalSpeed(1023)
-
-    def startRoller_out(self):
         self.roller_left.setGoalSpeed(1023,True)
         self.roller_right.setGoalSpeed(1023,True)
+
+    def startRoller_out(self):
+        self.roller_left.setGoalSpeed(1023)
+        self.roller_right.setGoalSpeed(1023)
 
     def stopRoller(self):
         self.roller_left.setGoalSpeed(0)
         self.roller_right.setGoalSpeed(0)
-        
+
+    def on_fingers_loop_timer(self):
+        if self.start_fingers_loop :
+            if self.toggle_fingers : self.setFingersOnSide()
+            else : self.setFingersOnCenter()
+            self.toggle_fingers = not self.toggle_fingers
+
+    def startFingersLoop(self) :
+        self.start_fingers_loop = True
+    
+    def stopFingersLoop(self) :
+        self.start_fingers_loop = False
+
     def setFingersOnSide(self):
         self.figer_right.setGoalPosition(390)
         self.figer_left.setGoalPosition(390)
@@ -825,13 +861,13 @@ class ball_system:
         self.figer_left.setGoalPosition(600)
     
     def setRollerUp(self):
-        self.lift_right(800)
-        self.lift_left(800)
+        self.lift_right.setGoalPosition(1023)
+        self.lift_left.setGoalPosition(1023)
         
     def setRollerDown(self):
-        self.lift_right(0)
-        self.lift_left(0)
+        self.lift_right.setGoalPosition(0)
+        self.lift_left.setGoalPosition(0)
 
     def setRollerMiddle(self):
-        self.lift_right(300)
-        self.lift_left(300)
+        self.lift_right.setGoalPosition(250)
+        self.lift_left.setGoalPosition(250)
