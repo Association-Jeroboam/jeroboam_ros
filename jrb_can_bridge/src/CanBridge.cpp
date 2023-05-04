@@ -305,7 +305,7 @@ void CanBridge::publishOdometryTicks(jeroboam_datatypes_sensors_odometry_Odometr
 
 
 void CanBridge::publishEmergencyStop(bool * emergency) {
-    std_msgs::msg::Bool emerency_msg;
+    std_msgs::msg::Bool emergency_msg;
     emergency_msg.data = *emergency;
     emergency_pub->publish(emergency_msg);
 }

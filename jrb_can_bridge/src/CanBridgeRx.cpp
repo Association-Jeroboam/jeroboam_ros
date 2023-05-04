@@ -44,6 +44,7 @@
 #include "PIDConfig_0_1.h"
 #include "AdaptativePIDConfig_0_1.h"
 #include "MotionConfig_0_1.h"
+#include "EmergencyState_0_1.h"
 #include "jrb_can_bridge/param_utils.hpp"
 #include "jrb_msgs/msg/servo_angle.hpp"
 #include "jrb_msgs/msg/servo_config.hpp"
@@ -244,20 +245,21 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
           }
         }
       } else {
-        printf("HEARTBEAT deserialize failed %i\r\n", res);
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "HEARTBEAT deserialize failed" << res << "\r\n");
       }
       break;
     }
-    case EMERGENCY_STOP_ID:{
+    case EMERGENCY_STATE_ID:{
       // Emergency stop
       jeroboam_datatypes_actuators_common_EmergencyState_0_1 emgcyState;
       int8_t res = jeroboam_datatypes_actuators_common_EmergencyState_0_1_deserialize_(&emgcyState,
                                                                                        (uint8_t *)transfer->payload,
                                                                                        &transfer->payload_size);
       if(res == NUNAVUT_SUCCESS) {
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("CanBridge"), "Received EMERGENCY_STOP " << emgcyState.emergency.value << " \r\n");
         canBridge.get()->publishEmergencyStop(&emgcyState.emergency.value);
       } else {
-        printf("EMERGENCY_STOP_ID deserialize failed %i\r\n", res);
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "EMERGENCY_STOP_ID deserialize failed" << res << "\r\n");
       }
       break;
     }
