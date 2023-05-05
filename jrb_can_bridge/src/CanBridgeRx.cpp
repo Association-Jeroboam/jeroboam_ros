@@ -44,6 +44,7 @@
 #include "PIDConfig_0_1.h"
 #include "AdaptativePIDConfig_0_1.h"
 #include "MotionConfig_0_1.h"
+#include "EmergencyState_0_1.h"
 #include "jrb_can_bridge/param_utils.hpp"
 #include "jrb_msgs/msg/servo_angle.hpp"
 #include "jrb_msgs/msg/servo_config.hpp"
@@ -244,10 +245,24 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
           }
         }
       } else {
-        printf("HEARTBEAT deserialize failed %i\r\n", res);
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "HEARTBEAT deserialize failed" << res << "\r\n");
       }
       break;
     }
+    case EMERGENCY_STATE_ID:{
+      // Emergency stop
+      jeroboam_datatypes_actuators_common_EmergencyState_0_1 emgcyState;
+      int8_t res = jeroboam_datatypes_actuators_common_EmergencyState_0_1_deserialize_(&emgcyState,
+                                                                                       (uint8_t *)transfer->payload,
+                                                                                       &transfer->payload_size);
+      if(res == NUNAVUT_SUCCESS) {
+        canBridge.get()->publishEmergencyStop(&emgcyState.emergency.value);
+      } else {
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "EMERGENCY_STOP_ID deserialize failed" << res << "\r\n");
+      }
+      break;
+    }
+
     default:
       RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: Accepted a non handled CAN message(ID " << transfer->metadata.port_id << ")! Please fix me!");
       break;
