@@ -16,6 +16,19 @@ public:
     GpioNode()
         : Node("gpio_node")
     {
+        // Params
+        const char* robot_name_env_ptr = std::getenv("ROBOT_NAME");
+        std::string robot_name_env = robot_name_env_ptr ? std::string(robot_name_env_ptr) : "";
+
+        this->declare_parameter<std::string>("robot_name", robot_name_env);
+        this->get_parameter("robot_name", robot_name);
+
+        if (robot_name != "robotrouge" && robot_name != "robotbleu")
+        {
+            RCLCPP_ERROR(this->get_logger(), "Invalid 'robot_name' parameter value: %s. Allowed values are 'robotrouge' or 'robotbleu'. Defaulting on robotrouge.", robot_name.c_str());
+            robot_name = "robotrouge";
+        }
+
         // Internal state
         initSerial();
 
@@ -23,8 +36,11 @@ public:
         serialWrite_sub = this->create_subscription<std_msgs::msg::String>(
             "hardware/arduino/serial_write", 10, std::bind(&GpioNode::serialWriteCallback, this, std::placeholders::_1));
         
-        led_sub = this->create_subscription<std_msgs::msg::Bool>(
-            "hardware/led", 10, std::bind(&GpioNode::ledCallback, this, std::placeholders::_1));  
+        if (robot_name == "robotbleu")
+        {
+            led_sub = this->create_subscription<std_msgs::msg::Bool>(
+                "hardware/led", 10, std::bind(&GpioNode::ledCallback, this, std::placeholders::_1));  
+        }
 
         // Publishers
         auto latchedQos = rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable();
@@ -78,9 +94,9 @@ private:
     {
         rclcpp::Rate checkRate(checkFrequencyHz);
 
+        RCLCPP_INFO_STREAM(get_logger(), "Waiting for " << devicePath << " to become available...");
         while (!fileExists(devicePath) && rclcpp::ok())
         {
-            RCLCPP_INFO_STREAM(get_logger(), "Waiting for " << devicePath << " to become available...");
             checkRate.sleep();
         }
 
@@ -277,6 +293,7 @@ private:
 
     bool starterValue, strategyValue;
     std::string teamValue;
+    std::string robot_name;
 };
 
 int main(int argc, char **argv)

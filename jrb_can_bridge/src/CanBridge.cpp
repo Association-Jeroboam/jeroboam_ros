@@ -3,9 +3,60 @@
 #include <rmw/qos_profiles.h>
 
 CanBridge::CanBridge()
-    : Node("can_bridge")
+    : Node("can_bridge"), send_config_enabled(false)
 {
-    send_config_enabled = false;
+}
+
+void CanBridge::init()
+{
+    // Parameters
+    const char* robot_name_env_ptr = std::getenv("ROBOT_NAME");
+    std::string robot_name_env = robot_name_env_ptr ? std::string(robot_name_env_ptr) : "";
+
+    this->declare_parameter<std::string>("robot_name", robot_name_env);
+    this->get_parameter("robot_name", robot_name);
+
+    if (robot_name != "robotrouge" && robot_name != "robotbleu")
+    {
+        RCLCPP_ERROR(this->get_logger(), "Invalid 'robot_name' parameter value: %s. Allowed values are 'robotrouge' or 'robotbleu'. Defaulting on robotrouge.", robot_name.c_str());
+        robot_name = "robotrouge";
+    }
+
+    const auto sides = std::array<std::string, 2>({"left", "right"});
+    const auto thresholds = std::array<std::string, 3>({"low", "medium", "high"});
+    ros2_utils::floating_point_range default_range = {0.0, 10.0, 0.0001};
+
+    for (auto const &side : sides)
+    {
+        for (auto const &threshold : thresholds)
+        {
+            double value;
+
+            ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("pid/" + side + "/" + threshold + "/p"), rclcpp::ParameterValue(0.004), default_range, std::string(side + " left pid motor proportional coef"), std::string(""), false);
+            value = this->get_parameter("pid/" + side + "/" + threshold + "/p").as_double();
+            setAdaptPidParam(side, threshold, "p", value);
+
+            ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("pid/" + side + "/" + threshold + "/i"), rclcpp::ParameterValue(0.0005), default_range, std::string(side + " left pid motor integral coef"), std::string(""), false);
+            value = this->get_parameter("pid/" + side + "/" + threshold + "/i").as_double();
+            setAdaptPidParam(side, threshold, "i", value);
+
+            ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("pid/" + side + "/" + threshold + "/d"), rclcpp::ParameterValue(0.0), default_range, std::string(side + " left pid motor derivative coef"), std::string(""), false);
+            value = this->get_parameter("pid/" + side + "/" + threshold + "/d").as_double();
+            setAdaptPidParam(side, threshold, "d", value);
+
+            ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("pid/" + side + "/" + threshold + "/bias"), rclcpp::ParameterValue(0.0), default_range, std::string(side + " left pid motor bias"), std::string(""), false);
+            value = this->get_parameter("pid/" + side + "/" + threshold + "/bias").as_double();
+            setAdaptPidParam(side, threshold, "bias", value);
+
+            ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("pid/" + side + "/" + threshold + "/threshold"), rclcpp::ParameterValue(0.01), default_range, std::string(side + " velocity threshlod"), std::string(""), false);
+            value = this->get_parameter("pid/" + side + "/" + threshold + "/threshold").as_double();
+            setAdaptPidParam(side, threshold, "threshold", value);
+        }
+
+        sendAdaptPidConfig(side);
+    }
+
+    send_config_enabled = true;
 
     // Tf
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
@@ -22,17 +73,12 @@ CanBridge::CanBridge()
     right_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("/hardware/base/pid/right_state", 10);
     odometry_ticks_pub = this->create_publisher<jrb_msgs::msg::OdometryTicks>("/hardware/base/odometry_ticks", 10);
 
-    left_pump_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/pump/left/status", 10);
-    right_pump_pub = this->create_publisher<jrb_msgs::msg::Bool>("/hardware/pump/right/status", 10);
-
-    left_valve_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/valve/left/status", 10);
-    right_valve_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/valve/right/status", 10);
-
     servo_generic_read_response_pub = this->create_publisher<jrb_msgs::msg::ServoGenericReadResponse>("/hardware/servo/generic_read_response", 10);
     servo_angle_pub = this->create_publisher<jrb_msgs::msg::ServoAngle>("/hardware/servo/angle", 10);
     
     emergency_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/emergency/status", emgerceny_qos);
 
+    // Subscribers
     rclcpp::QoS cmd_vel_qos = rclcpp::SensorDataQoS().keep_last(1);
     static const rclcpp::QoS qos_profile = rclcpp::QoS(10)
             .history(RMW_QOS_POLICY_HISTORY_KEEP_ALL)
@@ -45,16 +91,6 @@ CanBridge::CanBridge()
     initialpose_sub = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
         "initialpose", 1, std::bind(&CanBridge::initialpose_cb, this, std::placeholders::_1));
 
-    left_pump_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
-        "/hardware/pump/left/set_status", 4, std::bind(&CanBridge::pumpLeftCB, this, std::placeholders::_1));
-    right_pump_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
-        "/hardware/pump/right/set_status", 4, std::bind(&CanBridge::pumpRightCB, this, std::placeholders::_1));
-
-    left_valve_sub = this->create_subscription<jrb_msgs::msg::ValveStatus>(
-        "/hardware/valve/left/set_status", 4, std::bind(&CanBridge::valveLeftCB, this, std::placeholders::_1));
-    right_valve_sub = this->create_subscription<jrb_msgs::msg::ValveStatus>(
-        "/hardware/valve/right/set_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
-
     servo_angle_sub = this->create_subscription<jrb_msgs::msg::ServoAngle>(
         "/hardware/servo/target_angle", qos_profile, std::bind(&CanBridge::servoAngleCB, this, std::placeholders::_1));
     servo_config_sub = this->create_subscription<jrb_msgs::msg::ServoConfig>(
@@ -66,15 +102,47 @@ CanBridge::CanBridge()
     servo_generic_read_sub = this->create_subscription<jrb_msgs::msg::ServoGenericRead>(
         "/hardware/servo/generic_read", qos_profile, std::bind(&CanBridge::servoGenericReadCB, this, std::placeholders::_1));
 
-    turbine_speed_sub = this->create_subscription<std_msgs::msg::UInt16>(
-        "/hardware/turbine/speed", 1, std::bind(&CanBridge::turbineSpeedCB, this, std::placeholders::_1));
-
     motion_config_sub = this->create_subscription<jrb_msgs::msg::MotionConfig>(
         "/hardware/base/motion_config", qos_profile, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
     motion_speed_command_sub = this->create_subscription<jrb_msgs::msg::MotionSpeedCommand>(
         "/hardware/base/speed_command", qos_profile, std::bind(&CanBridge::motionSpeedCommandCB, this, std::placeholders::_1));
 
+    // Parameters callback
     param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
+
+    if (robot_name == "robotrouge")
+    {
+        // Subscribers
+        left_pump_sub = this->create_subscription<std_msgs::msg::Bool>(
+            "/hardware/pump/left/set_status", 4, std::bind(&CanBridge::pumpLeftCB, this, std::placeholders::_1));
+        right_pump_sub = this->create_subscription<std_msgs::msg::Bool>(
+            "/hardware/pump/right/set_status", 4, std::bind(&CanBridge::pumpRightCB, this, std::placeholders::_1));
+
+        left_valve_sub = this->create_subscription<std_msgs::msg::Bool>(
+            "/hardware/valve/left/set_status", 4, std::bind(&CanBridge::valveLeftCB, this, std::placeholders::_1));
+        right_valve_sub = this->create_subscription<std_msgs::msg::Bool>(
+            "/hardware/valve/right/set_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
+
+        // Publishers
+        left_pump_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/pump/left/status", 10);
+        right_pump_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/pump/right/status", 10);
+
+        left_valve_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/valve/left/status", 10);
+        right_valve_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/valve/right/status", 10);
+    } 
+    else if (robot_name == "robotbleu")
+    {
+        // Subscribers
+        turbine_speed_sub = this->create_subscription<std_msgs::msg::UInt16>(
+            "/hardware/turbine/speed", 1, std::bind(&CanBridge::turbineSpeedCB, this, std::placeholders::_1));
+    }
+    else 
+    {
+        RCLCPP_FATAL(this->get_logger(), "Invalid 'robot_name' parameter value: %s. Allowed values are 'robotrouge' or 'robotbleu'.", robot_name.c_str());
+        rclcpp::shutdown();
+        exit(EXIT_FAILURE);
+    }
+
 
     // CAN messages
     leftAdaptConfig.ID = CAN_PROTOCOL_LEFT_SPEED_PID_ID;
@@ -82,43 +150,6 @@ CanBridge::CanBridge()
 
     // Timers
     // send_config_timer =
-}
-
-void CanBridge::init()
-{
-    // Parameters
-    const auto sides = std::array<std::string, 2>({"left", "right"});
-    const auto thresholds = std::array<std::string, 3>({"low", "medium", "high"});
-
-    for (auto const &side : sides)
-    {
-        for (auto const &threshold : thresholds)
-        {
-            double value;
-
-            ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("pid/" + side + "/" + threshold + "/p"), rclcpp::ParameterValue(0.004), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor proportional coef"), std::string(""), false);
-            value = this->get_parameter("pid/" + side + "/" + threshold + "/p").as_double();
-            setAdaptPidParam(side, threshold, "p", value);
-
-            ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("pid/" + side + "/" + threshold + "/i"), rclcpp::ParameterValue(0.0005), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor integral coef"), std::string(""), false);
-            value = this->get_parameter("pid/" + side + "/" + threshold + "/i").as_double();
-            setAdaptPidParam(side, threshold, "i", value);
-
-            ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("pid/" + side + "/" + threshold + "/d"), rclcpp::ParameterValue(0.0), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor derivative coef"), std::string(""), false);
-            value = this->get_parameter("pid/" + side + "/" + threshold + "/d").as_double();
-            setAdaptPidParam(side, threshold, "d", value);
-
-            ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("pid/" + side + "/" + threshold + "/bias"), rclcpp::ParameterValue(0.0), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " left pid motor bias"), std::string(""), false);
-            value = this->get_parameter("pid/" + side + "/" + threshold + "/bias").as_double();
-            setAdaptPidParam(side, threshold, "bias", value);
-
-            ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("pid/" + side + "/" + threshold + "/threshold"), rclcpp::ParameterValue(0.01), (ros2_utils::floating_point_range){0.0, 10.0, 0.0001}, std::string(side + " velocity threshlod"), std::string(""), false);
-            value = this->get_parameter("pid/" + side + "/" + threshold + "/threshold").as_double();
-            setAdaptPidParam(side, threshold, "threshold", value);
-        }
-        sendAdaptPidConfig(side);
-    }
-    send_config_enabled = true;
 }
 
 void CanBridge::setAdaptPidParam(std::string side, std::string threshold, std::string param_name, double value)
@@ -285,37 +316,38 @@ void CanBridge::publishRightPIDState(jeroboam_datatypes_actuators_motion_PIDStat
 }
 void CanBridge::publishLeftPumpStatus(jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 *status)
 {
-    auto status_msg = jrb_msgs::msg::PumpStatus();
-    status_msg.enabled = status->status.enabled.value;
+    auto status_msg = std_msgs::msg::Bool();
+    status_msg.data = status->status.enabled.value;
 
     left_pump_pub->publish(status_msg);
 }
 void CanBridge::publishRightPumpStatus(jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 *status)
 {
-    auto status_msg = jrb_msgs::msg::PumpStatus();
-    status_msg.enabled = status->status.enabled.value;
+    auto status_msg = std_msgs::msg::Bool();
+    status_msg.data = status->status.enabled.value;
 
     right_pump_pub->publish(status_msg);
 }
 void CanBridge::publishLeftValveStatus(jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 *status)
 {
-    auto status_msg = jrb_msgs::msg::ValveStatus();
-    status_msg.enabled = status->status.enabled.value;
+    auto status_msg = std_msgs::msg::Bool();
+    status_msg.data = status->status.enabled.value;
 
     left_valve_pub->publish(status_msg);
 }
 void CanBridge::publishRightValveStatus(jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 *status)
 {
-    auto status_msg = jrb_msgs::msg::ValveStatus();
-    status_msg.enabled = status->status.enabled.value;
+    auto status_msg = std_msgs::msg::Bool();
+    status_msg.data = status->status.enabled.value;
 
     right_valve_pub->publish(status_msg);
 }
 
 void CanBridge::publishServoGenericReadResponse(jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1 *response)
 {
-    auto servo_response = jrb_msgs::msg::ServoGenericReadResponse();
+    (void) response;
     RCLCPP_ERROR_STREAM(this->get_logger(), "BROKEN DOES NOT WORK (yet.)");
+    // auto servo_response = jrb_msgs::msg::ServoGenericReadResponse();
 
     // if(response._tag_ == CAN_PROTOCOL_RESPONSE_SUCCESS) {
     // RCLCPP_ERROR_STREAM(this->get_logger(), "count %lu\r\n", response.data.count);
@@ -464,12 +496,12 @@ void CanBridge::initialpose_cb(const geometry_msgs::msg::PoseWithCovarianceStamp
     send_can_msg(ROBOT_SET_CURRENT_POSE_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::pumpLeftCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg)
+void CanBridge::pumpLeftCB(const std_msgs::msg::Bool::SharedPtr msg)
 {
     static CanardTransferID transfer_id = 0;
     jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 pumpStatus;
     pumpStatus.status.ID = CAN_PROTOCOL_PUMP_LEFT_ID;
-    pumpStatus.status.enabled.value = msg->enabled;
+    pumpStatus.status.enabled.value = msg->data;
 
     size_t buf_size = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
@@ -484,12 +516,12 @@ void CanBridge::pumpLeftCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg)
     send_can_msg(ACTION_PUMP_SET_STATUS_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::pumpRightCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg)
+void CanBridge::pumpRightCB(const std_msgs::msg::Bool::SharedPtr msg)
 {
     static CanardTransferID transfer_id = 0;
     jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 pumpStatus;
     pumpStatus.status.ID = CAN_PROTOCOL_PUMP_RIGHT_ID;
-    pumpStatus.status.enabled.value = msg->enabled;
+    pumpStatus.status.enabled.value = msg->data;
 
     size_t buf_size = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
@@ -504,13 +536,13 @@ void CanBridge::pumpRightCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg)
     send_can_msg(ACTION_PUMP_SET_STATUS_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::valveLeftCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg)
+void CanBridge::valveLeftCB(const std_msgs::msg::Bool::SharedPtr msg)
 {
     static CanardTransferID transfer_id = 0;
 
     jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 valveStatus;
     valveStatus.status.ID = CAN_PROTOCOL_VALVE_LEFT_ID;
-    valveStatus.status.enabled.value = msg->enabled;
+    valveStatus.status.enabled.value = msg->data;
 
     size_t buf_size = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
@@ -525,13 +557,13 @@ void CanBridge::valveLeftCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg)
     send_can_msg(ACTION_VALVE_SET_STATUS_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::valveRightCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg)
+void CanBridge::valveRightCB(const std_msgs::msg::Bool::SharedPtr msg)
 {
     static CanardTransferID transfer_id = 0;
 
     jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 valveStatus;
     valveStatus.status.ID = CAN_PROTOCOL_VALVE_RIGHT_ID;
-    valveStatus.status.enabled.value = msg->enabled;
+    valveStatus.status.enabled.value = msg->data;
 
     size_t buf_size = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
@@ -655,13 +687,13 @@ void CanBridge::servoConfigCB(const jrb_msgs::msg::ServoConfig msg)
     send_can_msg(ACTION_SERVO_SET_CONFIG_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::servoRebootCB(const jrb_msgs::msg::ServoID msg)
+void CanBridge::servoRebootCB(const std_msgs::msg::UInt8 msg)
 {
     static CanardTransferID transfer_id = 0;
 
     jeroboam_datatypes_actuators_servo_ServoID_0_1 servoID;
 
-    servoID.ID = msg.id;
+    servoID.ID = msg.data;
     if(servoID.ID==0)
     {
         RCLCPP_WARN_STREAM(this->get_logger(), "servoID.id = 0");

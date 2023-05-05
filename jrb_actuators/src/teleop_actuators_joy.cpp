@@ -1,4 +1,5 @@
 #include <memory>
+#include <cstdlib>
 
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/joy.hpp"
@@ -13,26 +14,56 @@ public:
     TeleopActuatorsJoy()
         : Node("teleop_actuators_joy")
     {
-        // Subscribers
-        joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
-            "/joy", 10, std::bind(&TeleopActuatorsJoy::joy_callback, this, std::placeholders::_1));
+        // Params
+        const char* robot_name_env_ptr = std::getenv("ROBOT_NAME");
+        std::string robot_name_env = robot_name_env_ptr ? std::string(robot_name_env_ptr) : "";
 
-        // Publishers
-        turbine_speed_pub_ = this->create_publisher<std_msgs::msg::UInt16>("hardware/turbine/speed", 10);
-        led_pub_ = this->create_publisher<std_msgs::msg::Bool>("hardware/led", 10);
-        roll_height_pub_ = this->create_publisher<std_msgs::msg::Int16>("hardware/roll/height", 10);
-        roll_speed_pub_ = this->create_publisher<std_msgs::msg::Int8>("hardware/roll/speed", 10);
+        this->declare_parameter<std::string>("robot_name", robot_name_env);
+        this->get_parameter("robot_name", robot_name);
 
-        RCLCPP_INFO(get_logger(), "TeleopActuatorsJoy node has been initialized");
+        if (robot_name != "robotrouge" && robot_name != "robotbleu")
+        {
+            RCLCPP_ERROR(this->get_logger(), "Invalid 'robot_name' parameter value: %s. Allowed values are 'robotrouge' or 'robotbleu'. Defaulting on robotrouge.", robot_name.c_str());
+            robot_name = "robotrouge";
+        }
+
+        if (robot_name == "robotrouge")
+        {
+            // Subscribers
+            joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
+                "/joy", 10, std::bind(&TeleopActuatorsJoy::joy_callback_robotrouge, this, std::placeholders::_1));
+        }
+        else if (robot_name == "robotbleu")
+        {
+            // Subscribers
+            joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
+                "/joy", 10, std::bind(&TeleopActuatorsJoy::joy_callback_robotbleu, this, std::placeholders::_1));
+
+            // Publishers
+            turbine_speed_pub_ = this->create_publisher<std_msgs::msg::UInt16>("hardware/turbine/speed", 10);
+            led_pub_ = this->create_publisher<std_msgs::msg::Bool>("hardware/led", 10);
+            roll_height_pub_ = this->create_publisher<std_msgs::msg::Int16>("actuators/roll/height", 10);
+            roll_speed_pub_ = this->create_publisher<std_msgs::msg::Int8>("actuators/roll/speed", 10);
+        }
+        else 
+        {
+            RCLCPP_FATAL(this->get_logger(), "Invalid 'robot_name' parameter value: %s. Allowed values are 'robotrouge' or 'robotbleu'.", robot_name.c_str());
+            rclcpp::shutdown();
+            exit(EXIT_FAILURE);
+        }
+
+
+        RCLCPP_INFO_STREAM(get_logger(), "TeleopActuatorsJoy node has been initialized on robot: " << robot_name);
     }
 
 private:
-    void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg)
+    void joy_callback_robotrouge(const sensor_msgs::msg::Joy::SharedPtr msg)
     {
-        /**
-         * Robotbleu controls
-         */
+        return;
+    }
 
+    void joy_callback_robotbleu(const sensor_msgs::msg::Joy::SharedPtr msg)
+    {
         // X button: turbine speed
         static bool x_button_prev_state = false;
         static uint8_t speed_mode = 0;
@@ -143,6 +174,8 @@ private:
     rclcpp::Publisher<std_msgs::msg::Int16>::SharedPtr roll_height_pub_;
     rclcpp::Publisher<std_msgs::msg::Int8>::SharedPtr roll_speed_pub_;
     rclcpp::Publisher<std_msgs::msg::UInt16>::SharedPtr turbine_speed_pub_;
+
+    std::string robot_name;
 };
 
 int main(int argc, char **argv)
