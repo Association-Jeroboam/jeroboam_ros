@@ -41,6 +41,7 @@ set(msg_files
   "msg/StackSample.msg"
   "msg/BoolArray.msg"
   "msg/ArmStatus.msg"
+  "msg/SimplifiedGoalStatus.msg"
   "action/GoToPose.action"
 )
 

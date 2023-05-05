@@ -21,8 +21,10 @@ from jrb_msgs.msg import (
     ServoID,
     BoolArray,
     ArmStatus,
+    SimplifiedGoalStatus,
+
 )
-from std_msgs.msg import Bool, Float32, Int8, Int16, UInt16
+from std_msgs.msg import Bool, Float32, Int8, Int16, UInt16, String
 from jrb_actuators.lib import dxl
 import time
 import numpy as np
@@ -74,6 +76,12 @@ class Actuators(Node):
         self.init_actuators()
 
         self.sub_servo_angle = self.create_subscription(ServoAngle, "servo_angle", self.servoAngle_cb, 10)
+        self.sub_action_launch = self.create_subscription(String, "actuators/generic_action_launch", self.actionLaunch_cb, qos_profile)
+
+        self.pub_action_status = self.create_publisher(SimplifiedGoalStatus, "actuators/generic_action_status", qos_profile)
+        self.action_status_publish_timer = self.create_timer(0.2, self.on_action_status_publish_timer)
+
+        self.actions_running = {}
 
     def __del__(self):
         dxl.setTorque4All(self, 0)
@@ -89,6 +97,28 @@ class Actuators(Node):
                     self.pub_servo_angle.publish(msg)
                 else :
                     self.get_logger().warn(f"Dynamixel {servo_id} seems not connected")
+
+    def on_action_status_publish_timer(self):
+        msg =  SimplifiedGoalStatus()
+        actions_to_close = []
+        for action_name, servos in self.actions_running.items() :
+            msg.action_name = action_name
+            msg.status = SimplifiedGoalStatus.STATUS_SUCCEEDED
+            for servo in servos :
+                if not servo.torque :
+                    msg.status = SimplifiedGoalStatus.STATUS_ABORTED
+                    actions_to_close.append(action_name)
+                    break
+                elif not servo.target_reached :
+                    msg.status = SimplifiedGoalStatus.STATUS_EXECUTING
+                    #self.get_logger().info(f"XL320 with ID {servo.ID} has gap of {abs(servo.radian_target-servo.radian_state)}.")
+                    break
+            if msg.status == SimplifiedGoalStatus.STATUS_SUCCEEDED :
+                actions_to_close.append(action_name)
+                self.get_logger().info(f"Action {action_name} succeed !")
+            self.pub_action_status.publish(msg)
+        for name in actions_to_close :
+            del self.actions_running[name]
 
     def initHandlers(self, DEVICENAME, BAUDRATE, PROTOCOL_VERSION):
         # Initialize PortHandler instance
@@ -227,7 +257,6 @@ class Actuators(Node):
                 self.get_logger().error(f"DXL error for ID {ID} address {address} (value {value}) : {error_msg}")
                 if(error_msg == "[RxPacketError] The data value exceeds the limit value!"):
                     self.get_logger().error(f"value :{value}  size :{size}")
-                    
 
     def sendGenericCommand(self, len_, id, addr, data):
         while time.time() - self.last_com_time < MIN_TIME_BETWEEN_COM :
@@ -283,6 +312,9 @@ class Actuators(Node):
             #self.get_logger().info(f"XL320 with ID {msg.id} is at {msg.radian} radians.")
         else:
             self.get_logger().debug(f"XL320 with ID {msg.id} is unknown.")
+
+    def actionLaunch_cb(self, msg : String):
+        self.get_logger().warn("Cannot launch unknown action")
 
     def init_actuators(self):
         pass
@@ -632,6 +664,27 @@ class Actuators_robotbleu(Actuators):
         time.sleep(1)
         self.ballSystem = dxl.ball_system(self)
         self.ballSystem.setTorque(True)
+
+    def actionLaunch_cb(self, msg : String):
+        # Roller height
+        if msg.data == "SET_ROLLER_UP" :
+            self.actions_running[msg.data] = self.ballSystem.setRollerUp()
+        elif msg.data == "SET_ROLLER_DOWN" :
+            self.actions_running[msg.data] = self.ballSystem.setRollerDown()
+        elif msg.data == "SET_ROLLER_MIDDLE" :
+            self.actions_running[msg.data] = self.ballSystem.setRollerMiddle()
+
+        # Roller speed
+        elif msg.data == "START_ROLLER_IN" :
+            self.actions_running[msg.data] = self.ballSystem.startRoller_in()
+        elif msg.data == "START_ROLLER_OUT" :
+            self.actions_running[msg.data] = self.ballSystem.startRoller_out()
+        elif msg.data == "STOP_ROLLER" :
+            self.actions_running[msg.data] = self.ballSystem.stopRoller()
+        
+        # Other
+        else :
+            self.get_logger().warn(f"Cannot launch unknown action ({msg.data})")    
 
     def roll_speed_cb(self, msg: Int8):
         if msg.data == 1 :

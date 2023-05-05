@@ -210,7 +210,8 @@ class XL320:
         if self.reverseRotation :
             POSITION=1023-POSITION
         self.target_reached=False
-        self.radian_target=POSITION * rawToRad
+        self.radian_target=POSITION*rawToRad
+        if self.reverseRotation : self.radian_target=(1023*rawToRad)-self.radian_target
         self.node.sendGenericCommand(2, self.ID, 30, POSITION)
         #self.setTorque(self.torque)  # Updating the goal_position register seems to enable torque, so this line releases the motor if it haven't to be enabled
 
@@ -227,6 +228,7 @@ class XL320:
         
         #self.node.get_logger().info(F"setGoalSpeed : id={self.ID} / SPEED={SPEED} / reverse={reverse}") 
         self.node.sendGenericCommand(2, self.ID, 32, SPEED)
+        if self.torque : self.target_reached = True
   
     def getPresentPosition(self):
         dxl_present_position = self.node.readValue(2, self.ID, 37)
@@ -816,14 +818,17 @@ class ball_system:
     def startRoller_in(self):
         self.roller_left.setGoalSpeed(1023,True)
         self.roller_right.setGoalSpeed(1023,True)
+        return [self.roller_right,self.roller_left]
 
     def startRoller_out(self):
         self.roller_left.setGoalSpeed(1023)
         self.roller_right.setGoalSpeed(1023)
+        return [self.roller_right,self.roller_left]
 
     def stopRoller(self):
         self.roller_left.setGoalSpeed(0)
         self.roller_right.setGoalSpeed(0)
+        return [self.roller_right,self.roller_left]
 
     def on_fingers_loop_timer(self):
         if self.start_fingers_loop :
@@ -836,26 +841,33 @@ class ball_system:
 
     def startFingersLoop(self) :
         self.start_fingers_loop = True
+        return []
     
     def stopFingersLoop(self) :
         self.start_fingers_loop = False
+        return []
 
     def setFingersOnSide(self):
         self.figer_right.setGoalPosition(390)
         self.figer_left.setGoalPosition(390)
+        return [self.figer_left,self.figer_right]
 
     def setFingersOnCenter(self):
         self.figer_right.setGoalPosition(600)
         self.figer_left.setGoalPosition(600)
-    
+        return [self.figer_left,self.figer_right]
+  
     def setRollerUp(self):
         self.lift_right.setGoalPosition(1023)
         self.lift_left.setGoalPosition(1023)
+        return [self.lift_right,self.lift_left]
         
     def setRollerDown(self):
         self.lift_right.setGoalPosition(0)
         self.lift_left.setGoalPosition(0)
+        return [self.lift_right,self.lift_left]
 
     def setRollerMiddle(self):
         self.lift_right.setGoalPosition(250)
         self.lift_left.setGoalPosition(250)
+        return [self.lift_right,self.lift_left]
