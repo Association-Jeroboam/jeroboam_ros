@@ -373,38 +373,46 @@ class Actuators_robotrouge(Actuators):
             ArmStatus, "arm_state_right", 10
         )
 
-        self.pub_pump_left = self.create_publisher(PumpStatus, "left_pump_status", 10)
+        self.pub_pump_left = self.create_publisher(
+            Bool, "/hardware/pump/left/set_status", 10)
+        )
 
-        self.pub_pump_right = self.create_publisher(PumpStatus, "right_pump_status", 10)
+        self.pub_pump_right = self.create_publisher(
+            PumpStatus, "/hardware/pump/right/set_status", 10)
 
         self.pub_valve_left = self.create_publisher(
-            ValveStatus, "left_valve_status", 10
+            Bool, "/hardware/valve/left/set_status", 10
         )
 
         self.pub_valve_right = self.create_publisher(
-            ValveStatus, "right_valve_status", 10
+            Bool, "/hardware/valve/right/set_status", 10
         )
 
+        # Subscribers
         self.sub_left_arm = self.create_subscription(
-            PoseStamped, "left_arm_goto", partial(self.arm_goto_cb, "left"), 10
+            PoseStamped, "/actuators/arm/left/go_to", partial(self.arm_goto_cb, "left"), 10
         )
 
         self.sub_right_arm = self.create_subscription(
-            PoseStamped, "right_arm_goto", partial(self.arm_goto_cb, "right"), 10
+            PoseStamped, "/actuators/arm/right/go_to", partial(self.arm_goto_cb, "right"), 10
         )
 
-        self.sub_rakes = self.create_subscription(Bool, "open_rakes", self.rakes_cb, 10)
+        self.sub_rakes = self.create_subscription(
+            Bool, "/actuators/set_open_rakes", self.rakes_cb, 10
+        )
 
         self.sub_pump_left = self.create_subscription(
-            Bool, "pump_left", partial(self.pump_cb, "left"), 10
-        )
-        self.sub_pump_right = self.create_subscription(
-            Bool, "pump_right", partial(self.pump_cb, "right"), 10
+            Bool, "/actuators/pump/left/set_enabled", partial(self.pump_cb, "left"), 10
         )
 
-        self.sub_stack_sample = self.create_subscription(
-            StackSample, "stack_sample", self.stackSample_cb, 10
+        self.sub_pump_right = self.create_subscription(
+            Bool, "/actuators/pump/right/set_enabled", partial(self.pump_cb, "right"), 10
         )
+
+        # TODO: @lucas see if this is still relevant
+        # self.sub_stack_sample = self.create_subscription(
+        #     StackSample, "stack_sample", self.stackSample_cb, 10
+        # )
 
         arm_publish_state_rate = 1 / 2  # Hz
         self.arm_state_publish_timer = self.create_timer(arm_publish_state_rate, self.on_arm_state_publish_timer)
@@ -486,24 +494,21 @@ class Actuators_robotrouge(Actuators):
             self.returnSample("left")
 
     def startPump(self, side):
-        # self.serial_actionBoard.write(("pump "+side+" 1\r").encode('utf-8'))
-        pump_msg = PumpStatus()
-        pump_msg.enabled = True
-        if side == "left":
+        #self.serial_actionBoard.write(("pump "+side+" 1\r").encode('utf-8'))
+        pump_msg=Bool(data=True)
+        if side == "left" :
             self.pub_pump_left.publish(pump_msg)
         else:
             self.pub_pump_right.publish(pump_msg)
 
     def stopPump(self, side):
-        # self.serial_actionBoard.write(("valve "+side+" 1\r").encode('utf-8'))
-        # self.serial_actionBoard.write(("pump "+side+" 0\r").encode('utf-8'))
-        # time.sleep(0.1)
-        # self.serial_actionBoard.write(("valve "+side+" 0\r").encode('utf-8'))
-        pump_msg = PumpStatus()
-        valve_msg = ValveStatus()
-        pump_msg.enabled = False
-        valve_msg.enabled = True
-        if side == "left":
+        #self.serial_actionBoard.write(("valve "+side+" 1\r").encode('utf-8'))
+        #self.serial_actionBoard.write(("pump "+side+" 0\r").encode('utf-8'))
+        #time.sleep(0.1)
+        #self.serial_actionBoard.write(("valve "+side+" 0\r").encode('utf-8'))
+        pump_msg=Bool(data=True)
+        valve_msg=Bool(data=True)
+        if side == "left" :
             self.pub_pump_left.publish(pump_msg)
             self.pub_valve_left.publish(valve_msg)
         else:
