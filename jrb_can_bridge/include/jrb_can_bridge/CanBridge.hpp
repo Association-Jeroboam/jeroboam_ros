@@ -19,6 +19,7 @@
 #include "tf2_ros/transform_broadcaster.h"
 #include "std_msgs/msg/string.hpp"
 #include "std_msgs/msg/u_int16.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
