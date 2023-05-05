@@ -256,7 +256,6 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
                                                                                        (uint8_t *)transfer->payload,
                                                                                        &transfer->payload_size);
       if(res == NUNAVUT_SUCCESS) {
-        RCLCPP_INFO_STREAM(rclcpp::get_logger("CanBridge"), "Received EMERGENCY_STOP " << emgcyState.emergency.value << " \r\n");
         canBridge.get()->publishEmergencyStop(&emgcyState.emergency.value);
       } else {
         RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "EMERGENCY_STOP_ID deserialize failed" << res << "\r\n");
