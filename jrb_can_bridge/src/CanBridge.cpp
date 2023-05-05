@@ -95,7 +95,7 @@ void CanBridge::init()
         "/hardware/servo/target_angle", qos_profile, std::bind(&CanBridge::servoAngleCB, this, std::placeholders::_1));
     servo_config_sub = this->create_subscription<jrb_msgs::msg::ServoConfig>(
         "/hardware/servo/config", qos_profile, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
-    servo_reboot_sub = this->create_subscription<jrb_msgs::msg::ServoID>(
+    servo_reboot_sub = this->create_subscription<std_msgs::msg::UInt8>(
         "/hardware/servo/reboot", qos_profile, std::bind(&CanBridge::servoRebootCB, this, std::placeholders::_1));
     servo_generic_command_sub = this->create_subscription<jrb_msgs::msg::ServoGenericCommand>(
         "/hardware/servo/generic_command", qos_profile, std::bind(&CanBridge::servoGenericCommandCB, this, std::placeholders::_1));
