@@ -3,14 +3,14 @@
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration 
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.actions import DeclareLaunchArgument
 from launch_ros.actions import Node
 from launch.substitutions import ThisLaunchFileDir, PathJoinSubstitution
 from launch.actions import IncludeLaunchDescription, GroupAction
 from launch_ros.substitutions import FindPackageShare
-from launch.conditions import IfCondition, UnlessCondition
+from launch.conditions import  UnlessCondition
 from launch_ros.actions import SetRemap
 import rclpy
 from rclpy.logging import get_logger
@@ -28,10 +28,45 @@ def generate_launch_description():
         logger.warn("ROBOT_NAME is not set, default to robotrouge")
         os.environ["ROBOT_NAME"] = "robotrouge"
 
+    isRobotrouge = os.environ["ROBOT_NAME"] == "robotrouge"
+
     camera_param_path = LaunchConfiguration("camera_param_path")
     lidar_param_path = LaunchConfiguration("lidar_param_path")
     can_bridge_param_path = LaunchConfiguration("can_bridge_param_path")
     global_localization = LaunchConfiguration('global_localization')
+
+    declare_camera_param = DeclareLaunchArgument(
+        "camera_param_path",
+        description="Full path to camera parameter file to load",
+        default_value=PathJoinSubstitution(
+            [this_pkg, "param", "robotrouge_camera_param.yaml"]
+        ),
+    )
+
+    declare_lidar_param = DeclareLaunchArgument(
+        "lidar_param_path",
+        description="Full path to camera parameter file to load",
+        default_value=PathJoinSubstitution(
+            [this_pkg, "param", "lidar_param.yaml"]
+        ),
+    )
+
+    declare_can_bridge_param = DeclareLaunchArgument(
+        "can_bridge_param_path",
+        description="Full path to can_bridge parameter file to load",
+        default_value=PathJoinSubstitution(
+            [this_pkg, "param", "robotrouge_can_bridge_param.yaml"]
+        ),
+    )
+    declare_global_localization = DeclareLaunchArgument(
+        "global_localization",
+        description="Use a global localization node such as amcl to have the tf map->odom",
+        default_value="False"
+    )    
+    
+    twist_mux_params = os.path.join(
+        get_package_share_directory("jrb_bringup"), "param", "twist_mux.yaml"
+    )
 
     rsp = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -46,8 +81,42 @@ def generate_launch_description():
         launch_arguments={"display_meshes": "true"}.items(),
     )
 
-    twist_mux_params = os.path.join(
-        get_package_share_directory("jrb_bringup"), "param", "twist_mux.yaml"
+    can_bridge = Node(
+        package="jrb_can_bridge",
+        executable="jrb_can_bridge",
+        output="screen",
+        parameters=[can_bridge_param_path, {"robot_name": os.environ.get("ROBOT_NAME")}],
+        emulate_tty=True
+    )
+
+    go_to_goal = Node(
+        package="jrb_control",
+        executable="go_to_goal",
+        output="screen",
+        emulate_tty=True
+    )
+
+    lidar = Node(
+        package="rplidar_ros2",
+        executable="rplidar_scan_publisher",
+        parameters=[lidar_param_path],
+        output="screen",
+        emulate_tty=True
+    )
+
+    obstacle_detector = Node(
+        package="jrb_sensors",
+        executable="obstacle_detector.py",
+        output="screen",
+        emulate_tty=True
+    )
+
+    gpio_node = Node(
+        package="jrb_hardware_bridge",
+        executable="gpio_node",
+        output="screen",
+        parameters=[{"robot_name": os.environ.get("ROBOT_NAME")}],
+        emulate_tty=True
     )
 
     joystick = GroupAction(
@@ -67,6 +136,7 @@ def generate_launch_description():
         output="screen",
         parameters=[twist_mux_params],
         remappings=[("cmd_vel_out", "/cmd_vel")],
+        emulate_tty=True
     )
 
     marker_publisher_params = os.path.join(
@@ -79,6 +149,7 @@ def generate_launch_description():
         output="screen",
         parameters=[marker_publisher_params],
         remappings=[("markers", "/debug/table_mesh")],
+        emulate_tty=True
     )
 
     static_transform_broadcaster = Node(
@@ -86,111 +157,81 @@ def generate_launch_description():
         executable="static_transform_publisher",
         name="static_transform_publisher",
         output="screen",
-        arguments=["0", "0", "0", "0", "0", "0", "map", "odom"],
-        condition=UnlessCondition(global_localization)
+        arguments=["--x", "0.0", "--y", "0.0", "--z", "0.0", "--roll", "0.0", "--pitch", "0.0", "--yaw", "0.0", "--frame-id", "map", "--child-frame-id", "odom"],
+        condition=UnlessCondition(global_localization),
+        emulate_tty=True
     )
 
-    return LaunchDescription(
-        [
-            DeclareLaunchArgument(
-                "camera_param_path",
-                description="Full path to camera parameter file to load",
-                default_value=PathJoinSubstitution(
-                    [this_pkg, "param", "robotrouge_camera_param.yaml"]
-                ),
-            ),
-            DeclareLaunchArgument(
-                "lidar_param_path",
-                description="Full path to camera parameter file to load",
-                default_value=PathJoinSubstitution(
-                    [this_pkg, "param", "lidar_param.yaml"]
-                ),
-            ),
-            DeclareLaunchArgument(
-                "can_bridge_param_path",
-                description="Full path to can_bridge parameter file to load",
-                default_value=PathJoinSubstitution(
-                    [this_pkg, "param", "robotrouge_can_bridge_param.yaml"]
-                ),
-            ),
-            DeclareLaunchArgument(
-                "global_localization",
-                description="Use a global localization node such as amcl to have the tf map->odom",
-                default_value="False"
-            ),
-            rsp,
-            static_transform_broadcaster,
-            Node(
-                package="v4l2_camera",
-                executable="v4l2_camera_node",
-                name="v4l2_camera",
-                parameters=[camera_param_path],
-                namespace="/camera",
-                output="screen",
-            ),
-            twist_mux,
-            joystick,
-            marker_publisher,
-            Node(
-                package="jrb_sensors",
-                executable="sample_detector",
-                output="screen",
-            ),
-            # Node(
-            #     package="jrb_actuators",
-            #     executable="actuators",
-            #     output="screen",
-            # ),
-            Node(
-                package="jrb_actuators",
-                executable="teleop_actuators_joy",
-                output="screen",
-            ),
-            # Node(
-            #     package="jrb_localization",
-            #     executable="map_manager",
-            #     output="screen",
-            #     parameters=[{"robot_name": os.environ.get("ROBOT_NAME")}],
-            # ),
-            Node(
-                package="jrb_actuators",
-                executable="teleop_actuators_joy",
-                output="screen",
-                parameters=[{"robot_name": os.environ.get("ROBOT_NAME")}],
-            ),
-            Node(
-                package="jrb_screen",
-                executable="screen_manager",
-                output="screen",
-            ),
-            Node(
-                package="jrb_control",
-                executable="go_to_goal",
-                output="screen",
-            ),
-            Node(
-                package="jrb_can_bridge",
-                executable="jrb_can_bridge",
-                output="screen",
-                parameters=[can_bridge_param_path, {"robot_name": os.environ.get("ROBOT_NAME")}],
-            ),
-            Node(
-                package="rplidar_ros2",
-                executable="rplidar_scan_publisher",
-                parameters=[lidar_param_path],
-                output="screen",
-            ),
-            Node(
-                package="jrb_sensors",
-                executable="obstacle_detector.py",
-                output="screen",
-            ),
-            Node(
-                package="jrb_hardware_bridge",
-                executable="gpio_node",
-                output="screen",
-                parameters=[{"robot_name": os.environ.get("ROBOT_NAME")}],
-            ),
-            # Node(package="jrb_strategy", executable="eurobot", output="screen"),
-        ],
+    screen_manager = Node(
+        package="jrb_screen",
+        executable="screen_manager",
+        output="screen",
+        emulate_tty=True
     )
+
+    camera = Node(
+        package="v4l2_camera",
+        executable="v4l2_camera_node",
+        name="v4l2_camera",
+        parameters=[camera_param_path],
+        output="screen",
+        emulate_tty=True
+    )
+
+    sample_detector = Node(
+        package="jrb_sensors",
+        executable="sample_detector",
+        output="screen",
+        emulate_tty=True
+    )
+
+    actuators =  Node(
+        package="jrb_actuators",
+        executable="actuators.py",
+        output="screen",
+        parameters=[{"robot_name": os.environ.get("ROBOT_NAME")}],
+        emulate_tty=True
+    )
+
+    teleop_actuators_joy = Node(
+        package="jrb_actuators",
+        executable="teleop_actuators_joy",
+        output="screen",
+        parameters=[{"robot_name": os.environ.get("ROBOT_NAME")}],
+        emulate_tty=True
+    )
+    
+    strategy = Node(
+        package="jrb_strategy", 
+        executable="eurobot", 
+        output="screen",
+        emulate_tty=True
+    )
+
+    ld = LaunchDescription()
+
+    ld.add_action(declare_camera_param)
+    ld.add_action(declare_can_bridge_param)
+    ld.add_action(declare_lidar_param)
+    ld.add_action(declare_global_localization)
+
+    ld.add_action(rsp)
+    ld.add_action(static_transform_broadcaster)
+    ld.add_action(can_bridge)
+    ld.add_action(gpio_node)
+    ld.add_action(lidar)
+    ld.add_action(obstacle_detector)
+    ld.add_action(twist_mux)
+    ld.add_action(joystick)
+    ld.add_action(marker_publisher)
+    ld.add_action(screen_manager)
+    ld.add_action(actuators)
+    ld.add_action(teleop_actuators_joy)
+    ld.add_action(go_to_goal)
+    # ld.add_action(strategy)
+
+    if isRobotrouge:
+        ld.add_action(camera)
+        ld.add_action(sample_detector)
+
+    return ld
