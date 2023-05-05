@@ -1,9 +1,20 @@
 #include "CanBridge.hpp"
-
+#include <rclcpp/qos.hpp>
+#include <rmw/qos_profiles.h>
 
 CanBridge::CanBridge()
 : Node("can_bridge")
 {
+    send_config_enabled = false;
+
+    // Tf
+    tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+    
+    static const rclcpp::QoS emgerceny_qos = rclcpp::QoS(1)
+            .history(RMW_QOS_POLICY_HISTORY_KEEP_LAST)
+            .keep_last(1)
+            .reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE)
+            .durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
     // Publishers
     odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("odometry", 50);
     left_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("left_pid_state", 10);
@@ -15,13 +26,21 @@ CanBridge::CanBridge()
     servo_generic_read_response_pub = this->create_publisher<jrb_msgs::msg::ServoGenericReadResponse>("servo_generic_read_response", 10);
     servo_angle_pub = this->create_publisher<jrb_msgs::msg::ServoAngle>("servo_angle", 10);
     odometry_ticks_pub = this->create_publisher<jrb_msgs::msg::OdometryTicks>("odometry_ticks", 10);
+    emergency_pub = this->create_publisher<std_msgs::msg::Bool>("emergency/status", emgerceny_qos);
 
+    
+
+    rclcpp::QoS cmd_vel_qos = rclcpp::SensorDataQoS().keep_last(1);
+    static const rclcpp::QoS qos_profile = rclcpp::QoS(10)
+            .history(RMW_QOS_POLICY_HISTORY_KEEP_ALL)
+            .reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE)
+            .durability(RMW_QOS_POLICY_DURABILITY_VOLATILE);
     // Subscribers
     twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
-    "cmd_vel", 50, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
+    "cmd_vel", cmd_vel_qos, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
 
     initialpose_sub = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
-    "initialpose", 50, std::bind(&CanBridge::initialpose_cb, this, std::placeholders::_1));
+    "initialpose", 1, std::bind(&CanBridge::initialpose_cb, this, std::placeholders::_1));
 
     left_pump_sub = this->create_subscription<jrb_msgs::msg::PumpStatus>(
     "left_pump_status", 4, std::bind(&CanBridge::pumpLeftCB, this, std::placeholders::_1));
@@ -32,19 +51,21 @@ CanBridge::CanBridge()
     right_valve_sub = this->create_subscription<jrb_msgs::msg::ValveStatus>(
     "right_valve_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
     motion_config_sub = this->create_subscription<jrb_msgs::msg::MotionConfig>(
-    "motion_config", 20, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
+    "motion_config", qos_profile, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
     servo_angle_sub = this->create_subscription<jrb_msgs::msg::ServoAngle>(
-    "servo_angle_target", 4, std::bind(&CanBridge::servoAngleCB, this, std::placeholders::_1));
+    "servo_angle_target", qos_profile, std::bind(&CanBridge::servoAngleCB, this, std::placeholders::_1));
     servo_config_sub = this->create_subscription<jrb_msgs::msg::ServoConfig>(
-    "servo_config", 20, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
+    "servo_config", qos_profile, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
     servo_reboot_sub = this->create_subscription<jrb_msgs::msg::ServoID>(
-    "servo_reboot", 20, std::bind(&CanBridge::servoRebootCB, this, std::placeholders::_1));
+    "servo_reboot", qos_profile, std::bind(&CanBridge::servoRebootCB, this, std::placeholders::_1));
     servo_generic_command_sub = this->create_subscription<jrb_msgs::msg::ServoGenericCommand>(
-    "servo_generic_command", 20, std::bind(&CanBridge::servoGenericCommandCB, this, std::placeholders::_1));
+    "servo_generic_command", qos_profile, std::bind(&CanBridge::servoGenericCommandCB, this, std::placeholders::_1));
     servo_generic_read_sub = this->create_subscription<jrb_msgs::msg::ServoGenericRead>(
-    "servo_generic_read", 20, std::bind(&CanBridge::servoGenericReadCB, this, std::placeholders::_1));
+    "servo_generic_read", qos_profile, std::bind(&CanBridge::servoGenericReadCB, this, std::placeholders::_1));
     motion_speed_command_sub = this->create_subscription<jrb_msgs::msg::MotionSpeedCommand>(
-    "speed_command", 20, std::bind(&CanBridge::motionSpeedCommandCB, this, std::placeholders::_1));
+    "speed_command", qos_profile, std::bind(&CanBridge::motionSpeedCommandCB, this, std::placeholders::_1));
+    turbine_speed_sub = this->create_subscription<std_msgs::msg::UInt16>(
+    "hardware/turbine/speed", 1, std::bind(&CanBridge::turbineSpeedCB, this, std::placeholders::_1));
     
     param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
 
@@ -85,7 +106,9 @@ void CanBridge::init() {
             value = this->get_parameter("pid/"+side+"/"+threshold+"/threshold").as_double();
             setAdaptPidParam(side, threshold, "threshold", value);
         }
+        sendAdaptPidConfig(side);
     }
+    send_config_enabled = true;
 }
 
 void CanBridge::setAdaptPidParam(std::string side, std::string threshold, std::string param_name, double value) {
@@ -123,31 +146,33 @@ void CanBridge::setAdaptPidParam(std::string side, std::string threshold, std::s
 
         adaptConfig->configs[conf_idx].pid[pid_idx] = value;
     }
-
-    sendAdaptPidConfig(side);
 }
 
 rcl_interfaces::msg::SetParametersResult CanBridge::parametersCallback(const std::vector<rclcpp::Parameter> &parameters) {
     for (const auto &parameter : parameters) {
-    auto name = parameter.get_name();
+        auto name = parameter.get_name();
 
-    if (name.rfind("pid/", 0) == 0) {
-        std::string side, threshold, param_name;
-        std::stringstream s(name);
-        std::string part;
-        std::vector<std::string> parts;
+        if (name.rfind("pid/", 0) == 0) {   
+            std::string side, threshold, param_name;
+            std::stringstream s(name);
+            std::string part;
+            std::vector<std::string> parts;
 
-        while (std::getline(s, part, '/')) {
-        parts.push_back(part);
+            while (std::getline(s, part, '/')) {
+                parts.push_back(part);
+            }
+
+            side = parts[1];
+            threshold = parts[2];
+            param_name = parts[3];
+            auto value = parameter.as_double();
+
+            setAdaptPidParam(side, threshold, param_name, value);
         }
-
-        side = parts[1];
-        threshold = parts[2];
-        param_name = parts[3];
-        auto value = parameter.as_double();
-
-        setAdaptPidParam(side, threshold, param_name, value);
     }
+    if(send_config_enabled) {
+        sendAdaptPidConfig("left");
+        sendAdaptPidConfig("right");
     }
 
     rcl_interfaces::msg::SetParametersResult result;
@@ -161,10 +186,14 @@ rcl_interfaces::msg::SetParametersResult CanBridge::parametersCallback(const std
 
 void CanBridge::publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 * state)
 {
+    /**
+     * Publish on the odom topic
+    */
     auto state_msg = nav_msgs::msg::Odometry();
+
     state_msg.header.stamp = get_clock()->now();
     state_msg.header.frame_id = "odom";
-    state_msg.child_frame_id = "base_footprint";
+    state_msg.child_frame_id = "base_link";
     
     state_msg.pose.pose.position.x = state->pose.position.value.meter[0];
     state_msg.pose.pose.position.y = state->pose.position.value.meter[1];
@@ -185,6 +214,21 @@ void CanBridge::publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_
     state_msg.twist.twist.angular.z = state->twist.angular.radian_per_second[2];
 
     odom_pub->publish(state_msg);
+
+    /**
+     * Publish the transform
+    */
+    geometry_msgs::msg::TransformStamped transform;
+
+    transform.header.stamp = state_msg.header.stamp;
+    transform.header.frame_id = state_msg.header.frame_id;
+    transform.child_frame_id = state_msg.child_frame_id;
+    transform.transform.translation.x = state_msg.pose.pose.position.x;
+    transform.transform.translation.y = state_msg.pose.pose.position.y;
+    transform.transform.translation.z = state_msg.pose.pose.position.z;
+    transform.transform.rotation = state_msg.pose.pose.orientation;
+
+    tf_broadcaster_->sendTransform(transform);
 }
 
 void CanBridge::publishLeftPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1* pid){
@@ -231,22 +275,22 @@ void CanBridge::publishRightValveStatus(jeroboam_datatypes_actuators_pneumatics_
 
 void CanBridge::publishServoGenericReadResponse(jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1 * response) {
     auto servo_response = jrb_msgs::msg::ServoGenericReadResponse();
-    printf("BROKEN DOES NOT WORK (yet.)\r\n");
+    RCLCPP_ERROR_STREAM(this->get_logger(), "BROKEN DOES NOT WORK (yet.)");
     
     //if(response._tag_ == CAN_PROTOCOL_RESPONSE_SUCCESS) {
-        //printf("count %lu\r\n", response.data.count);
-        //printf("count %lu", response->data.count);
+        //RCLCPP_ERROR_STREAM(this->get_logger(), "count %lu\r\n", response.data.count);
+        //RCLCPP_ERROR_STREAM(this->get_logger(), "count %lu", response->data.count);
        //for(size_t i = 0; i < response->data.count; i++){
     //        servo_response.data[i] = response->data.elements[i];
         //}
         //servo_response.len = response->data.count;
       //  servo_response.len = 1;
     //} else if(response._tag_ == CAN_PROTOCOL_RESPONSE_ERROR){
-    //    printf("tag = %i\r\n", response._tag_);
-    //    printf("error = %u\r\n", response.err_code);
+    //    RCLCPP_ERROR_STREAM(this->get_logger(), "tag = %i\r\n", response._tag_);
+    //    RCLCPP_ERROR_STREAM(this->get_logger(), "error = %u\r\n", response.err_code);
     //    servo_response.len = 0;
     //} else {
-    //    printf("unhandled tag %u\r\n", response._tag_);;
+    //    RCLCPP_ERROR_STREAM(this->get_logger(), "unhandled tag %u\r\n", response._tag_);;
     //}
     
     //servo_generic_read_response_pub->publish(servo_response);
@@ -267,7 +311,25 @@ void CanBridge::publishOdometryTicks(jeroboam_datatypes_sensors_odometry_Odometr
 }
 
 
+void CanBridge::publishEmergencyStop(bool * emergency) {
+    static bool first_call = true;
+    static bool last_emergency = false;
+    std_msgs::msg::Bool emergency_msg;
+
+    if((last_emergency != *emergency) || first_call) {
+        first_call = false;
+        last_emergency = *emergency;
+        emergency_msg.data = *emergency;
+        emergency_pub->publish(emergency_msg);
+    }    
+}
+
 void CanBridge::send_can_msg(CanardPortID portID, CanardTransferID* transferID, void* buffer, size_t buf_size) {
+    if (buffer == nullptr || buf_size == 0) {
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "Invalid buffer or buffer size\n");
+        return;
+    }
+
     CanardTransferMetadata metadata;
     metadata.priority = CanardPriorityNominal;
     metadata.transfer_kind = CanardTransferKindMessage;
@@ -278,7 +340,7 @@ void CanBridge::send_can_msg(CanardPortID portID, CanardTransferID* transferID, 
 
     bool success = TxThread::pushQueue(&metadata, buf_size, buffer);
     if (!success ) {
-        printf("Queue push failed\n");
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "Queue push failed\n");
     }
     (*transferID)++;
 }
@@ -294,12 +356,17 @@ void CanBridge::send_can_request(CanardPortID portID, CanardNodeID destID, Canar
 
     bool success = TxThread::pushQueue(&metadata, buf_size, buffer);
     if (!success ) {
-        printf("Queue push failed\n");
+        RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "Queue push failed\n");
     }
     (*transferID)++;
 }
 
 void CanBridge::robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr msg) {
+    if (msg == nullptr) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "Received a null message\n");
+        return;
+    }
+
     static CanardTransferID transfer_id = 0;
     reg_udral_physics_kinematics_cartesian_Twist_0_1 twist;
 
@@ -314,7 +381,10 @@ void CanBridge::robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr m
     size_t buf_size = reg_udral_physics_kinematics_cartesian_Twist_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[reg_udral_physics_kinematics_cartesian_Twist_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-    reg_udral_physics_kinematics_cartesian_Twist_0_1_serialize_(&twist, buffer, &buf_size);
+    int8_t result = reg_udral_physics_kinematics_cartesian_Twist_0_1_serialize_(&twist, buffer, &buf_size);
+    if (result != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::robot_twist_goal_cb error: Failed serializing cartesian_Twist " << result);
+    }
 
     send_can_msg(ROBOT_TWIST_GOAL_ID, &transfer_id, buffer, buf_size);
 }
@@ -335,8 +405,14 @@ void CanBridge::initialpose_cb(const geometry_msgs::msg::PoseWithCovarianceStamp
     size_t buf_size = reg_udral_physics_kinematics_cartesian_Pose_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[reg_udral_physics_kinematics_cartesian_Pose_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-    reg_udral_physics_kinematics_cartesian_Pose_0_1_serialize_(&pose, buffer, &buf_size);
+    int8_t res = reg_udral_physics_kinematics_cartesian_Pose_0_1_serialize_(&pose, buffer, &buf_size);
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::initialpose_cb error: Failed serilializing cartesian_Pose " << res);
+        return;
+    }
 
+    send_can_msg(ROBOT_SET_CURRENT_POSE_ID, &transfer_id, buffer, buf_size);
+    // Double it in case we restarted the node and we already sent a current pose with transfer ID 0
     send_can_msg(ROBOT_SET_CURRENT_POSE_ID, &transfer_id, buffer, buf_size);
 }
 
@@ -349,7 +425,11 @@ void CanBridge::pumpLeftCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) {
     size_t buf_size = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-    jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_serialize_(&pumpStatus, buffer, &buf_size);
+    int8_t res = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_serialize_(&pumpStatus, buffer, &buf_size);
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::pumpLeftCB error: Failed serilializing pneumatics_PumpStatus " << res);
+        return;
+    }
 
     send_can_msg(ACTION_PUMP_SET_STATUS_ID, &transfer_id, buffer, buf_size);
     
@@ -364,7 +444,11 @@ void CanBridge::pumpRightCB(const jrb_msgs::msg::PumpStatus::SharedPtr msg) {
     size_t buf_size = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-    jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_serialize_(&pumpStatus, buffer, &buf_size);
+    int8_t res = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_serialize_(&pumpStatus, buffer, &buf_size);
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::pumpRightCB error: Failed serilializing pneumatics_PumpStatus " << res);
+        return;
+    }
 
     send_can_msg(ACTION_PUMP_SET_STATUS_ID, &transfer_id, buffer, buf_size);
     
@@ -380,7 +464,11 @@ void CanBridge::valveLeftCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg) {
     size_t buf_size = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-    jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_serialize_(&valveStatus, buffer, &buf_size);
+    int8_t res = jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_serialize_(&valveStatus, buffer, &buf_size);
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::valveLeftCB error: Failed serilializing pneumatics_ValveStatus " << res);
+        return;
+    }
 
     send_can_msg(ACTION_VALVE_SET_STATUS_ID, &transfer_id, buffer, buf_size);
 }
@@ -395,7 +483,12 @@ void CanBridge::valveRightCB(const jrb_msgs::msg::ValveStatus::SharedPtr msg) {
     size_t buf_size = jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-    jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_serialize_(&valveStatus, buffer, &buf_size);
+    int8_t res = jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1_serialize_(&valveStatus, buffer, &buf_size);
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::valveRightCB error: Failed serilializing pneumatics_ValveStatus " << res);
+        return;
+    }
+
 
     send_can_msg(ACTION_VALVE_SET_STATUS_ID, &transfer_id, buffer, buf_size);
 }
@@ -405,10 +498,16 @@ void CanBridge::sendAdaptPidConfig(std::string side) {
     size_t buf_size = jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
+    int8_t res;
     if (side == "left") {
-        jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_serialize_(&leftAdaptConfig, buffer, &buf_size);
+        res = jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_serialize_(&leftAdaptConfig, buffer, &buf_size);
     } else {
-        jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_serialize_(&rightAdaptConfig, buffer, &buf_size);
+        res = jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_serialize_(&rightAdaptConfig, buffer, &buf_size);
+    }
+
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::sendAdaptPidConfig error: Failed serilializing motion_AdaptativePIDConfig " << res);
+        return;
     }
 
     send_can_msg(MOTION_SET_ADAPTATIVE_PID_ID, &transfer_id, buffer, buf_size);
@@ -431,28 +530,40 @@ void CanBridge::motionConfigCB( const jrb_msgs::msg::MotionConfig msg) {
     size_t buf_size = jeroboam_datatypes_actuators_motion_MotionConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_motion_MotionConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-    jeroboam_datatypes_actuators_motion_MotionConfig_0_1_serialize_(&motionConfig, buffer, &buf_size);
+    int8_t res = jeroboam_datatypes_actuators_motion_MotionConfig_0_1_serialize_(&motionConfig, buffer, &buf_size);
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::motionConfigCB error: Failed serilializing motion_MotionConfig " << res);
+        return;
+    }
 
     send_can_msg(MOTION_SET_MOTION_CONFIG_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::servoAngleCB (const jrb_msgs::msg::ServoAngle msg) {
+void CanBridge::servoAngleCB(const jrb_msgs::msg::ServoAngle msg) {
     static CanardTransferID transfer_id = 0;
 
     jeroboam_datatypes_actuators_servo_ServoAngle_0_1 servoAngle;
 
     servoAngle.ID = msg.id;
+    if(servoAngle.ID==0)
+    {
+        RCLCPP_WARN_STREAM(this->get_logger(), "servoAngle.id = 0");
+    }
     servoAngle.angle.radian = msg.radian;
 
     size_t buf_size = jeroboam_datatypes_actuators_servo_ServoAngle_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_servo_ServoAngle_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-    jeroboam_datatypes_actuators_servo_ServoAngle_0_1_serialize_(&servoAngle, buffer, &buf_size);
+    int8_t res = jeroboam_datatypes_actuators_servo_ServoAngle_0_1_serialize_(&servoAngle, buffer, &buf_size);
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::servoAngleCB error: Failed serilializing servo_ServoAngle " << res);
+        return;
+    }
 
     send_can_msg(ACTION_SERVO_SET_ANGLE_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::servoConfigCB (const jrb_msgs::msg::ServoConfig msg) {
+void CanBridge::servoConfigCB(const jrb_msgs::msg::ServoConfig msg) {
     static CanardTransferID transfer_id = 0;
 
     jeroboam_datatypes_actuators_servo_ServoConfig_0_1 servoConfig;
@@ -464,30 +575,48 @@ void CanBridge::servoConfigCB (const jrb_msgs::msg::ServoConfig msg) {
     servoConfig.pid.pid[1] = msg.pid.pid[1];
     servoConfig.pid.pid[2] = msg.pid.pid[2];
 
+    if(servoConfig.ID==0)
+    {
+        RCLCPP_WARN_STREAM(this->get_logger(), "servoConfig.id = 0");
+    }
+
     size_t buf_size = jeroboam_datatypes_actuators_servo_ServoConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_servo_ServoConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-    jeroboam_datatypes_actuators_servo_ServoConfig_0_1_serialize_(&servoConfig, buffer, &buf_size);
+    int8_t res = jeroboam_datatypes_actuators_servo_ServoConfig_0_1_serialize_(&servoConfig, buffer, &buf_size);
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::servoConfigCB error: Failed serilializing servo_ServoConfig " << res);
+        return;
+    
+    }
 
     send_can_msg(ACTION_SERVO_SET_CONFIG_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::servoRebootCB (const jrb_msgs::msg::ServoID msg) {
+void CanBridge::servoRebootCB(const jrb_msgs::msg::ServoID msg) {
     static CanardTransferID transfer_id = 0;
 
     jeroboam_datatypes_actuators_servo_ServoID_0_1 servoID;
 
     servoID.ID = msg.id;
+    if(servoID.ID==0)
+    {
+        RCLCPP_WARN_STREAM(this->get_logger(), "servoID.id = 0");
+    }
 
     size_t buf_size = jeroboam_datatypes_actuators_servo_ServoID_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_servo_ServoID_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-    jeroboam_datatypes_actuators_servo_ServoID_0_1_serialize_(&servoID, buffer, &buf_size);
+    int8_t res = jeroboam_datatypes_actuators_servo_ServoID_0_1_serialize_(&servoID, buffer, &buf_size);
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::servoRebootCB error: Failed serilializing servo_ServoID " << res);
+        return;
+    }
 
     send_can_msg(ACTION_SERVO_REBOOT_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::servoGenericCommandCB (const jrb_msgs::msg::ServoGenericCommand msg) {
+void CanBridge::servoGenericCommandCB(const jrb_msgs::msg::ServoGenericCommand msg) {
     static CanardTransferID transfer_id = 0;
 
     jeroboam_datatypes_actuators_servo_GenericCommand_0_1 command;
@@ -495,6 +624,14 @@ void CanBridge::servoGenericCommandCB (const jrb_msgs::msg::ServoGenericCommand 
     command.id = msg.id;
     command.addr = msg.addr;
     command.data.count = msg.len;
+    if(command.id==0)
+    {
+        RCLCPP_WARN_STREAM(this->get_logger(), "command.id = 0");
+    }
+    //if(command.addr != 30)
+    //{
+        RCLCPP_INFO(this->get_logger(), "id=%d / addr=%d",command.id,command.addr);
+    //}
     for (int i=0; i<msg.len; ++i)
     {
       command.data.elements[i] = msg.data[i];
@@ -503,12 +640,16 @@ void CanBridge::servoGenericCommandCB (const jrb_msgs::msg::ServoGenericCommand 
     size_t buf_size = jeroboam_datatypes_actuators_servo_GenericCommand_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_servo_GenericCommand_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-    jeroboam_datatypes_actuators_servo_GenericCommand_0_1_serialize_(&command, buffer, &buf_size);
+    int8_t res = jeroboam_datatypes_actuators_servo_GenericCommand_0_1_serialize_(&command, buffer, &buf_size);
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::servoGenericCommandCB error: Failed serilializing servo_GenericCommand " << res);
+        return;
+    }
 
     send_can_msg(ACTION_SERVO_GENERIC_COMMAND_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::servoGenericReadCB (const jrb_msgs::msg::ServoGenericRead msg) {
+void CanBridge::servoGenericReadCB(const jrb_msgs::msg::ServoGenericRead msg) {
     static CanardTransferID transfer_id = 0;
 
     jeroboam_datatypes_actuators_servo_GenericRead_0_1 read;
@@ -520,12 +661,17 @@ void CanBridge::servoGenericReadCB (const jrb_msgs::msg::ServoGenericRead msg) {
     size_t buf_size = jeroboam_datatypes_actuators_servo_GenericRead_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_servo_GenericRead_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-    jeroboam_datatypes_actuators_servo_GenericRead_0_1_serialize_(&read, buffer, &buf_size);
+    int8_t res = jeroboam_datatypes_actuators_servo_GenericRead_0_1_serialize_(&read, buffer, &buf_size);
+
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::servoGenericReadCB error: Failed serilializing servo_GenericRead " << res);
+        return;
+    }
 
     send_can_request(ACTION_SERVO_GENERIC_READ_ID, CAN_PROTOCOL_ACTION_BOARD_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::motionSpeedCommandCB (const jrb_msgs::msg::MotionSpeedCommand msg) {
+void CanBridge::motionSpeedCommandCB(const jrb_msgs::msg::MotionSpeedCommand msg) {
     static CanardTransferID transfer_id = 0;
     jeroboam_datatypes_actuators_motion_SpeedCommand_0_1 command;
 
@@ -537,11 +683,29 @@ void CanBridge::motionSpeedCommandCB (const jrb_msgs::msg::MotionSpeedCommand ms
 
     int8_t res = jeroboam_datatypes_actuators_motion_SpeedCommand_0_1_serialize_(&command, buffer, &buf_size);
 
-    if( res == NUNAVUT_SUCCESS) {
-        send_can_msg(ROBOT_GOAL_SPEEDS_WHEELS_ID, &transfer_id, buffer, buf_size);
-    } else {
-        printf("Failed serilializing speed command\r\n");
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "Failed serilializing speed command " << res);
+        return;
     }
 
-    
+    send_can_msg(ROBOT_GOAL_SPEEDS_WHEELS_ID, &transfer_id, buffer, buf_size);
+}
+
+void CanBridge::turbineSpeedCB (const std_msgs::msg::UInt16 msg) {
+    static CanardTransferID transfer_id = 0;
+    jeroboam_datatypes_actuators_pneumatics_TurbineCmd_0_1 command;
+    RCLCPP_INFO_STREAM(this->get_logger(), "Turbine Speed CB");
+    command.speed = msg.data;
+
+    size_t buf_size = jeroboam_datatypes_actuators_pneumatics_TurbineCmd_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+    uint8_t buffer[jeroboam_datatypes_actuators_pneumatics_TurbineCmd_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+    int8_t res = jeroboam_datatypes_actuators_pneumatics_TurbineCmd_0_1_serialize_(&command, buffer, &buf_size);
+
+    if (res != NUNAVUT_SUCCESS) {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "Failed serilializing speed command " << res);
+        return;
+    }
+
+    send_can_msg(ACTION_TURBINE_CMD_ID, &transfer_id, buffer, buf_size);
 }

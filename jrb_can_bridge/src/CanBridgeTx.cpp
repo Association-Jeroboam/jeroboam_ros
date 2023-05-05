@@ -27,12 +27,12 @@ void* checkTxQueue(void*);
 void TxThread::CanBridgeInitTxThread() {
     if (pthread_mutex_init(&tx_exec_lock, NULL) != 0)
     {
-        printf("\nexecution  mutex init failed\n");
+        RCLCPP_ERROR(rclcpp::get_logger("CanBridge"), "TxThread::CanBridgeInitTxThread: execution  mutex init failed");
     //   return 1;
     }
     if (pthread_mutex_init(&queue_lock, NULL) != 0)
     {  
-      printf("\nqueue mutex init failed\n");
+      RCLCPP_ERROR(rclcpp::get_logger("CanBridge"), "TxThread::CanBridgeInitTxThread: queue mutex init failed");
     }
     pthread_create(&txThread, NULL, &checkTxQueue, NULL);
 }
@@ -51,11 +51,12 @@ void* checkTxQueue(void*) {
     pthread_mutex_lock(&tx_exec_lock);
     pthread_cond_wait(&tx_exec_cond, &tx_exec_lock);
 
-
     const CanardTxQueueItem* item = canardTxPeek(&queue);
 
-    while(item != NULL) {
+    while(item != nullptr) {
+      pthread_mutex_lock(&queue_lock);
       CanardTxQueueItem* extractedItem = canardTxPop(&queue, item);
+      pthread_mutex_unlock(&queue_lock);
       uint32_t           size          = item->frame.payload_size;
 
       do {
@@ -69,15 +70,18 @@ void* checkTxQueue(void*) {
             frame.can_dlc= size;
             size      = 0;
         }
-        memcpy(&frame.data, item->frame.payload, frame.can_dlc);
 
-        send_can_frame(&frame);
+        if (item->frame.payload == nullptr) {
+          RCLCPP_ERROR(rclcpp::get_logger("CanBridge"), "TxThread::checkTxQueue error: frame has an empty payload");
+        } else {
+          memcpy(&frame.data, item->frame.payload, frame.can_dlc);
+          send_can_frame(&frame);
+        }
       } while (size > 0);
 
       instance.memory_free(&instance, extractedItem);
       item = canardTxPeek(&queue);
     }
-
     pthread_mutex_unlock(&tx_exec_lock);
 
   }
@@ -86,14 +90,26 @@ void* checkTxQueue(void*) {
 bool TxThread::pushQueue(const CanardTransferMetadata* const metadata,
                const size_t                        payload_size,
                const void* const                   payload) {
-    bool success;
+    if (metadata == nullptr) {
+      RCLCPP_ERROR(rclcpp::get_logger("CanBridge"), "TxThread::pushQueue error: empty metadata");
+      return -1;
+    }
+
+    if (payload == nullptr) {
+      RCLCPP_ERROR(rclcpp::get_logger("CanBridge"), "TxThread::pushQueue error: empty payload");
+      return -1;
+    }
+
     pthread_mutex_lock(&queue_lock); // prevents other threads from pushing in the queue at the same time
     int32_t res = canardTxPush(&queue, &instance, 0, metadata, payload_size, payload);
     pthread_mutex_unlock(&queue_lock);
+    
     pthread_mutex_lock(&tx_exec_lock);
     pthread_cond_signal(&tx_exec_cond);
     pthread_mutex_unlock(&tx_exec_lock);
+
     
-    success = (0 <= res);
+    bool success = (0 <= res);
+
     return success;
 }

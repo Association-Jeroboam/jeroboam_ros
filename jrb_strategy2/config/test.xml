@@ -1,0 +1,10 @@
+<root main_tree_to_execute = "MainTree">
+    <BehaviorTree ID="MainTree">
+        <Sequence>
+            <SetBlackboard output_key="IsFunnyActionDone" value="false" />
+            <IsTimerOver sec="3"/>
+            <SetBlackboard output_key="IsFunnyActionDone" value="false" />
+            <IsEqual type="bool" operand1="{IsFunnyActionDone}" operand2="true"/>
+        </Sequence>
+    </BehaviorTree>
+</root>

@@ -1,177 +1,270 @@
-<?xml version="1.0" ?>
+<?xml version="1.0"?>
 <robot name="robotrouge"
   xmlns:xacro="http://ros.org/wiki/xacro">
 
-  <xacro:include filename="arm.urdf.xacro" />
+    <!-- <xacro:include filename="arm.urdf.xacro" /> -->
+    <xacro:include filename="colors.xacro" />
+    <xacro:include filename="inertial.xacro" />
 
-  <!-- Init colour -->
-  <material name="black">
-      <color rgba="0.0 0.0 0.0 1.0"/>
-  </material>
+    <xacro:arg name="display_meshes" default="True"/>
 
-  <material name="dark">
-    <color rgba="0.3 0.3 0.3 1.0"/>
-  </material>
+    <xacro:property name="chassis_length" value="0.2"/>
+    <xacro:property name="chassis_width" value="0.275"/>
+    <xacro:property name="chassis_height" value="0.006"/>
+    <xacro:property name="chassis_mass" value="1.0"/>
 
-  <material name="light_black">
-    <color rgba="0.4 0.4 0.4 1.0"/>
-  </material>
+    <xacro:property name="carter_length" value="0.17"/>
+    <xacro:property name="carter_width" value="0.275"/>
+    <xacro:property name="carter_height" value="0.33"/>
+    <xacro:property name="carter_mass" value="0.1"/>
+    <xacro:property name="carter_offset_x" value="0.045"/>
 
-  <material name="blue">
-    <color rgba="0.0 0.0 0.8 1.0"/>
-  </material>
+    <xacro:property name="wheel_radius" value="0.0254"/>
+    <xacro:property name="wheel_thickness" value="0.018"/>
+    <xacro:property name="wheel_mass" value="0.05"/>
+    <xacro:property name="wheel_offset_x" value="0.0"/>
+    <xacro:property name="wheel_offset_y" value="0.08316"/>
+    <xacro:property name="wheel_offset_z" value="0.0"/>
 
-  <material name="green">
-    <color rgba="0.0 0.8 0.0 1.0"/>
-  </material>
+    <xacro:property name="caster_wheel_radius" value="0.008"/>
+    <xacro:property name="caster_wheel_mass" value="0.01"/>
+    <xacro:property name="caster_wheel_offset_x" value="0.085"/>
+    <xacro:property name="caster_wheel_offset_z" value="${wheel_offset_z - wheel_radius + caster_wheel_radius}"/>
 
-  <material name="grey">
-    <color rgba="0.5 0.5 0.5 1.0"/>
-  </material>
+    <xacro:property name="lidar_height" value="0.37733"/>
 
-  <material name="orange">
-    <color rgba="1.0 0.4235 0.0392 1.0"/>
-  </material>
+    <!-- BASE LINK -->
+    <link name="base_link">
+    </link>
 
-  <material name="brown">
-    <color rgba="0.8706 0.8118 0.7647 1.0"/>
-  </material>
+    <!-- BASE_FOOTPRINT LINK -->
+    <joint name="base_footprint_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="base_footprint"/>
+        <origin xyz="0.0 0.0 0" rpy="0 0 0"/>
+    </joint>
 
-  <material name="red">
-    <color rgba="0.8 0.0 0.0 1.0"/>
-  </material>
+    <link name="base_footprint">
+    </link>
+    
+    <!-- CHASSIS LINK -->
+    <joint name="chassis_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="chassis"/>
+        <origin xyz="${-wheel_offset_x} 0 ${wheel_radius-wheel_offset_z}"/>
+    </joint>
 
-  <material name="white">
-    <color rgba="1.0 1.0 1.0 1.0"/>
-  </material>
+    <link name="chassis">
+        <visual>
+            <xacro:if value="$(arg display_meshes)">
+                <origin xyz="0 0 ${-chassis_height/2}" rpy="0 0 ${pi}"/>
+                <geometry>
+                    <mesh filename="package://jrb_description/urdf/meshes/base.STL" />
+                </geometry>
+            </xacro:if>
+            <xacro:unless value="$(arg display_meshes)">
+                <origin xyz="0 0 ${-chassis_height/2}"/>
+                <geometry>
+                    <box size="${chassis_length} ${chassis_width} ${chassis_height}"/>
+                </geometry>
+            </xacro:unless>
+            <material name="orange"/>
+        </visual> 
+        <collision>
+            <origin xyz="0 0 ${-chassis_height/2}"/>
+            <geometry>
+                <box size="${chassis_length} ${chassis_width} ${chassis_height}"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_box mass="0.5" x="${chassis_length}" y="${chassis_width}" z="${chassis_height}">
+            <origin xyz="0 0 ${chassis_height/2}" rpy="0 0 0"/>
+        </xacro:inertial_box>
+    </link>
 
-  <link name="base_footprint"/>
+    <!-- CARTER LINK -->
+    <joint name="carter_joint" type="fixed">
+        <parent link="chassis"/>
+        <child link="carter"/>
+        <origin xyz="0 0 0"/>
+    </joint>
 
-  <joint name="base_joint" type="fixed">
-    <parent link="base_footprint"/>
-    <child link="base_link"/>
-    <origin xyz="0.0 0.0 0.0147" rpy="0 0 0"/>
-  </joint>
+    <link name="carter">
+        <visual>
+            <xacro:if value="$(arg display_meshes)">
+                <geometry>
+                    <mesh filename="package://jrb_description/urdf/meshes/carter.STL" />
+                </geometry>
+            </xacro:if>
+            <xacro:unless value="$(arg display_meshes)">
+                <origin xyz="${-(chassis_length-carter_length)/2} 0 ${carter_height/2}"/>
+                <geometry>
+                    <box size="${carter_length} ${carter_width} ${carter_height}"/>
+                </geometry>
+            </xacro:unless>
+            <material name="yellow"/>
+        </visual> 
+        <collision>
+            <origin xyz="${-(chassis_length-carter_length)/2} 0 ${carter_height/2}"/>
+            <geometry>
+                <box size="${carter_length} ${carter_width} ${carter_height}"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_box mass="0.5" x="${carter_length}" y="${carter_width}" z="${carter_height}">
+            <origin xyz="0 0 ${carter_height/2}" rpy="0 0 0"/>
+        </xacro:inertial_box>
+    </link>
 
-  <link name="base_link">
-    <visual>
-      <!-- <origin xyz="-0.032 0 0.0147" rpy="0 0 0"/> -->
-      <origin xyz="0 0 -0.003" rpy="0 0 3.14"/>
-      <geometry>
-        <!-- <box size="0.140 0.140 0.143"/> -->
-        <mesh filename="package://jrb_description/meshes/base.STL" />
-      </geometry>
-      <material name="light_black"/>
-    </visual>
+    <!-- LEFT WHEEL LINK -->
+    <joint name="left_wheel_joint" type="continuous">
+        <parent link="chassis"/>
+        <child link="left_wheel"/>
+        <origin xyz="0 ${wheel_offset_y} ${wheel_offset_z}" rpy="-${pi/2} 0 0" />
+        <axis xyz="0 0 1"/>
+    </joint>
 
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry>
-        <mesh filename="package://jrb_description/meshes/carter.STL" />
-      </geometry>
-    </visual>
-  </link>
+    <link name="left_wheel">
+        <visual>
+            <xacro:if value="$(arg display_meshes)">
+                <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+                <geometry>
+                    <mesh filename="package://jrb_description/urdf/meshes/roue.STL" />
+                </geometry>
+                <material name="blue"/>
+            </xacro:if>
+            <xacro:unless value="$(arg display_meshes)">
+                <geometry>
+                    <cylinder radius="${wheel_radius}" length="${wheel_thickness}"/>
+                </geometry>
+            </xacro:unless>
+            <material name="blue"/>
+        </visual>
+        <collision>
+            <geometry>
+                <sphere radius="${wheel_radius}"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_cylinder mass="${wheel_mass}" length="${wheel_thickness}" radius="${wheel_radius}">
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+        </xacro:inertial_cylinder>
+    </link>
 
-  <joint name="laser_joint" type="fixed">
-    <parent link="base_link" />
-    <child link="laser_link" />
-    <origin xyz="0.0 0.0 0.37733" rpy="0 0 ${radians(-90)}"/>
-  </joint>
+    <!-- RIGHT WHEEL LINK -->
+    <joint name="right_wheel_joint" type="continuous">
+        <parent link="chassis"/>
+        <child link="right_wheel"/>
+        <origin xyz="0 ${-wheel_offset_y} ${wheel_offset_z}" rpy="${pi/2} 0 0" />
+        <axis xyz="0 0 -1"/>
+    </joint>
 
-  <link name="laser_link" />
+    <link name="right_wheel">
+        <visual>
+            <xacro:if value="$(arg display_meshes)">
+                <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+                <geometry>
+                    <mesh filename="package://jrb_description/urdf/meshes/roue.STL" />
+                </geometry>
+                <material name="blue"/>
+            </xacro:if>
+            <xacro:unless value="$(arg display_meshes)">
+                <geometry>
+                    <cylinder radius="${wheel_radius}" length="${wheel_thickness}"/>
+                </geometry>
+            </xacro:unless>
+            <material name="blue"/>
+        </visual>
+        <collision>
+            <geometry>
+                <sphere radius="${wheel_radius}"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_cylinder mass="${wheel_mass}" length="${wheel_thickness}" radius="${wheel_radius}">
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+        </xacro:inertial_cylinder>
+    </link>
 
-  <joint name="wheel_left_joint" type="continuous">
-    <parent link="base_link"/>
-    <child link="wheel_left_link"/>
-    <origin xyz="0.0 0.08316 0.01004" rpy="-1.57 0 0"/>
-    <axis xyz="0 0 1"/>
-  </joint>
+    <!-- FRONT CASTER WHEEL LINK -->
+    <joint name="front_caster_wheel_joint" type="fixed">
+        <parent link="chassis"/>
+        <child link="front_caster_wheel"/>
+        <origin xyz="${caster_wheel_offset_x} 0 ${caster_wheel_offset_z}"/>
+    </joint>
 
-  <link name="wheel_left_link">
-    <visual>
-      <origin xyz="0 0 0" rpy="1.57 0 0"/>
-      <geometry>
-        <!-- <cylinder length="0.020" radius="0.0254"/> -->
-        <mesh filename="package://jrb_description/meshes/roue.STL" />
-      </geometry>
-      <material name="dark"/>
-    </visual>
-  </link>
+    <link name="front_caster_wheel">
+        <visual>
+            <geometry>
+                <sphere radius="${caster_wheel_radius}"/>
+            </geometry>
+            <material name="white"/>
+        </visual>
+        <collision>
+            <geometry>
+                <sphere radius="${caster_wheel_radius}"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_sphere mass="${caster_wheel_mass}" radius="${caster_wheel_radius}">
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+        </xacro:inertial_sphere>
+    </link>
 
-  <joint name="wheel_right_joint" type="continuous">
-    <parent link="base_link"/>
-    <child link="wheel_right_link"/>
-    <origin xyz="0.0 -0.08316  0.01004" rpy="-1.57 0 0"/>
-    <axis xyz="0 0 1"/>
-  </joint>
+    <!-- BACK CASTER WHEEL LINK -->
+    <joint name="back_caster_wheel_joint" type="fixed">
+        <parent link="chassis"/>
+        <child link="back_caster_wheel"/>
+        <origin xyz="${-caster_wheel_offset_x} 0 ${caster_wheel_offset_z}"/>
+    </joint>
 
-  <link name="wheel_right_link">
-    <visual>
-      <origin xyz="0 0 0" rpy="1.57 0 0"/>
-      <geometry>
-        <!-- <cylinder length="0.018" radius="0.0254"/> -->
-        <mesh filename="package://jrb_description/meshes/roue.STL" />
-      </geometry>
-      <material name="dark"/>
-    </visual>
+    <link name="back_caster_wheel">
+        <visual>
+            <geometry>
+                <sphere radius="${caster_wheel_radius}"/>
+            </geometry>
+            <material name="white"/>
+        </visual>
+        <collision>
+            <geometry>
+                <sphere radius="${caster_wheel_radius}"/>
+            </geometry>
+        </collision>
+        <xacro:inertial_sphere mass="${caster_wheel_mass}" radius="${caster_wheel_radius}">
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+        </xacro:inertial_sphere>
+    </link>
 
-    <inertial>
-      <origin xyz="0 0 0" />
-      <mass value="2.8498940e-02" />
-      <inertia ixx="1.1175580e-05" ixy="-4.2369783e-11" ixz="-5.9381719e-09" iyy="1.1192413e-05" iyz="-1.4400107e-11" izz="2.0712558e-05" />
-    </inertial>
-  </link>
+    <!-- LEFT TAG LINK -->
+    <joint name="left_tag_joint" type="fixed">
+        <parent link="chassis"/>
+        <child link="left_tag_link"/>
+        <origin xyz="0.091 0.0925 0.0" rpy="0 0 0"/>
+    </joint>
 
-  <joint name="left_tag_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="left_tag_link"/>
-    <origin xyz="0.091 0.0925 0.0" rpy="0 0 0"/>
-  </joint>
+    <link name="left_tag_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <mesh filename="package://jrb_description/urdf/meshes/tag/tag_left.dae" />
+                </geometry>
+        </visual>
+    </link>
 
-  <link name="left_tag_link">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry>
-        <box size="0.02 0.02 0.001"/>
-      </geometry>
-      <material name="dark"/>
-    </visual>
-  </link>
+    <!-- RIGHT TAG LINK -->
+    <joint name="right_tag_joint" type="fixed">
+        <parent link="chassis"/>
+        <child link="right_tag_link"/>
+        <origin xyz="0.091 -0.0925 0.0" rpy="0 0 0"/>
+    </joint>
 
-  <joint name="right_tag_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="right_tag_link"/>
-    <origin xyz="0.091 -0.0925 0.0" rpy="0 0 0"/>
-  </joint>
+    <link name="right_tag_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <mesh filename="package://jrb_description/urdf/meshes/tag/tag_right.dae" />
+                </geometry>
+        </visual>
+    </link>
 
-  <link name="right_tag_link">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry>
-        <box size="0.02 0.02 0.001"/>
-      </geometry>
-      <material name="dark"/>
-    </visual>
-  </link>
+    <xacro:include filename="lidar.xacro" />
+    <xacro:include filename="camera.xacro" />
 
-  <joint name="th_camera_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="th_camera_link"/>
-    <origin xyz="0.1468 0.0 0.317" rpy="0 0 0"/>
-  </joint>
-
-  <link name="th_camera_link">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry>
-        <box size="0.02 0.02 0.001"/>
-      </geometry>
-      <material name="dark"/>
-    </visual>
-  </link>
-
-  <!-- Arms -->
-
-  <xacro:arm name="left" xyz="0.054 0.11275 0.029375" origin="0.0865 0.11275 0"/>
-  <xacro:arm name="right" xyz="0.054 -0.11275 0.029375" origin="0.0865 -0.11275 0"/>
+    <xacro:include filename="gazebo.xacro" />
+    <xacro:include filename="gazebo_control.xacro" /> 
 </robot>

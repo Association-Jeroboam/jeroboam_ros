@@ -13,6 +13,7 @@ from launch.substitutions import (
 from launch_ros.actions import Node
 from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.descriptions import ParameterValue
+from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
@@ -20,13 +21,14 @@ def generate_launch_description():
 
     use_sim_time = LaunchConfiguration("use_sim_time")
     use_gui = LaunchConfiguration("use_gui")
+    display_meshes = LaunchConfiguration("display_meshes")
     urdf_file = LaunchConfiguration(
         "urdf_file",
         default=PathJoinSubstitution(
-            [FindPackageShare("jrb_description"), "urdf", "robotrouge.urdf"]
+            [FindPackageShare("jrb_description"), "urdf", "robotrouge.urdf.xacro"]
         ),
     )
-    robot_state_publisher_param_file = LaunchConfiguration(
+    joint_state_publisher_param_file = LaunchConfiguration(
         "robot_state_publisher_param_file",
         default=PathJoinSubstitution(
             [this_pkg, "param", "robotrouge_joint_state_publisher_param.yaml"]
@@ -41,9 +43,25 @@ def generate_launch_description():
                 default_value="False",
             ),
             DeclareLaunchArgument(
+                "urdf_file",
+                description="urdf file",
+                default_value=PathJoinSubstitution(
+                    [
+                        FindPackageShare("jrb_description"),
+                        "urdf",
+                        "robotrouge.urdf.xacro",
+                    ]
+                ),
+            ),
+            DeclareLaunchArgument(
                 "use_gui",
                 description="Launch joint_state_publisher_gui instead of joint_state_publisher",
                 default_value="False",
+            ),
+            DeclareLaunchArgument(
+                "display_meshes",
+                description="Display detailed meshes in urdf",
+                default_value="True",
             ),
             Node(
                 package="robot_state_publisher",
@@ -52,7 +70,14 @@ def generate_launch_description():
                 parameters=[
                     {
                         "robot_description": ParameterValue(
-                            Command(["cat ", urdf_file]),
+                            Command(
+                                [
+                                    "xacro ",
+                                    urdf_file,
+                                    " display_meshes:=",
+                                    display_meshes,
+                                ]
+                            ),
                             value_type=str,
                         ),
                         "use_sim_time": use_sim_time,
@@ -64,16 +89,26 @@ def generate_launch_description():
                 executable="joint_state_publisher",
                 name="joint_state_publisher",
                 output="screen",
-                arguments=[urdf_file],
-                parameters=[robot_state_publisher_param_file],
                 condition=UnlessCondition(use_gui),
+                parameters=[
+                    joint_state_publisher_param_file,
+                    {
+                        "use_sim_time": use_sim_time,
+                    },
+                ],
             ),
             Node(
                 package="joint_state_publisher_gui",
                 executable="joint_state_publisher_gui",
+                name="joint_state_publisher_gui",
                 output="screen",
-                arguments=[urdf_file],
                 condition=IfCondition(use_gui),
+                parameters=[
+                    joint_state_publisher_param_file,
+                    {
+                        "use_sim_time": use_sim_time,
+                    },
+                ],
             ),
         ]
     )

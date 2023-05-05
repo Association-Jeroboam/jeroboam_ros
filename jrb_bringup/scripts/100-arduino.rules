@@ -1,0 +1,2 @@
+SUBSYSTEMS=="usb", ACTION=="add", ATTRS{idVendor}=="2341", ATTRS{idProduct}=="8036", MODE:="777", SYMLINK+="arduino"
+SUBSYSTEMS=="usb", ACTION=="add", ATTRS{idVendor}=="3343", ATTRS{idProduct}=="803a", MODE:="777", SYMLINK+="arduino"

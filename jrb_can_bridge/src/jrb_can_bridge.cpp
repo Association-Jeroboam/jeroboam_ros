@@ -42,6 +42,7 @@
 #include "PIDConfig_0_1.h"
 #include "AdaptativePIDConfig_0_1.h"
 #include "MotionConfig_0_1.h"
+#include "EmergencyState_0_1.h"
 #include "jrb_can_bridge/param_utils.hpp"
 #include "jrb_msgs/msg/servo_angle.hpp"
 #include "jrb_msgs/msg/servo_config.hpp"
@@ -90,18 +91,27 @@ int main(int argc, char * argv[])
 
   rclcpp::init(argc, argv);
   
-
+  rclcpp::executors::MultiThreadedExecutor executor;
   canBridge = std::make_shared<CanBridge>();
+  executor.add_node(canBridge);
+  
+  // Threads init
   std::this_thread::sleep_for(100ms);
   TxThread::CanBridgeInitTxThread();
   RxThread::CanBridgeInitRxThread();
   std::this_thread::sleep_for(100ms);
+
   canBridge.get()->init();
-  rclcpp::spin(canBridge);
+  executor.spin();
+
   rclcpp::shutdown();
+
+  // Threads join
   TxThread::CanBridgeDeinitTxThread();
   RxThread::CanBridgeDeinitRxThread();
+  
   close(canIFace);
+
   return 0;
 }
 
@@ -131,6 +141,9 @@ void createSubscriptions(void) {
   subscribe(CanardTransferKindMessage,
             MOTION_ODOM_TICKS_ID,
             jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1_EXTENT_BYTES_); 
+  subscribe(CanardTransferKindMessage,
+            EMERGENCY_STATE_ID,
+            jeroboam_datatypes_actuators_common_EmergencyState_0_1_EXTENT_BYTES_); 
 }
 
 bool subscribe(CanardTransferKind transfer_kind, CanardPortID port_id, size_t extent){
@@ -159,7 +172,6 @@ bool subscribe(CanardTransferKind transfer_kind, CanardPortID port_id, size_t ex
 }
 
 void initCAN(char * iface) {
-
     // stolen from the basic tutorial
     struct sockaddr_can addr;
     struct ifreq ifr;
