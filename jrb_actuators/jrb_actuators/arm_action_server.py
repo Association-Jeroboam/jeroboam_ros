@@ -12,7 +12,7 @@ from action_msgs.msg import GoalStatus
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from jrb_msgs.msg import ArmStatus, SimplifiedGoalStatus
-from jrb_msgs.action import GoToPose
+from jrb_msgs.action import GoToPose, EmptyAction
 from std_msgs.msg import String, Empty, UInt8
 from geometry_msgs.msg import PoseStamped
 
@@ -200,7 +200,6 @@ class GenericActionServer(Node):
         # Publisher
         self.pub_action_launch = self.create_publisher(String, "actuators/generic_action_launch", qos_profile)
         self.launch_msg = String()
-        self.launch_msg.data = self.action_name
 
         self.start_time = 0
         self.end_time = 0
@@ -212,7 +211,7 @@ class GenericActionServer(Node):
 
         self._action_server = ActionServer(
             self,
-            GoToPose,
+            EmptyAction,
             self.action_name,
             self.execute_callback,
             goal_callback=self.on_goal_callback,
@@ -250,6 +249,9 @@ class GenericActionServer(Node):
 
     def on_cancel_callback(self, _):
         # Accept all cancel
+        self.launch_msg.data = "/"+self.action_name
+        self.pub_action_launch.publish(self.launch_msg)
+        # Accept all cancel
         return CancelResponse.ACCEPT
 
     def on_accepted_callback(self, goal_handle):
@@ -280,13 +282,13 @@ class GenericActionServer(Node):
                     # Handle node shutting down
                     if not rclpy.ok():
                         print("Node is shutting down, early exit execute_callback")
-                        return GoToPose.Result(success=False)
+                        return EmptyAction.Result(success=False)
 
                     # Handle goal cancelled
                     if goal_handle.is_cancel_requested:
                         self.get_logger().info(f"Goal of {self.action_name} cancelled")
                         goal_handle.canceled()
-                        return GoToPose.Result(success=False)
+                        return EmptyAction.Result(success=False)
 
                     # Handle goal aborted
                     if (
@@ -294,7 +296,7 @@ class GenericActionServer(Node):
                         or not goal_handle.is_active
                     ):
                         self.get_logger().info(f"Goal of {self.action_name} aborted")
-                        return GoToPose.Result(success=False)
+                        return EmptyAction.Result(success=False)
 
                     # Loop and end the work loop if there is a result
                     if (result := self.loop(goal_handle)) is not None:
@@ -303,7 +305,7 @@ class GenericActionServer(Node):
         except Exception:
             self.get_logger().error(traceback.format_exc())
             goal_handle.abort()
-            return GoToPose.Result(success=False)
+            return EmptyAction.Result(success=False)
 
     def action_status_cb(self, msg):
         if msg.action_name == self.action_name :
@@ -313,22 +315,23 @@ class GenericActionServer(Node):
         #Reset local data to avoid early validation of the action
         self.status = SimplifiedGoalStatus.STATUS_UNKNOWN
 
+        self.launch_msg.data = self.action_name
         self.pub_action_launch.publish(self.launch_msg)
 
         self.start_time = time.time()
-        timeout=2 #seconds
+        timeout=4 #seconds
         self.end_time = self.start_time + timeout
 
     def loop(self, goal_handle):
         # Success condition
         if self.status == SimplifiedGoalStatus.STATUS_SUCCEEDED:
             goal_handle.succeed()
-            return GoToPose.Result(success=True)
+            return EmptyAction.Result(success=True)
 
         # Abort condition
         elif self.status == SimplifiedGoalStatus.STATUS_ABORTED:
             goal_handle.abort()
-            return GoToPose.Result(success=False)
+            return EmptyAction.Result(success=False)
 
         # Timeout condition
         elif self.end_time - time.time() < 0 :
@@ -339,14 +342,16 @@ class GenericActionServer(Node):
             else :
                 self.get_logger().warn(f"{self.action_name} action timeout for unknown reason")
             goal_handle.abort()
-            return GoToPose.Result(success=False)
+            self.launch_msg.data = "/"+self.action_name
+            self.pub_action_launch.publish(self.launch_msg)
+            return EmptyAction.Result(success=False)
     
         # Work
         self.wait_for_seconds(0.1, goal_handle)
        
         # Publish feedback
         #self.get_logger().info("Feedback: {0}".format(self.partial_sequence))
-        #goal_handle.publish_feedback(GoToPose.Feedback(processing=True))
+        #goal_handle.publish_feedback(EmptyAction.Feedback(processing=True))
 
 def main(args=None):
     rclpy.init(args=args)

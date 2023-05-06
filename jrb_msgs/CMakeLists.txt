@@ -43,6 +43,7 @@ set(msg_files
   "msg/ArmStatus.msg"
   "msg/SimplifiedGoalStatus.msg"
   "action/GoToPose.action"
+  "action/EmptyAction.action"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

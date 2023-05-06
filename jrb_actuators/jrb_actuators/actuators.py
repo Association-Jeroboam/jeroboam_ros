@@ -115,7 +115,7 @@ class Actuators(Node):
                     break
             if msg.status == SimplifiedGoalStatus.STATUS_SUCCEEDED :
                 actions_to_close.append(action_name)
-                self.get_logger().info(f"Action {action_name} succeed !")
+                #self.get_logger().info(f"Action {action_name} succeed !")
             self.pub_action_status.publish(msg)
         for name in actions_to_close :
             del self.actions_running[name]
@@ -314,7 +314,12 @@ class Actuators(Node):
             self.get_logger().debug(f"XL320 with ID {msg.id} is unknown.")
 
     def actionLaunch_cb(self, msg : String):
-        self.get_logger().warn("Cannot launch unknown action")
+        if msg.data[0] == "/" : # Abort the action requested by the server
+            action_name=msg.data.lstrip('/')
+            if action_name in self.actions_running :
+                del self.actions_running[action_name]
+        else :
+            self.get_logger().warn("Cannot launch unknown action")
 
     def init_actuators(self):
         pass
@@ -666,8 +671,13 @@ class Actuators_robotbleu(Actuators):
         self.ballSystem.setTorque(True)
 
     def actionLaunch_cb(self, msg : String):
+        if msg.data[0] == "/" : # Abort the action requested by the server
+            action_name=msg.data.lstrip('/')
+            if action_name in self.actions_running :
+                del self.actions_running[action_name]
+
         # Roller height
-        if msg.data == "SET_ROLLER_UP" :
+        elif msg.data == "SET_ROLLER_UP" :
             self.actions_running[msg.data] = self.ballSystem.setRollerUp()
         elif msg.data == "SET_ROLLER_DOWN" :
             self.actions_running[msg.data] = self.ballSystem.setRollerDown()
