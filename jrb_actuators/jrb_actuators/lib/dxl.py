@@ -62,8 +62,8 @@ class XL320:
         self.torque=0
         self.reverseRotation=False
         self.node=node
-        self.radian_target=0
-        self.radian_state=0
+        self.target_position=-1
+        self.current_position=-1
         self.target_reached= False
         self.driveMode = Drive_Mode
         self.maxSpeed = Max_Speed
@@ -74,15 +74,23 @@ class XL320:
         self.pid_P = 32
         self.pid_I = 0
         self.pid_D = 0
-
         self.isReady=False
-        connected_XL320[self.ID] = self
 
         self.sendConfig()
 
-        #print("XL320 ", DXL_ID, " was well initialized (temp:",self.getPresentTemperature(),"°C  Voltage:",self.getPresentVoltage(),"V)")
+    def ping(self):
+        if self.node.pingDXL(self.ID) != 350 :
+            self.node.get_logger().error(f"Error : DXL with ID {self.ID} not detected")
+            return 0
+        else :
+            connected_XL320[self.ID] = self
+            self.node.get_logger().info(f"XL320 {self.ID} was well initialized (temp:{self.getPresentTemperature()}°C  Voltage:{self.getPresentVoltage()}V)")
+            return 1
+
 
     def sendConfig(self):
+        if not self.ping() : return
+
         self.isReady=False
         self.setTorque(0)
         self.setDriveMode(self.driveMode)
@@ -95,19 +103,41 @@ class XL320:
         self.setMaxTorque(self.maxTorque)
         self.setLED(2)
         self.isReady=True
-
-    def setRadianState(self,radian):
-        if radian < 0 :
-            self.node.get_logger().error(f"radian_state can't be negative ({radian})")
+   
+    def saveCurrentPosition(self, position, isRadian=False):
+        if isRadian :
+            position=int(position/rawToRad)
+            
+        if position < 0 :
+            self.node.get_logger().error(f"DXL {self.ID} : current_position cannot be negative ({position})")
             return
-        self.radian_state=radian
-        #self.node.get_logger().info(f"XL320 with ID {self.ID} has its radian_state set to {self.radian_state}.")
-        if abs( self.radian_state - self.radian_target ) < 0.08 :
+        
+        if self.reverseRotation :
+            position=1023-position
+
+        self.current_position=position
+        if self.target_position == -1 :
+            self.target_position = position #initialiser la target à la position actuelle si aucune target n'a déjà été demandée
+
+        # check if target reached
+        if abs( self.current_position - self.target_position ) < 10 :
             self.target_reached=True
-            #self.node.get_logger().info(f"XL320 with ID {self.ID} has its target reached ({self.radian_state}).")
         else :
-            #self.node.get_logger().info(f"For ID {self.ID} : radian_state - radian_target ={abs( self.radian_state - self.radian_target )}")
+            #self.node.get_logger().info(f"For ID {self.ID} : current_position ({self.current_position}) - target_position ({self.target_position}) ={abs( self.current_position - self.target_position )}")
             pass
+
+    #def setRadianState(self,radian):
+    #    if radian < 0 :
+    #        self.node.get_logger().error(f"DXL {self.ID} : current_position can't be negative ({radian})")
+    #        return
+    #    self.current_position= int(radian/rawToRad)
+    #    #self.node.get_logger().info(f"XL320 with ID {self.ID} has its current_position set to {self.current_position}.")
+    #    if abs( self.current_position - self.target_position ) < 0.08*rawToRad :
+    #        self.target_reached=True
+    #        #self.node.get_logger().info(f"XL320 with ID {self.ID} has its target reached ({self.current_position}).")
+    #    else :
+    #        self.node.get_logger().info(f"For ID {self.ID} : current_position - target_position ={abs( self.current_position - self.target_position )}")
+    #        pass
 
     def setPunch(self, punch):
         self.node.sendGenericCommand(2, self.ID, 51, punch)
@@ -209,9 +239,14 @@ class XL320:
             POSITION = self.CCW_Angle_Limit
         if self.reverseRotation :
             POSITION=1023-POSITION
+
         self.target_reached=False
-        self.radian_target=POSITION*rawToRad
-        if self.reverseRotation : self.radian_target=(1023*rawToRad)-self.radian_target
+
+        self.target_position=POSITION
+
+        #if self.reverseRotation :
+        #    self.target_position=1023-self.target_position
+
         self.node.sendGenericCommand(2, self.ID, 30, POSITION)
         #self.setTorque(self.torque)  # Updating the goal_position register seems to enable torque, so this line releases the motor if it haven't to be enabled
 
@@ -232,20 +267,23 @@ class XL320:
   
     def getPresentPosition(self):
         dxl_present_position = self.node.readValue(2, self.ID, 37)
+        if dxl_present_position < 0 :   
+            self.node.get_logger().error(f"DXL {self.ID} : current_position cannot be negative ({dxl_present_position})")
+
         if self.reverseRotation :
             dxl_present_position=1023-dxl_present_position
         dxl_present_position-=self.offset
+        self.saveCurrentPosition(dxl_present_position)
         return dxl_present_position
-    """
+    
     def getPresentTemperature(self):
-        present_temp = readValue(portHandler, 1, self.ID, 46)
+        present_temp = self.node.readValue(1, self.ID, 46)
         return present_temp
 
     def getPresentVoltage(self):
-        present_voltage=readValue(portHandler, 1, self.ID, 45)/10.0
+        present_voltage=self.node.readValue(1, self.ID, 45)/10.0
         return present_voltage
-    """
-
+    
     def reboot(self):
         self.node.sendRebootCommand(self.ID)
 
@@ -258,6 +296,18 @@ class XL320:
             self.node.sendGenericCommand(1, self.ID, 11, MODE)  # XL320 : 1:Wheel Mode 2:Joint Mode
             if MODE == CONTROL_MODE_WHEEL :
                 self.node.sendGenericCommand(2, self.ID, 32, 0) #Setting Moving_speed to 0
+
+    #def getDriveMode(self, MODE):
+    #    #self.node.get_logger().warn(F"ID {self.ID}: setDriveMode to {MODE}")
+    #    self.node.readValue(2, self.ID, 11)
+    #
+    #    if self.torque :
+    #        self.node.get_logger().error(F"Impossible to set DriveMode when torque is set")
+    #    else : 
+    #        self.driveMode = MODE
+    #        self.node.sendGenericCommand(1, self.ID, 11, MODE)  # XL320 : 1:Wheel Mode 2:Joint Mode
+    #        if MODE == CONTROL_MODE_WHEEL :
+    #            self.node.sendGenericCommand(2, self.ID, 32, 0) #Setting Moving_speed to 0
 
     def setTorque(self, VALUE):
         self.torque = VALUE
@@ -273,34 +323,49 @@ class XL430:
         CW_Angle_Limit=0,
         driveMode=4,
         CCW_Angle_Limit=4095,
-        Moving_Speed=1023,
+        maxSpeed=1023,
     ):
         self.node=node
         self.ID = DXL_ID
         self.driveMode = driveMode
-        #if 1060 == getModel(DXL_ID):
-        self.model_number = 1060
-        connected_XL430[self.ID] = self
-        """
-        else:
-            print(
-                "Error for ID",
-                self.ID,
-                ": DXL with ID ",
-                DXL_ID,
-                " does not appear to be XL430",
-            )
-        """
-        self.setTorque(0)
-        if driveMode == 3:
-            self.setAngleLimits(CW_Angle_Limit, CCW_Angle_Limit)
-        self.setMaxSpeed(Moving_Speed)
-        self.setDriveMode(driveMode)
-        self.setPositionPID(640, 0, 4000)
-        self.setReverseRotation(0)
-        self.target_reached=False
+        self.CW_Angle_Limit = CW_Angle_Limit
+        self.CCW_Angle_Limit = CCW_Angle_Limit
+        self.maxSpeed = 1023
+        self.P = 640
+        self.I = 0
+        self.D = 4000
+        self.reverseRotation = False
+        self.offset = 0
+        self.isReady = False
+        self.target_reached = False
 
-        #print("XL430 ", DXL_ID, " was well initialized (temp:",self.getPresentTemperature(),"°C  Voltage:",self.getPresentVoltage(),"V)")
+        self.sendConfig()
+
+    def sendConfig(self):
+        if not self.ping() :
+            return
+        self.isReady=False
+        self.setTorque(0)
+        self.setDriveMode(self.driveMode)
+        if self.driveMode == 3:
+            self.setAngleLimits(self.CW_Angle_Limit, self.CCW_Angle_Limit)
+        self.setMaxSpeed(self.maxSpeed)
+        self.setPositionPID(self.P, self.I, self.D)
+        self.setReverseRotation(self.reverseRotation)
+        self.setHomingOffset(self.offset)
+        self.setLED(1)
+        self.isReady=True
+        self.current_position = -1
+        self.target_position = -1
+
+    def ping(self):
+        if self.node.pingDXL(self.ID) != 1060 :
+            self.node.get_logger().error(f"Error : DXL with ID {self.ID} not detected")
+            return 0
+        else :
+            connected_XL430[self.ID] = self
+            self.node.get_logger().info(f"XL430 {self.ID} was well initialized (temp:{self.getPresentTemperature()}°C  Voltage:{self.getPresentVoltage()}V)")
+            return 1
 
     def setAngleLimits(self, CW_Angle_Limit, CCW_Angle_Limit):
         if self.driveMode != 3:
@@ -347,36 +412,58 @@ class XL430:
         self.node.sendGenericCommand(2, self.ID, 76, I)
         self.node.sendGenericCommand(2, self.ID, 80, D)
 
-    """
     def printPositionPID(self):
-        P = readValue(portHandler, 2, self.ID, 78)
-        I = readValue(portHandler, 2, self.ID, 76)
-        D = readValue(portHandler, 2, self.ID, 80)
+        P = self.node.readValue(2, self.ID, 78)
+        I = self.node.readValue(2, self.ID, 76)
+        D = self.node.readValue(2, self.ID, 80)
         print("P:", P, "  I:", I, "  D:", D)
 
     def getPresentTemperature(self):
-        return readValue(portHandler, 1, self.ID, 146)
+        return self.node.readValue(1, self.ID, 146)
 
     def getPresentVoltage(self):
-        return readValue(portHandler, 2, self.ID, 144)/10
+        return self.node.readValue(2, self.ID, 144)/10
         
     def getPresentVelocity(self):
-        dxl_present_velocity = readValue(portHandler, 4, self.ID, 128)
+        dxl_present_velocity = self.node.readValue(4, self.ID, 128)
         return dxl_present_velocity
        
     def getPresentLoad(self):
-        dxl_present_load = readValue(portHandler, 2, self.ID, 126)
+        dxl_present_load = self.node.readValue(2, self.ID, 126)
         print("load=",dxl_present_load)
         return dxl_present_load
 
     def printTorqueEnable(self, debug=""):
-        torqueEnable = readValue(portHandler, 1, self.ID, 64)
+        torqueEnable = self.node.readValue(1, self.ID, 64)
         print(debug, "torqueEnable=", torqueEnable)
-    """
+
     def getPresentPosition(self): #todo
-        #dxl_present_position = readValue(portHandler, 4, self.ID, 132)
-        dxl_present_position=0
+        dxl_present_position = self.node.readValue(4, self.ID, 132)
+        if dxl_present_position < 0 :   
+            self.node.get_logger().error(f"DXL {self.ID} : current_position cannot be negative ({dxl_present_position})")
+        #dxl_present_position-=self.offset
+        self.saveCurrentPosition(dxl_present_position)
         return dxl_present_position
+
+    def saveCurrentPosition(self, position, isRadian=False):
+        if isRadian :
+            self.node.get_logger().warn(f"saveCurrentPosition : Calcul à vérifier car rawToRad valable pour XL320 uniquement ?")
+            position=int(position/rawToRad)
+            
+        if position < 0 :
+            self.node.get_logger().error(f"DXL {self.ID} : current_position cannot be negative ({position})")
+            return
+
+        self.current_position=position
+        if self.target_position == -1 :
+            self.target_position = position #initialiser la target à la position actuelle si aucune target n'a déjà été demandée
+
+        # check if target reached
+        if abs( self.current_position - self.target_position ) < 10 :
+            self.target_reached=True
+        else :
+            #self.node.get_logger().info(f"For ID {self.ID} : current_position ({self.current_position}) - target_position ({self.target_position}) ={abs( self.current_position - self.target_position )}")
+            pass
 
     def setGoalPosition(self, POSITION):
         if self.driveMode == 3:
@@ -418,7 +505,7 @@ class XL430:
             print("You can't set speed goal if you are not in Velocity Mode")
 
     def reboot(self):
-        packetHandler.reboot(portHandler, self.ID)
+        packetHandler.reboot(self.ID)
 
     def setReverseRotation(self,value):
         if value :
@@ -427,7 +514,7 @@ class XL430:
             driveModeValue=4
         self.node.sendGenericCommand(1, self.ID, 10, driveModeValue)        
         self.reverseRotation = value
-        print("XL430 with ID",self.ID,"has its rotation reversed.")
+        self.node.get_logger().info(f"XL430 with ID {self.ID} has its rotation reversed.")
 
     def setDriveMode(self, MODE): #dans la doc c'est pas appelé driveMode mais operatingMode car driveMode est utilisé pour autre chose
         self.node.sendGenericCommand(1, self.ID, 11, MODE)  # XL320 : 1: wheel mode   2: joint mode   // XL430 : 1:Velocity  3:Position  4:Extended position  16:PWM
@@ -437,8 +524,8 @@ class XL430:
         self.torque = VALUE
         self.node.sendGenericCommand(1, self.ID, 64, VALUE)
 
-    def reboot(self):
-        packetHandler.reboot(portHandler, self.ID)
+    def setLED(self, VALUE):
+        self.node.sendGenericCommand(1, self.ID, 65, VALUE)
 
     def setHomingOffset(self, offset):
         # if self.reverseRotation :
@@ -487,14 +574,14 @@ class bras:
             self.joinD.setReverseRotation(True)
             # self.joinE.setReverseRotation(True)
             
-        #self.slider.setReverseRotation(True)
+        self.slider.setReverseRotation(True)
 
-        #self.slider.setDriveMode(4)
+        self.slider.setDriveMode(4)
 
         # self.joinD.setPunch(32)
         # self.joinD.setPunch(70)
 
-        self.joinA.setPositionPID(60, 10, 0)
+        self.joinA.setPositionPID(60, 20, 0)
         self.joinB.setPositionPID(60, 25, 0)
         self.joinC.setPositionPID(70, 30, 0)
         self.joinD.setPositionPID(120, 30, 0)
@@ -588,36 +675,34 @@ class bras:
         self.joinC.setTorque(value)
         self.joinD.setTorque(value)
         self.joinE.setTorque(value)
-        #self.slider.setTorque(value)
+        self.slider.setTorque(value)
 
     def getAngles(self):
         joints = []
-        joints.append(self.joinA.radian_state)
-        joints.append(self.joinB.radian_state)
-        joints.append(self.joinC.radian_state)
-        joints.append(self.joinD.radian_state)
-        joints.append(self.joinE.radian_state)
+        joints.append(self.joinA.current_position)
+        joints.append(self.joinB.current_position)
+        joints.append(self.joinC.current_position)
+        joints.append(self.joinD.current_position)
+        joints.append(self.joinE.current_position)
         return [self.getSlidePosition_mm() / 1000] + [pos * rawToRad for pos in joints]
 
     def getTargetAngles(self):
         joints = []
-        joints.append(self.joinA.radian_target)
-        joints.append(self.joinB.radian_target)
-        joints.append(self.joinC.radian_target)
-        joints.append(self.joinD.radian_target)
-        joints.append(self.joinE.radian_target)
+        joints.append(self.joinA.target_position)
+        joints.append(self.joinB.target_position)
+        joints.append(self.joinC.target_position)
+        joints.append(self.joinD.target_position)
+        joints.append(self.joinE.target_position)
         return [self.getSlidePosition_mm() / 1000] + [pos * rawToRad for pos in joints]
     
     def getGapAngles(self):
         joints = []
-        joints.append(abs(self.joinA.radian_target-self.joinA.radian_state))
-        joints.append(abs(self.joinB.radian_target-self.joinB.radian_state))
-        joints.append(abs(self.joinC.radian_target-self.joinC.radian_state))
-        joints.append(abs(self.joinD.radian_target-self.joinD.radian_state))
-        joints.append(abs(self.joinE.radian_target-self.joinE.radian_state))
+        joints.append(abs(self.joinA.target_position-self.joinA.current_position))
+        joints.append(abs(self.joinB.target_position-self.joinB.current_position))
+        joints.append(abs(self.joinC.target_position-self.joinC.current_position))
+        joints.append(abs(self.joinD.target_position-self.joinD.current_position))
+        joints.append(abs(self.joinE.target_position-self.joinE.current_position))
         return [self.getSlidePosition_mm() / 1000] + [pos * rawToRad for pos in joints]
-
-
 
     def getJoinStatus(self):
         joints = []
@@ -693,16 +778,16 @@ class bras:
         self.node.get_logger().info(f"actual position ={offset}")
         self.slider.setHomingOffset(offset)  # offset = actualPosition => presentPosition=0
 
-        #self.slider.setTorque(1)
-        #self.slider.setGoalPosition(-10000)
-        #self.slider.waitMoveEnd(5)
+        self.slider.setTorque(1)
+        self.slider.setGoalPosition(-10000)
+        self.slider.waitMoveEnd(5)
 
         pos = self.slider.getPresentPosition()
         self.node.get_logger().info(f"final pos ={pos}")
         self.setTorque(0)
         self.node.get_logger().info(f"calculated offset={(positionEnButeeHaute - (pos - offset))}")
         self.slider.setHomingOffset(positionEnButeeHaute - (pos - offset))
-        # self.node.get_logger().info(f"Final Position={self.slider.getPresentPosition()}")
+        self.node.get_logger().info(f"Final Position={self.slider.getPresentPosition()}")
 
         self.slider.setMaxSpeed(speed_setup)
 
@@ -724,7 +809,7 @@ class rakes:
 
         self.torque=False
 
-        self.droitH.setHomingOffset(55)
+        #self.droitH.setHomingOffset(55)
 
     def setTorque(self, value):
         self.gaucheB.setTorque(value)
