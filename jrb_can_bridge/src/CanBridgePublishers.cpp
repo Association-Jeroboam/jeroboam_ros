@@ -2,6 +2,39 @@
 #include <rclcpp/qos.hpp>
 #include <rmw/qos_profiles.h>
 
+void CanBridge::initPubs() {
+     static const rclcpp::QoS emgerceny_qos = rclcpp::QoS(1)
+            .history(RMW_QOS_POLICY_HISTORY_KEEP_LAST)
+            .keep_last(1)
+            .reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE)
+            .durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
+
+    odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("odometry", 50);
+
+    left_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("/hardware/base/pid/left_state", 10);
+    right_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("/hardware/base/pid/right_state", 10);
+    odometry_ticks_pub = this->create_publisher<jrb_msgs::msg::OdometryTicks>("/hardware/base/odometry_ticks", 10);
+
+    servo_generic_read_response_pub = this->create_publisher<jrb_msgs::msg::ServoGenericReadResponse>("/hardware/servo/generic_read_response", 10);
+    servo_angle_pub = this->create_publisher<jrb_msgs::msg::ServoAngle>("/hardware/servo/angle", 10);
+    
+    emergency_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/emergency/status", emgerceny_qos);
+
+    if (robot_name == "robotrouge")
+    {
+        left_pump_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/pump/left/status", 10);
+        right_pump_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/pump/right/status", 10);
+
+        left_valve_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/valve/left/status", 10);
+        right_valve_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/valve/right/status", 10);
+    } 
+    else if (robot_name == "robotbleu")
+    {
+        // None yet.
+    }
+
+}
+
 void CanBridge::publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 *state)
 {
     /**

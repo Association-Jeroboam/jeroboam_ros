@@ -61,82 +61,16 @@ void CanBridge::init()
     // Tf
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
     
-    static const rclcpp::QoS emgerceny_qos = rclcpp::QoS(1)
-            .history(RMW_QOS_POLICY_HISTORY_KEEP_LAST)
-            .keep_last(1)
-            .reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE)
-            .durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
     // Publishers
-    odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("odometry", 50);
-
-    left_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("/hardware/base/pid/left_state", 10);
-    right_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("/hardware/base/pid/right_state", 10);
-    odometry_ticks_pub = this->create_publisher<jrb_msgs::msg::OdometryTicks>("/hardware/base/odometry_ticks", 10);
-
-    servo_generic_read_response_pub = this->create_publisher<jrb_msgs::msg::ServoGenericReadResponse>("/hardware/servo/generic_read_response", 10);
-    servo_angle_pub = this->create_publisher<jrb_msgs::msg::ServoAngle>("/hardware/servo/angle", 10);
-    
-    emergency_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/emergency/status", emgerceny_qos);
+    initPubs();
 
     // Subscribers
-    rclcpp::QoS cmd_vel_qos = rclcpp::SensorDataQoS().keep_last(1);
-    static const rclcpp::QoS qos_profile = rclcpp::QoS(10)
-            .history(RMW_QOS_POLICY_HISTORY_KEEP_ALL)
-            .reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE)
-            .durability(RMW_QOS_POLICY_DURABILITY_VOLATILE);
-    // Subscribers
-    twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
-        "cmd_vel", cmd_vel_qos, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
-
-    initialpose_sub = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
-        "initialpose", 1, std::bind(&CanBridge::initialpose_cb, this, std::placeholders::_1));
-
-    servo_angle_sub = this->create_subscription<jrb_msgs::msg::ServoAngle>(
-        "/hardware/servo/target_angle", qos_profile, std::bind(&CanBridge::servoAngleCB, this, std::placeholders::_1));
-    servo_config_sub = this->create_subscription<jrb_msgs::msg::ServoConfig>(
-        "/hardware/servo/config", qos_profile, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
-    servo_reboot_sub = this->create_subscription<std_msgs::msg::UInt8>(
-        "/hardware/servo/reboot", qos_profile, std::bind(&CanBridge::servoRebootCB, this, std::placeholders::_1));
-    servo_generic_command_sub = this->create_subscription<jrb_msgs::msg::ServoGenericCommand>(
-        "/hardware/servo/generic_command", qos_profile, std::bind(&CanBridge::servoGenericCommandCB, this, std::placeholders::_1));
-    servo_generic_read_sub = this->create_subscription<jrb_msgs::msg::ServoGenericRead>(
-        "/hardware/servo/generic_read", qos_profile, std::bind(&CanBridge::servoGenericReadCB, this, std::placeholders::_1));
-
-    motion_config_sub = this->create_subscription<jrb_msgs::msg::MotionConfig>(
-        "/hardware/base/motion_config", qos_profile, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
-    motion_speed_command_sub = this->create_subscription<jrb_msgs::msg::MotionSpeedCommand>(
-        "/hardware/base/speed_command", qos_profile, std::bind(&CanBridge::motionSpeedCommandCB, this, std::placeholders::_1));
+    initSubs();
 
     // Parameters callback
     param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
 
-    if (robot_name == "robotrouge")
-    {
-        // Subscribers
-        left_pump_sub = this->create_subscription<std_msgs::msg::Bool>(
-            "/hardware/pump/left/set_status", 4, std::bind(&CanBridge::pumpLeftCB, this, std::placeholders::_1));
-        right_pump_sub = this->create_subscription<std_msgs::msg::Bool>(
-            "/hardware/pump/right/set_status", 4, std::bind(&CanBridge::pumpRightCB, this, std::placeholders::_1));
-
-        left_valve_sub = this->create_subscription<std_msgs::msg::Bool>(
-            "/hardware/valve/left/set_status", 4, std::bind(&CanBridge::valveLeftCB, this, std::placeholders::_1));
-        right_valve_sub = this->create_subscription<std_msgs::msg::Bool>(
-            "/hardware/valve/right/set_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
-
-        // Publishers
-        left_pump_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/pump/left/status", 10);
-        right_pump_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/pump/right/status", 10);
-
-        left_valve_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/valve/left/status", 10);
-        right_valve_pub = this->create_publisher<std_msgs::msg::Bool>("/hardware/valve/right/status", 10);
-    } 
-    else if (robot_name == "robotbleu")
-    {
-        // Subscribers
-        turbine_speed_sub = this->create_subscription<std_msgs::msg::UInt16>(
-            "/hardware/turbine/speed", 1, std::bind(&CanBridge::turbineSpeedCB, this, std::placeholders::_1));
-    }
-    else 
+    if (robot_name != "robotrouge" && robot_name != "robotbleu")
     {
         RCLCPP_FATAL(this->get_logger(), "Invalid 'robot_name' parameter value: %s. Allowed values are 'robotrouge' or 'robotbleu'.", robot_name.c_str());
         rclcpp::shutdown();
