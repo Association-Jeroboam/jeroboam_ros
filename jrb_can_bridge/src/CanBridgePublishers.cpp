@@ -1,0 +1,152 @@
+#include "CanBridge.hpp"
+#include <rclcpp/qos.hpp>
+#include <rmw/qos_profiles.h>
+
+void CanBridge::publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 *state)
+{
+    /**
+     * Publish on the odom topic
+     */
+    auto state_msg = nav_msgs::msg::Odometry();
+
+    state_msg.header.stamp = get_clock()->now();
+    state_msg.header.frame_id = "odom";
+    state_msg.child_frame_id = "base_link";
+
+    state_msg.pose.pose.position.x = state->pose.position.value.meter[0];
+    state_msg.pose.pose.position.y = state->pose.position.value.meter[1];
+    state_msg.pose.pose.position.z = state->pose.position.value.meter[2];
+
+    state_msg.pose.pose.orientation.w = state->pose.orientation.wxyz[0],
+    state_msg.pose.pose.orientation.x = state->pose.orientation.wxyz[1],
+    state_msg.pose.pose.orientation.y = state->pose.orientation.wxyz[2],
+    state_msg.pose.pose.orientation.z = state->pose.orientation.wxyz[3],
+
+    state_msg.twist.twist.linear.x = state->twist.linear.meter_per_second[0];
+    state_msg.twist.twist.linear.y = state->twist.linear.meter_per_second[1];
+    state_msg.twist.twist.linear.z = state->twist.linear.meter_per_second[2];
+
+    state_msg.twist.twist.angular.x = state->twist.angular.radian_per_second[0];
+    state_msg.twist.twist.angular.y = state->twist.angular.radian_per_second[1];
+    state_msg.twist.twist.angular.z = state->twist.angular.radian_per_second[2];
+
+    odom_pub->publish(state_msg);
+
+    /**
+     * Publish the transform
+     */
+    geometry_msgs::msg::TransformStamped transform;
+
+    transform.header.stamp = state_msg.header.stamp;
+    transform.header.frame_id = state_msg.header.frame_id;
+    transform.child_frame_id = state_msg.child_frame_id;
+    transform.transform.translation.x = state_msg.pose.pose.position.x;
+    transform.transform.translation.y = state_msg.pose.pose.position.y;
+    transform.transform.translation.z = state_msg.pose.pose.position.z;
+    transform.transform.rotation = state_msg.pose.pose.orientation;
+
+    tf_broadcaster_->sendTransform(transform);
+}
+
+void CanBridge::publishLeftPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1 *pid)
+{
+    auto pid_msg = jrb_msgs::msg::PIDState();
+    pid_msg.output = pid->output;
+    pid_msg.setpoint = pid->setpoint;
+    pid_msg.error = pid->_error;
+
+    left_pid_pub->publish(pid_msg);
+}
+
+void CanBridge::publishRightPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1 *pid)
+{
+    auto pid_msg = jrb_msgs::msg::PIDState();
+    pid_msg.output = pid->output;
+    pid_msg.setpoint = pid->setpoint;
+    pid_msg.error = pid->_error;
+
+    right_pid_pub->publish(pid_msg);
+}
+void CanBridge::publishLeftPumpStatus(jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 *status)
+{
+    auto status_msg = std_msgs::msg::Bool();
+    status_msg.data = status->status.enabled.value;
+
+    left_pump_pub->publish(status_msg);
+}
+void CanBridge::publishRightPumpStatus(jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 *status)
+{
+    auto status_msg = std_msgs::msg::Bool();
+    status_msg.data = status->status.enabled.value;
+
+    right_pump_pub->publish(status_msg);
+}
+void CanBridge::publishLeftValveStatus(jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 *status)
+{
+    auto status_msg = std_msgs::msg::Bool();
+    status_msg.data = status->status.enabled.value;
+
+    left_valve_pub->publish(status_msg);
+}
+void CanBridge::publishRightValveStatus(jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 *status)
+{
+    auto status_msg = std_msgs::msg::Bool();
+    status_msg.data = status->status.enabled.value;
+
+    right_valve_pub->publish(status_msg);
+}
+
+void CanBridge::publishServoGenericReadResponse(jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1 *response)
+{
+    (void) response;
+    RCLCPP_ERROR_STREAM(this->get_logger(), "BROKEN DOES NOT WORK (yet.)");
+    // auto servo_response = jrb_msgs::msg::ServoGenericReadResponse();
+
+    // if(response._tag_ == CAN_PROTOCOL_RESPONSE_SUCCESS) {
+    // RCLCPP_ERROR_STREAM(this->get_logger(), "count %lu\r\n", response.data.count);
+    // RCLCPP_ERROR_STREAM(this->get_logger(), "count %lu", response->data.count);
+    // for(size_t i = 0; i < response->data.count; i++){
+    //        servo_response.data[i] = response->data.elements[i];
+    //}
+    // servo_response.len = response->data.count;
+    //  servo_response.len = 1;
+    //} else if(response._tag_ == CAN_PROTOCOL_RESPONSE_ERROR){
+    //    RCLCPP_ERROR_STREAM(this->get_logger(), "tag = %i\r\n", response._tag_);
+    //    RCLCPP_ERROR_STREAM(this->get_logger(), "error = %u\r\n", response.err_code);
+    //    servo_response.len = 0;
+    //} else {
+    //    RCLCPP_ERROR_STREAM(this->get_logger(), "unhandled tag %u\r\n", response._tag_);;
+    //}
+
+    // servo_generic_read_response_pub->publish(servo_response);
+}
+
+void CanBridge::publishServoAngle(jeroboam_datatypes_actuators_servo_ServoAngle_0_1 *servoAngle)
+{
+    auto servo_angle_msg = jrb_msgs::msg::ServoAngle();
+    servo_angle_msg.id = servoAngle->ID;
+    servo_angle_msg.radian = servoAngle->angle.radian;
+    servo_angle_pub->publish(servo_angle_msg);
+}
+
+void CanBridge::publishOdometryTicks(jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1 *odometryTicks)
+{
+    auto ticks = jrb_msgs::msg::OdometryTicks();
+    ticks.left = odometryTicks->left;
+    ticks.right = odometryTicks->right;
+    odometry_ticks_pub->publish(ticks);
+}
+
+
+void CanBridge::publishEmergencyStop(bool * emergency) {
+    static bool first_call = true;
+    static bool last_emergency = false;
+    std_msgs::msg::Bool emergency_msg;
+
+    if((last_emergency != *emergency) || first_call) {
+        first_call = false;
+        last_emergency = *emergency;
+        emergency_msg.data = *emergency;
+        emergency_pub->publish(emergency_msg);
+    }    
+}
