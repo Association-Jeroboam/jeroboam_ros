@@ -134,6 +134,8 @@ add_executable(jrb_can_bridge
   src/CanBridgeTx.cpp
   src/CanBridgeRx.cpp
   src/CanBridge.cpp
+  src/CanBridgePublishers.cpp
+  src/CanBridgeCallbacks.cpp
   src/LinuxCan.cpp
   src/param_utils.cpp
   CanProtocol/Cyphal/libcanard/libcanard/canard.c
