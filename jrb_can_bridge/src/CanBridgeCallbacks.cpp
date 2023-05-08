@@ -2,6 +2,57 @@
 #include <rclcpp/qos.hpp>
 #include <rmw/qos_profiles.h>
 
+void CanBridge::initSubs() {
+    rclcpp::QoS cmd_vel_qos = rclcpp::SensorDataQoS().keep_last(1);
+    static const rclcpp::QoS qos_profile = rclcpp::QoS(10)
+            .history(RMW_QOS_POLICY_HISTORY_KEEP_ALL)
+            .reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE)
+            .durability(RMW_QOS_POLICY_DURABILITY_VOLATILE);
+    // Subscribers
+    twist_sub = this->create_subscription<geometry_msgs::msg::Twist>(
+        "cmd_vel", cmd_vel_qos, std::bind(&CanBridge::robot_twist_goal_cb, this, std::placeholders::_1));
+
+    initialpose_sub = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+        "initialpose", 1, std::bind(&CanBridge::initialpose_cb, this, std::placeholders::_1));
+
+    servo_angle_sub = this->create_subscription<jrb_msgs::msg::ServoAngle>(
+        "/hardware/servo/target_angle", qos_profile, std::bind(&CanBridge::servoAngleCB, this, std::placeholders::_1));
+    servo_config_sub = this->create_subscription<jrb_msgs::msg::ServoConfig>(
+        "/hardware/servo/config", qos_profile, std::bind(&CanBridge::servoConfigCB, this, std::placeholders::_1));
+    servo_reboot_sub = this->create_subscription<std_msgs::msg::UInt8>(
+        "/hardware/servo/reboot", qos_profile, std::bind(&CanBridge::servoRebootCB, this, std::placeholders::_1));
+    servo_generic_command_sub = this->create_subscription<jrb_msgs::msg::ServoGenericCommand>(
+        "/hardware/servo/generic_command", qos_profile, std::bind(&CanBridge::servoGenericCommandCB, this, std::placeholders::_1));
+    servo_generic_read_sub = this->create_subscription<jrb_msgs::msg::ServoGenericRead>(
+        "/hardware/servo/generic_read", qos_profile, std::bind(&CanBridge::servoGenericReadCB, this, std::placeholders::_1));
+
+    motion_config_sub = this->create_subscription<jrb_msgs::msg::MotionConfig>(
+        "/hardware/base/motion_config", qos_profile, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
+    motion_speed_command_sub = this->create_subscription<jrb_msgs::msg::MotionSpeedCommand>(
+        "/hardware/base/speed_command", qos_profile, std::bind(&CanBridge::motionSpeedCommandCB, this, std::placeholders::_1));
+
+    pwm_command_sub = this->create_subscription<std_msgs::msg::Float32MultiArray>(
+        "/hardware/base/pwm_command", qos_profile, std::bind(&CanBridge::pwmCommandCB, this, std::placeholders::_1));
+
+    if (robot_name == "robotrouge")
+    {
+        left_pump_sub = this->create_subscription<std_msgs::msg::Bool>(
+            "/hardware/pump/left/set_status", 4, std::bind(&CanBridge::pumpLeftCB, this, std::placeholders::_1));
+        right_pump_sub = this->create_subscription<std_msgs::msg::Bool>(
+            "/hardware/pump/right/set_status", 4, std::bind(&CanBridge::pumpRightCB, this, std::placeholders::_1));
+
+        left_valve_sub = this->create_subscription<std_msgs::msg::Bool>(
+            "/hardware/valve/left/set_status", 4, std::bind(&CanBridge::valveLeftCB, this, std::placeholders::_1));
+        right_valve_sub = this->create_subscription<std_msgs::msg::Bool>(
+            "/hardware/valve/right/set_status", 4, std::bind(&CanBridge::valveRightCB, this, std::placeholders::_1));
+    } 
+    else if (robot_name == "robotbleu")
+    {
+        turbine_speed_sub = this->create_subscription<std_msgs::msg::UInt16>(
+            "/hardware/turbine/speed", 1, std::bind(&CanBridge::turbineSpeedCB, this, std::placeholders::_1));
+    }
+}
+
 void CanBridge::robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr msg)
 {
     if (msg == nullptr)
@@ -378,4 +429,26 @@ void CanBridge::turbineSpeedCB(const std_msgs::msg::UInt16 msg)
     }
 
     send_can_msg(ACTION_TURBINE_CMD_ID, &transfer_id, buffer, buf_size);
+}
+
+void CanBridge::pwmCommandCB (const std_msgs::msg::Float32MultiArray msg)
+{
+    static CanardTransferID transfer_id = 0;
+    jeroboam_datatypes_actuators_motion_SpeedCommand_0_1 command;
+
+    command.left.meter_per_second = msg.data[0];
+    command.right.meter_per_second = msg.data[1];
+
+    size_t buf_size = jeroboam_datatypes_actuators_motion_SpeedCommand_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
+    uint8_t buffer[jeroboam_datatypes_actuators_motion_SpeedCommand_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+
+    int8_t res = jeroboam_datatypes_actuators_motion_SpeedCommand_0_1_serialize_(&command, buffer, &buf_size);
+
+    if (res != NUNAVUT_SUCCESS)
+    {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "Failed serilializing speed command " << res);
+        return;
+    }
+
+    send_can_msg(ROBOT_SET_PWM_WHEELS_ID, &transfer_id, buffer, buf_size);
 }

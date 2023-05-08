@@ -21,6 +21,7 @@
 #include "std_msgs/msg/u_int16.hpp"
 #include "std_msgs/msg/u_int8.hpp"
 #include "std_msgs/msg/bool.hpp"
+#include "std_msgs/msg/float32_multi_array.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
@@ -73,6 +74,8 @@ class CanBridge : public rclcpp::Node
     CanBridge();
 
     void init();
+    void initSubs();
+    void initPubs();
 
     void setAdaptPidParam(std::string side, std::string threshold, std::string param_name, double value);
 
@@ -124,6 +127,8 @@ class CanBridge : public rclcpp::Node
 
     void turbineSpeedCB (const std_msgs::msg::UInt16 msg);
 
+    void pwmCommandCB (const std_msgs::msg::Float32MultiArray msg);
+
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr       odom_pub;
     rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       left_pid_pub;
@@ -154,6 +159,8 @@ class CanBridge : public rclcpp::Node
     rclcpp::Subscription<jrb_msgs::msg::MotionSpeedCommand>::SharedPtr             motion_speed_command_sub;
 
     rclcpp::Subscription<std_msgs::msg::UInt16>::SharedPtr       turbine_speed_sub;
+
+    rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr pwm_command_sub;
 
     OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
 
