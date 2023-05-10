@@ -86,16 +86,29 @@ class Actuators(Node):
             return
         msg = ServoAngle()
         servo_to_remove = []
+
         for servo_id in dxl.connected_XL320 :
             if dxl.connected_XL320[servo_id].isReady :
                 value=dxl.connected_XL320[servo_id].getPresentPosition()
                 if value != -1 :
                     msg.id = servo_id
-                    msg.radian = value*dxl.rawToRad
+                    msg.radian = value*dxl.rawToRad_XL320
                     self.pub_servo_angle.publish(msg)
                 else :
                     self.get_logger().error(f"Unable to communicate with DXL {servo_id}")
                     servo_to_remove.append(servo_id)
+
+        for servo_id in dxl.connected_XL430 :
+            if dxl.connected_XL430[servo_id].isReady :
+                value=dxl.connected_XL430[servo_id].getPresentPosition()
+                if value != -1 :
+                    msg.id = servo_id
+                    msg.radian = float(value) #*dxl.rawToRad_XL430
+                    self.pub_servo_angle.publish(msg)
+                else :
+                    self.get_logger().error(f"Unable to communicate with DXL {servo_id}")
+                    servo_to_remove.append(servo_id)
+
         for servo  in servo_to_remove :
             #del dxl.connected_XL320[servo]
             pass
@@ -462,7 +475,10 @@ class Actuators_robotrouge(Actuators):
         # self.storeArm("right")
         #time.sleep(2)
         # self.cycle_cool()
+        self.left_arm.slider.setTorque(True)
+        self.right_arm.slider.setTorque(True)
         self.actuatorsInitialized = True
+        self.right_arm.setSliderPosition_mm(100)
 
     def cycle_cool(self):
         while True:
@@ -524,7 +540,7 @@ class Actuators_robotrouge(Actuators):
         z = pos[2]
 
         z = 0 if z < 0 else z
-        z = 0.230 if z > 0.230 else z
+        z = 0.215 if z > 0.215 else z
 
         self.get_logger().info(
             f"[GOTO] {side} ({x}, {y}, {z}) ({math.degrees(msg.pose.orientation.y)}, {math.degrees(msg.pose.orientation.x)}, {math.degrees(msg.pose.orientation.z)})"

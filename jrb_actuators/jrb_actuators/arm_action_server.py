@@ -158,6 +158,7 @@ class ArmActionServer(Node):
         # Success condition
         if all(self.arm_state_msg.target_reached) and len(self.arm_state_msg.target_reached) >= 6:
             goal_handle.succeed()
+            self.get_logger().info(f"Action successful")
             return GoToPose.Result(success=True)
 
         # Timeout condition
