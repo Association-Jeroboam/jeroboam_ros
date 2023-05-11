@@ -10,7 +10,7 @@ from jrb_msgs.msg import SampleDetected, SampleDetectedArray
 from ament_index_python import get_package_share_directory
 from visualization_msgs.msg import Marker, MarkerArray
 from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
-from geometry_msgs.msg import TransformStamped
+from geometry_msgs.msg import TransformStamped, Pose, Quaternion
 from builtin_interfaces.msg import Duration
 from sensor_msgs.msg import Image, CompressedImage, CameraInfo
 from tf2_ros.buffer import Buffer
@@ -33,7 +33,6 @@ import numpy as np
 import cv2
 import cv2.aruco as aruco
 import sys
-import math
 import os
 from queue import Queue
 import threading
@@ -42,7 +41,6 @@ from ament_index_python import get_package_share_directory
 
 
 DATA_PATH = get_package_share_directory("jrb_sensors")
-
 
 def make_marker_msg(id_, stamp, pose, color):
     marker = Marker()
@@ -89,10 +87,6 @@ def make_marker_msg(id_, stamp, pose, color):
 def opencv_to_ros(vec):
     return np.array([-vec[1], vec[0], vec[2]])
 
-
-DATA_PATH = get_package_share_directory("jrb_sensors")
-
-
 class SampleDetector(Node):
     def __init__(self):
         super().__init__("sample_detector")
@@ -104,7 +98,8 @@ class SampleDetector(Node):
         self.maker_publisher = self.create_publisher(
             MarkerArray, "debug/sample_detected", 10
         )
-        self.image_publisher = self.create_publisher(Image, "debug/image", 10)
+        self.image_publisher = self.create_publisher(Image, "debug/sample_detected_image", 10)
+
         self.image_subscriber = self.create_subscription(
             CompressedImage,
             "/camera/image_raw/compressed",
@@ -130,7 +125,7 @@ class SampleDetector(Node):
         self.arucoParameters = aruco.DetectorParameters_create()
 
         # calibration en trichant sur la taille des tags :
-        self.big_marker_size = 0.050  # en m
+        self.big_marker_size = 0.030  # en m
         self.small_marker_size = 0.015  # en m
 
         self.length_of_axis = 0.02  # en m
@@ -192,6 +187,7 @@ class SampleDetector(Node):
         now = self.get_clock().now().to_msg()
 
         frame = self.cv_bridge.compressed_imgmsg_to_cv2(msg)
+        #frame = cv2.imread("/home/jeroboam/ros2_ws/src/jeroboam_ros/jrb_sensors/resource/image.png")
 
         # img_msg = self.cv_bridge.cv2_to_imgmsg(frame)
         # img_msg.header.frame_id = "camera_link"
@@ -226,6 +222,7 @@ class SampleDetector(Node):
             msg.header.frame_id = "camera_link_optical"
 
             markers_msg = MarkerArray()
+            
 
             for i in range(len(tvecs)):
                 sample_msg = SampleDetected()
@@ -238,15 +235,13 @@ class SampleDetector(Node):
                     tvecs[i],
                     self.length_of_axis,
                 )
+
                 if ids[i] == 47:
-                    sample_msg.type = SampleDetected.RED
+                    sample_msg.type = SampleDetected.PINK
                 elif ids[i] == 13:
-                    sample_msg.type = SampleDetected.BLUE
+                    sample_msg.type = SampleDetected.YELLOW
                 elif ids[i] == 36:
-                    sample_msg.type = SampleDetected.GREEN
-                    # pass
-                elif ids[i] == 17:
-                    sample_msg.type = SampleDetected.ROCK
+                    sample_msg.type = SampleDetected.BROWN
                 elif ids[i] == 91:
                     continue
                 elif ids[i] == 92:
@@ -258,7 +253,9 @@ class SampleDetector(Node):
 
                 sample_msg.pose.position.x = xyz[0]
                 sample_msg.pose.position.y = xyz[1]
-                sample_msg.pose.position.z = 0.355
+                #sample_msg.pose.position.z = 0.355
+                sample_msg.pose.position.z = xyz[2]
+
 
                 rotation_matrix = np.identity(4)
                 rotation_matrix[:3, :3], _ = cv2.Rodrigues(np.array([rvecs[i][0][:3]]))
@@ -269,8 +266,25 @@ class SampleDetector(Node):
                 sample_msg.pose.orientation.z = q[2]
                 sample_msg.pose.orientation.w = q[3]
 
-                msg.samples.append(sample_msg)
+                # Translate pose from tag to disque center
+                new_pose=translate_pose_along_local_y(sample_msg.pose,-0.033) #décallage de  33mm
+                sample_msg.pose=new_pose
 
+                # Draw the translated marker for debugging
+                xyz[0]=new_pose.position.x
+                xyz[1]=new_pose.position.y
+                xyz[2]=new_pose.position.z
+                tvecs[i][0]=xyz
+                frame = aruco.drawAxis(
+                    frame,
+                    self.cameraMatrix,
+                    self.distCoeffs,
+                    rvecs[i],
+                    tvecs[i],
+                    self.length_of_axis,
+                )
+
+                msg.samples.append(sample_msg)
                 marker_msg = make_marker_msg(
                     len(markers_msg.markers),
                     now,
@@ -282,9 +296,48 @@ class SampleDetector(Node):
             self.publisher_.publish(msg)
             self.maker_publisher.publish(markers_msg)
 
-        img_msg = self.cv_bridge.cv2_to_imgmsg(frame)
+        img_msg = self.cv_bridge.cv2_to_imgmsg(frame,"bgr8")
         img_msg.header.frame_id = "camera_link_optical"
         self.image_publisher.publish(img_msg)
+
+
+def translate_pose_along_local_y(pose, distance):
+    # Extract position and orientation from the original pose
+    position = [pose.position.x, pose.position.y, pose.position.z]
+    orientation = [pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
+
+    # Compute the rotation matrix based on the orientation
+    rotation_matrix = quaternion_to_rotation_matrix(orientation)
+
+    # Compute the translation vector along the local X-axis
+    translation_vector = [0.0, distance, 0.0]
+    translated_position = translate_vector(position, rotation_matrix, translation_vector)
+
+    # Create the translated pose
+    translated_pose = Pose()
+    translated_pose.position.x = translated_position[0]
+    translated_pose.position.y = translated_position[1]
+    translated_pose.position.z = translated_position[2]
+    translated_pose.orientation = pose.orientation
+
+    return translated_pose
+
+def quaternion_to_rotation_matrix(quaternion):
+    q_x, q_y, q_z, q_w = quaternion
+    rotation_matrix = [
+        [1 - 2 * (q_y ** 2) - 2 * (q_z ** 2), 2 * q_x * q_y - 2 * q_z * q_w, 2 * q_x * q_z + 2 * q_y * q_w],
+        [2 * q_x * q_y + 2 * q_z * q_w, 1 - 2 * (q_x ** 2) - 2 * (q_z ** 2), 2 * q_y * q_z - 2 * q_x * q_w],
+        [2 * q_x * q_z - 2 * q_y * q_w, 2 * q_y * q_z + 2 * q_x * q_w, 1 - 2 * (q_x ** 2) - 2 * (q_y ** 2)]
+    ]
+    return rotation_matrix
+
+def translate_vector(vector, rotation_matrix, translation_vector):
+    translated_vector = [0.0, 0.0, 0.0]
+    for i in range(3):
+        for j in range(3):
+            translated_vector[i] += rotation_matrix[i][j] * translation_vector[j]
+        translated_vector[i] += vector[i]
+    return translated_vector
 
 
 def main(args=None):
