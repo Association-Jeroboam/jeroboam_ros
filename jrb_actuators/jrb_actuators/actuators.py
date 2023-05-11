@@ -458,6 +458,10 @@ class Actuators_robotrouge(Actuators):
         #     StackSample, "stack_sample", self.stackSample_cb, 10
         # )
 
+        self.sub_take_disk = self.create_subscription(
+            PoseStamped, "take_disk", self.takeDisk_cb, 10
+        )
+
         arm_publish_state_rate = 1 / 2  # Hz
         self.arm_state_publish_timer = self.create_timer(arm_publish_state_rate, self.on_arm_state_publish_timer)
 
@@ -613,6 +617,37 @@ class Actuators_robotrouge(Actuators):
                 math.degrees(msg.pose.orientation.z),
             )
             self.left_arm.setSliderPosition_mm(z * 1000)
+
+    def takeDisk_cb(self, msg: PoseStamped):
+        pos = np.array(
+            [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, 1]
+        )
+
+        # choix du bras
+        if pos[0]>0 :
+            side="left"
+            arm=self.left_arm
+        else :
+            side="right"
+            arm=self.right_arm
+
+        if msg.header.frame_id != side + "_arm_origin_link":
+            transform = self.lookupTransform(
+                side + "_arm_origin_link",
+                msg.header.frame_id,
+                rclpy.time.Time().to_msg(),
+            )
+            pos = transform.dot(pos)
+
+        x = pos[0]
+        y = pos[1]
+
+        if not arm.putArmOnDisque(x,y) :
+            self.get_logger().warn("Cannot takeDisk")
+            return
+
+        self.startPump(side)
+        time.sleep(1)
 
     def stackSample_cb(self, msg: StackSample):
         self.stackSample(msg.side, msg.sample_index)

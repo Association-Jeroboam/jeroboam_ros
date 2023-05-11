@@ -573,11 +573,53 @@ class bras:
         self.joinE.setPositionPID(70, 30, 0)
         self.slider.setPositionPID(1000, 1000, 1000)
 
-    def xy2angles(self,x_sucker,y_sucker):
+    def putArmOnDisque(self,x,y):
+        for point in points_sur_cercle(x,y,33,36):
+            angles = self.xy2angles(point[0],point[1],False)
+            if angles:
+                dist=sum(angles)
+                if closest_point :
+                    if closest_point[2] > dist :
+                        closest_point=[point[0],point[1],dist]
+                else:
+                    closest_point=[point[0],point[1],dist]
+        
+        if not closest_point :
+            self.node.get_logger().warn(f"No point reachable")
+            return 0
+        
+        self.setArmPosition(closest_point[0],closest_point[1]): #todo : ajouter angle de la ventouse
+        while not self.isTargetReached :
+            #Todo : add timeout
+            pass
+        self.setSliderPosition_mm(10)
+        return 1
+
+
+
+    def points_sur_cercle(X, Y, R, nb_points):
+        points = []
+        angle = 0
+        angle_increment = 360 / nb_points
+
+        for _ in range(nb_points):
+            # Calcul des coordonnées du point
+            x = X + R * math.cos(math.radians(angle))
+            y = Y + R * math.sin(math.radians(angle))
+
+            # Ajout des coordonnées du point au tableau
+            points.append([x, y])
+
+            # Incrémentation de l'angle
+            angle += angle_increment
+
+        return points    
+
+    def xy2angles(self,x_sucker,y_sucker,verbose=True):
         h1 = 54  # entraxe A et B
         h2 = 91  # entraxe B et ventouse
         if math.sqrt(x_sucker**2 + y_sucker**2) > (h1 + h2):
-            self.node.get_logger().warning(f"Point trop distant pour être atteint par le bras ({x_sucker};{y_sucker})")
+            if verbose : self.node.get_logger().warning(f"Point trop distant pour être atteint par le bras ({x_sucker};{y_sucker})")
             return []
 
         a = 2 * x_sucker
@@ -642,7 +684,7 @@ class bras:
             angle_B = angle_B2
 
         else:
-            self.node.get_logger().warning(f"Aucune solution trouvée pour positionner la ventouse en ({x_sucker};{y_sucker})")
+            if verbose : self.node.get_logger().warning(f"Aucune solution trouvée pour positionner la ventouse en ({x_sucker};{y_sucker})")
             return []
         return [angle_A,angle_B]
 
@@ -810,30 +852,32 @@ class rakes:
 
     def close(self):
         self.node.get_logger().info("Closing rakes...")
-        torqueSetup = self.torque
+        #torqueSetup = self.torque
 
-        self.setTorque(0)
-        self.gaucheB.setPositionPID(100, 30, 10)
-        self.droitB.setPositionPID(100, 30, 10)
-        self.gaucheH.setPositionPID(100, 30, 10)
-        self.droitH.setPositionPID(100, 30, 10)
-        self.setTorque(1)
+        #PID venere
+        #self.setTorque(0)
+        #self.gaucheB.setPositionPID(100, 30, 10)
+        #self.droitB.setPositionPID(100, 30, 10)
+        #self.gaucheH.setPositionPID(100, 30, 10)
+        #self.droitH.setPositionPID(100, 30, 10)
+        #self.setTorque(1)
 
-        self.gaucheB.setGoalPosition(300)
-        self.gaucheH.setGoalPosition(mirrorAngle(300))
-        self.droitB.setGoalPosition(790)
-        self.droitH.setGoalPosition(mirrorAngle(790))
+        #self.gaucheB.setGoalPosition(300)
+        #self.gaucheH.setGoalPosition(mirrorAngle(300))
+        #self.droitB.setGoalPosition(790)
+        #self.droitH.setGoalPosition(mirrorAngle(790))
 
-        time.sleep(0.3)
+        #time.sleep(0.3)
 
-        # self.setTorque(0)
-        self.gaucheB.setPositionPID(20, 0, 0)
-        self.droitB.setPositionPID(20, 0, 0)
-        self.gaucheH.setPositionPID(20, 0, 0)
-        self.droitH.setPositionPID(20, 0, 0)
-        # self.setTorque(1)
-        self.open()
-        time.sleep(0.3)
+        ##pid soft
+        ## self.setTorque(0)
+        #self.gaucheB.setPositionPID(20, 0, 0)
+        #self.droitB.setPositionPID(20, 0, 0)
+        #self.gaucheH.setPositionPID(20, 0, 0)
+        #self.droitH.setPositionPID(20, 0, 0)
+        ## self.setTorque(1)
+        #self.open()
+        #time.sleep(0.3)
 
         self.gaucheB.setGoalPosition(300)
         self.gaucheH.setGoalPosition(mirrorAngle(300))
@@ -846,8 +890,8 @@ class rakes:
         #self.gaucheH.setGoalPosition(self.gaucheH.getPresentPosition())
         #self.droitH.setGoalPosition(self.droitH.getPresentPosition())
 
-        time.sleep(0.1)
-        self.setTorque(torqueSetup)
+        #time.sleep(0.1)
+        #self.setTorque(torqueSetup)
 
 class ball_system:
     def __init__(self, node, lift_left_id=12, lift_right_id=6, roller_left_id=23, roller_right_id=24, figer_left_id=20, figer_right_id=13):
