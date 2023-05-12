@@ -12,24 +12,17 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDur
 from geometry_msgs.msg import PoseStamped
 from jrb_msgs.msg import (
     StackSample,
-    PumpStatus,
-    ValveStatus,
-    ServoStatus,
-    ServoConfig,
     ServoAngle,
     ServoGenericCommand,
-    ServoID,
-    BoolArray,
     ArmStatus,
     SimplifiedGoalStatus,
 
 )
-from std_msgs.msg import Bool, Float32, Int8, Int16, UInt16, String
+from std_msgs.msg import Bool, Int8, Int16, UInt16, UInt8, String
 from jrb_actuators.lib import dxl
 import time
 import numpy as np
 from functools import partial
-from sensor_msgs.msg import JointState
 from tf_transformations import (
     concatenate_matrices,
     translation_matrix,
@@ -62,13 +55,13 @@ class Actuators(Node):
 
         if USB_BOARD :
             self.get_logger().info("Using USB board for dynamixel control")
-            self.servo_angle_publish_timer = self.create_timer( 0.5, self.on_servo_angle_publish_timer)
+            self.servo_angle_publish_timer = self.create_timer(0.5, self.on_servo_angle_publish_timer)
             self.pub_servo_angle = self.create_publisher(ServoAngle, "servo_angle", 10 )
             self.initHandlers("/dev/dxl", 57600, 2.0)
         else :
             self.get_logger().info("Using can bus for dynamixel control")    
             self.pub_generic_command = self.create_publisher(ServoGenericCommand, "servo_generic_command", qos_profile)
-            self.pub_reboot_command = self.create_publisher(ServoID, "servo_reboot", qos_profile)
+            self.pub_reboot_command = self.create_publisher(UInt8, "servo_reboot", qos_profile)
             self.sub_servo_angle = self.create_subscription(ServoAngle, "servo_angle", self.servoAngle_cb, 10) #pas besoin en usb car actuators connais déjà la position
 
         self.sub_action_launch = self.create_subscription(String, "actuators/generic_action_launch", self.actionLaunch_cb, qos_profile)
@@ -339,8 +332,8 @@ class Actuators(Node):
                 self.packetHandler.reboot(self.portHandler, id)
                 time.sleep(2)
         else :
-            msg = ServoID()
-            msg.id = id
+            msg = UInt8()
+            msg.data = id
             self.pub_reboot_command.publish(msg)
 
     def servoAngle_cb(self, msg: ServoAngle):
@@ -374,11 +367,11 @@ class Actuators_robotrouge(Actuators):
         )
 
         self.pub_pump_left = self.create_publisher(
-            Bool, "/hardware/pump/left/set_status", 10)
+            Bool, "/hardware/pump/left/set_status", 10
         )
 
         self.pub_pump_right = self.create_publisher(
-            PumpStatus, "/hardware/pump/right/set_status", 10)
+            Bool, "/hardware/pump/right/set_status", 10)
 
         self.pub_valve_left = self.create_publisher(
             Bool, "/hardware/valve/left/set_status", 10
