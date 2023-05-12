@@ -90,6 +90,7 @@ class CanBridge : public rclcpp::Node
     void publishOdometryTicks(jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1 * odometryTicks);
     void sendAdaptPidConfig(std::string side);
     void publishEmergencyStop(bool * emergencyStop);
+    bool init_done;
 
   private:
     static void send_can_msg(CanardPortID portID, CanardTransferID* transferID, void* buffer, size_t buf_size);

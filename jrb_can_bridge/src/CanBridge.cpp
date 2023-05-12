@@ -3,7 +3,7 @@
 #include <rmw/qos_profiles.h>
 
 CanBridge::CanBridge()
-    : Node("can_bridge"), send_config_enabled(false)
+    : Node("can_bridge"), send_config_enabled(false), init_done(false)
 {
 }
 
@@ -150,6 +150,7 @@ void CanBridge::init()
 
     // Timers
     // send_config_timer =
+    init_done = true;
 }
 
 void CanBridge::setAdaptPidParam(std::string side, std::string threshold, std::string param_name, double value)
