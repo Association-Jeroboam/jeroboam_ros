@@ -225,9 +225,6 @@ public:
         
         CloseWindow();
 
-        // Enable GNOME notifications
-        system("dconf write /org/gnome/desktop/notifications/show-banners true");
-
         rclcpp::shutdown();
     }
 
