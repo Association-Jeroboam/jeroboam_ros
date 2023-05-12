@@ -42,8 +42,8 @@ public:
             // Publishers
             turbine_speed_pub_ = this->create_publisher<std_msgs::msg::UInt16>("hardware/turbine/speed", 10);
             led_pub_ = this->create_publisher<std_msgs::msg::Bool>("hardware/led", 10);
-            roll_height_pub_ = this->create_publisher<std_msgs::msg::Int16>("actuators/roll/height", 10);
-            roll_speed_pub_ = this->create_publisher<std_msgs::msg::Int8>("actuators/roll/speed", 10);
+            roll_height_pub_ = this->create_publisher<std_msgs::msg::Int16>("hardware/roll/height", 10);
+            roll_speed_pub_ = this->create_publisher<std_msgs::msg::Int8>("hardware/roll/speed", 10);
         }
         else 
         {
