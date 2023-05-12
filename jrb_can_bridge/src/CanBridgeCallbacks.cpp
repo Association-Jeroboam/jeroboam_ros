@@ -1,4 +1,7 @@
 #include "CanBridge.hpp"
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <rclcpp/qos.hpp>
 #include <rmw/qos_profiles.h>
 
@@ -62,20 +65,16 @@ void CanBridge::robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr m
     }
 
     static CanardTransferID transfer_id = 0;
-    reg_udral_physics_kinematics_cartesian_Twist_0_1 twist;
+    jeroboam_datatypes_sensors_odometry_Twist2D_1_0 twist;
 
-    twist.linear.meter_per_second[0] = msg->linear.x;
-    twist.linear.meter_per_second[1] = msg->linear.y;
-    twist.linear.meter_per_second[2] = msg->linear.z;
+    twist.linear.meter_per_second = msg->linear.x;
 
-    twist.angular.radian_per_second[0] = msg->angular.x;
-    twist.angular.radian_per_second[1] = msg->angular.y;
-    twist.angular.radian_per_second[2] = msg->angular.z;
+    twist.angular.radian_per_second = msg->angular.z;
 
-    size_t buf_size = reg_udral_physics_kinematics_cartesian_Twist_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
-    uint8_t buffer[reg_udral_physics_kinematics_cartesian_Twist_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+    size_t buf_size = jeroboam_datatypes_sensors_odometry_Twist2D_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_;
+    uint8_t buffer[jeroboam_datatypes_sensors_odometry_Twist2D_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-    int8_t result = reg_udral_physics_kinematics_cartesian_Twist_0_1_serialize_(&twist, buffer, &buf_size);
+    int8_t result = jeroboam_datatypes_sensors_odometry_Twist2D_1_0_serialize_(&twist, buffer, &buf_size);
     if (result != NUNAVUT_SUCCESS)
     {
         RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::robot_twist_goal_cb error: Failed serializing cartesian_Twist " << result);
@@ -87,21 +86,24 @@ void CanBridge::robot_twist_goal_cb(const geometry_msgs::msg::Twist::SharedPtr m
 void CanBridge::initialpose_cb(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
     static CanardTransferID transfer_id = 0;
-    reg_udral_physics_kinematics_cartesian_Pose_0_1 pose;
+    jeroboam_datatypes_sensors_odometry_Pose2D_1_0 pose;
 
-    pose.position.value.meter[0] = msg->pose.pose.position.x;
-    pose.position.value.meter[1] = msg->pose.pose.position.y;
-    pose.position.value.meter[2] = 0;
+    pose.x.meter = msg->pose.pose.position.x;
+    pose.y.meter = msg->pose.pose.position.y;
 
-    pose.orientation.wxyz[0] = msg->pose.pose.orientation.w;
-    pose.orientation.wxyz[1] = msg->pose.pose.orientation.x;
-    pose.orientation.wxyz[2] = msg->pose.pose.orientation.y;
-    pose.orientation.wxyz[3] = msg->pose.pose.orientation.z;
+    // This is supposed to work... but has to be tested
+    tf2::Quaternion tf2_quat;
+    tf2::fromMsg(msg->pose.pose.orientation, tf2_quat);
+    tf2::Matrix3x3 m(tf2_quat);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+    
+    pose.theta.radian = yaw;
 
-    size_t buf_size = reg_udral_physics_kinematics_cartesian_Pose_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
-    uint8_t buffer[reg_udral_physics_kinematics_cartesian_Pose_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
+    size_t buf_size = jeroboam_datatypes_sensors_odometry_Pose2D_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_;
+    uint8_t buffer[jeroboam_datatypes_sensors_odometry_Pose2D_1_0_SERIALIZATION_BUFFER_SIZE_BYTES_];
 
-    int8_t res = reg_udral_physics_kinematics_cartesian_Pose_0_1_serialize_(&pose, buffer, &buf_size);
+    int8_t res = jeroboam_datatypes_sensors_odometry_Pose2D_1_0_serialize_(&pose, buffer, &buf_size);
     if (res != NUNAVUT_SUCCESS)
     {
         RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::initialpose_cb error: Failed serilializing cartesian_Pose " << res);

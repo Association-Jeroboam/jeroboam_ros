@@ -1,4 +1,7 @@
 #include "CanBridge.hpp"
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <rclcpp/qos.hpp>
 #include <rmw/qos_profiles.h>
 
@@ -35,7 +38,7 @@ void CanBridge::initPubs() {
 
 }
 
-void CanBridge::publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 *state)
+void CanBridge::publishRobotCurrentState(jeroboam_datatypes_sensors_odometry_State2D_1_0 * state)
 {
     /**
      * Publish on the odom topic
@@ -46,22 +49,17 @@ void CanBridge::publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_
     state_msg.header.frame_id = "odom";
     state_msg.child_frame_id = "base_link";
 
-    state_msg.pose.pose.position.x = state->pose.position.value.meter[0];
-    state_msg.pose.pose.position.y = state->pose.position.value.meter[1];
-    state_msg.pose.pose.position.z = state->pose.position.value.meter[2];
+    state_msg.pose.pose.position.x = state->pose.x.meter;
+    state_msg.pose.pose.position.y = state->pose.y.meter;
 
-    state_msg.pose.pose.orientation.w = state->pose.orientation.wxyz[0],
-    state_msg.pose.pose.orientation.x = state->pose.orientation.wxyz[1],
-    state_msg.pose.pose.orientation.y = state->pose.orientation.wxyz[2],
-    state_msg.pose.pose.orientation.z = state->pose.orientation.wxyz[3],
+    // This is supposed to work... but has to be tested
+    tf2::Quaternion tf2_quat;
+    tf2_quat.setRPY(0,0, state->pose.theta.radian);
+    state_msg.pose.pose.orientation = tf2::toMsg(tf2_quat); 
 
-    state_msg.twist.twist.linear.x = state->twist.linear.meter_per_second[0];
-    state_msg.twist.twist.linear.y = state->twist.linear.meter_per_second[1];
-    state_msg.twist.twist.linear.z = state->twist.linear.meter_per_second[2];
+    state_msg.twist.twist.linear.x = state->twist.linear.meter_per_second;
 
-    state_msg.twist.twist.angular.x = state->twist.angular.radian_per_second[0];
-    state_msg.twist.twist.angular.y = state->twist.angular.radian_per_second[1];
-    state_msg.twist.twist.angular.z = state->twist.angular.radian_per_second[2];
+    state_msg.twist.twist.angular.z = state->twist.angular.radian_per_second;
 
     odom_pub->publish(state_msg);
 
