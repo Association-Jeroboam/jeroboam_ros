@@ -41,6 +41,7 @@ class Actuators(Node):
         self.get_logger().info("init")
 
         self.actuatorsInitialized = False
+        self.emergency = False
 
         # Tf subscriber
         self.tf_buffer = Buffer()
@@ -65,12 +66,17 @@ class Actuators(Node):
             self.pub_reboot_command = self.create_publisher(UInt8, "servo_reboot", qos_profile)
             self.sub_servo_angle = self.create_subscription(ServoAngle, "servo_angle", self.servoAngle_cb, 10) #pas besoin en usb car actuators connais déjà la position
 
+
+        self.sub_emergency = self.create_subscription(Bool, "hardware/emergency/status", self.emergency_cb, 1)
+        
         self.sub_action_launch = self.create_subscription(String, "actuators/generic_action_launch", self.actionLaunch_cb, qos_profile)
 
         self.pub_action_status = self.create_publisher(SimplifiedGoalStatus, "actuators/generic_action_status", qos_profile)
         self.action_status_publish_timer = self.create_timer(0.2, self.on_action_status_publish_timer)
 
         self.actions_running = {}
+
+
 
     def __del__(self):
         dxl.setTorque4All(self, 0)
@@ -110,6 +116,9 @@ class Actuators(Node):
     def on_action_status_publish_timer(self):
         msg =  SimplifiedGoalStatus()
         actions_to_close = []
+        if self.emergency :
+            actions_to_close, servos = self.actions_running.items()
+            msg.status = SimplifiedGoalStatus.STATUS_SUCCEEDED
         for action_name, servos in self.actions_running.items() :
             msg.action_name = action_name
             msg.status = SimplifiedGoalStatus.STATUS_SUCCEEDED
@@ -157,6 +166,7 @@ class Actuators(Node):
             return
 
     def pingDXL(self,DXL_ID):
+        if self.emergency : return
         PROTOCOL_VERSION=2
         dxl_model_number, dxl_comm_result, dxl_error = self.packetHandler.ping(self.portHandler,DXL_ID)
         if dxl_comm_result != COMM_SUCCESS:
@@ -171,6 +181,7 @@ class Actuators(Node):
         return dxl_model_number
 
     def readValue(self, size, ID, address):
+        if self.emergency : return
         if ( ID in dxl.connected_XL320 ) or ( ID in dxl.connected_XL430 ):
             while time.time() - self.last_com_time < MIN_TIME_BETWEEN_COM :
                 pass
@@ -241,6 +252,7 @@ class Actuators(Node):
         return -1
 
     def writeValue(self, size, ID, address, value):
+        if self.emergency : return
         if ( ID in dxl.connected_XL320 ) or ( ID in dxl.connected_XL430 ) or ID==254:
             value=dxl.toUnsigned(value,size*8)
             #self.get_logger().info(f"Writing on ID {ID}  address {address}  value {value}  size {size}")
@@ -289,6 +301,7 @@ class Actuators(Node):
             #    self.get_logger().error(f"Write error for DXL ID {ID} address {address} (value sent {value} / value read {readValue})")
 
     def sendGenericCommand(self, len_, id, addr, data):
+        if self.emergency : return
         while time.time() - self.last_com_time < MIN_TIME_BETWEEN_COM :
                 pass
         self.last_com_time=time.time()
@@ -329,6 +342,7 @@ class Actuators(Node):
             self.pub_generic_command.publish(msg)
 
     def sendRebootCommand(self, id):
+        if self.emergency : return
         if USB_BOARD :
                 self.packetHandler.reboot(self.portHandler, id)
                 time.sleep(2)
@@ -352,6 +366,18 @@ class Actuators(Node):
         else :
             self.get_logger().warn("Cannot launch unknown action")
 
+    def emergency_cb(self, msg : Bool):
+        self.emergency=msg.data
+        if not msg.data :
+            self.sendRebootCommand(254)  # 254 for broadcast
+            time.sleep(1)
+            for servo_id in dxl.connected_XL320 :
+                dxl.connected_XL320[servo_id].sendConfig()
+                dxl.connected_XL320[servo_id].setTorque(True)
+            for servo_id in dxl.connected_XL430 :
+                dxl.connected_XL430[servo_id].sendConfig()
+                dxl.connected_XL430[servo_id].setTorque(True)
+            
 class Actuators_robotrouge(Actuators):
     def __init__(self):
         super().__init__()
@@ -768,7 +794,7 @@ def main(args=None):
     rclpy.init(args=args)
 
     if not os.environ.get("ROBOT_NAME"):
-        logger.warn("ROBOT_NAME is not set, default to robotrouge")
+        print("ROBOT_NAME is not set, default to robotrouge")
         os.environ["ROBOT_NAME"] = "robotrouge"
 
     node =  Actuators_robotbleu() if os.environ.get('ROBOT_NAME') == 'robotbleu' else Actuators_robotrouge()
