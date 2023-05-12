@@ -3,6 +3,7 @@
 USB_BOARD = True
 MIN_TIME_BETWEEN_COM = 0.007 #seconds
 
+import os
 from re import A
 import traceback
 from rclpy.node import Node
@@ -351,12 +352,10 @@ class Actuators(Node):
         else :
             self.get_logger().warn("Cannot launch unknown action")
 
-    def init_actuators(self):
-        self.actuatorsInitialized
-
 class Actuators_robotrouge(Actuators):
     def __init__(self):
         super().__init__()
+        self.get_logger().info("robotrouge")
 
         self.pub_arm_state_left = self.create_publisher(
             ArmStatus, "arm_state_left", 10
@@ -699,10 +698,13 @@ class Actuators_robotrouge(Actuators):
 class Actuators_robotbleu(Actuators):
     def __init__(self):
         super().__init__()
+        self.get_logger().info("robotbleu")
 
         self.sub_roll_speed = self.create_subscription(Int8, "hardware/roll/speed", self.roll_speed_cb, 10)
         self.sub_roll_height = self.create_subscription(Int16, "hardware/roll/height", self.roll_height_cb, 10)
         self.sub_turbine_speed = self.create_subscription(UInt16, "hardware/turbine/speed", self.turbine_speed_cb, 10)
+
+        self.init_actuators()
         self.get_logger().info("init OK")
 
     def init_actuators(self):
@@ -710,6 +712,7 @@ class Actuators_robotbleu(Actuators):
         time.sleep(1)
         self.ballSystem = dxl.ball_system(self)
         self.ballSystem.setTorque(True)
+
         self.actuatorsInitialized = True
 
     def actionLaunch_cb(self, msg : String):
@@ -763,9 +766,12 @@ class Actuators_robotbleu(Actuators):
 
 def main(args=None):
     rclpy.init(args=args)
-    # node = Actuators()
-    
-    node = Actuators_robotrouge()
+
+    if not os.environ.get("ROBOT_NAME"):
+        logger.warn("ROBOT_NAME is not set, default to robotrouge")
+        os.environ["ROBOT_NAME"] = "robotrouge"
+
+    node =  Actuators_robotbleu() if os.environ.get('ROBOT_NAME') == 'robotbleu' else Actuators_robotrouge()
 
     try:
         rclpy.spin(node)
