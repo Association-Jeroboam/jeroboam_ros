@@ -643,6 +643,7 @@ class bras:
 
         return 1
 
+        return 1
 
     def points_sur_cercle(self,X, Y, R, nb_points):
         points = []
