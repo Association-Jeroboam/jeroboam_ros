@@ -165,7 +165,7 @@ class GoToGoalNode(Node):
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
-                    FloatingPointRange(from_value=0.0, to_value=720.0, step=1.0)
+                    FloatingPointRange(from_value=1.0, to_value=720.0, step=1.0)
                 ],
             ),
         )

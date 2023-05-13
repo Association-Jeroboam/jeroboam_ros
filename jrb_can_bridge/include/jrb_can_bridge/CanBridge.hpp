@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include <sstream>
 #include <vector>
+#include <cmath>
 
 #include "rclcpp/rclcpp.hpp"
 #include "rcl_interfaces/msg/set_parameters_result.hpp"
@@ -91,6 +92,7 @@ class CanBridge : public rclcpp::Node
     void publishServoGenericReadResponse(jeroboam_datatypes_actuators_servo_GenericReadResponse_0_1 * response);
     void publishServoAngle(jeroboam_datatypes_actuators_servo_ServoAngle_0_1 * servoAngle);
     void publishOdometryTicks(jeroboam_datatypes_sensors_odometry_OdometryTicks_0_1 * odometryTicks);
+    void sendMotionConfig();
     void sendAdaptPidConfig(std::string side);
     void publishEmergencyStop(bool * emergencyStop);
     bool init_done;
@@ -169,6 +171,7 @@ class CanBridge : public rclcpp::Node
 
     jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1 leftAdaptConfig;
     jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1 rightAdaptConfig;
+    jeroboam_datatypes_actuators_motion_MotionConfig_0_1 motionConfig;
     std::string robot_name;
     bool send_config_enabled;
 };

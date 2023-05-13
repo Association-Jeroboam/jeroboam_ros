@@ -1,7 +1,0 @@
-float32 wheel_base
-float32 left_wheel_radius
-float32 right_wheel_radius
-float32 max_linear_speed
-float32 max_angular_speed
-float32 max_linear_accl
-float32 max_angular_accl

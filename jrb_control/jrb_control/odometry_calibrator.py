@@ -10,7 +10,7 @@ from geometry_msgs.msg import Twist
 import traceback
 
 DEFAULT_DISTANCE = 0.1335
-NUMBER_OF_ROTATIONS = 10
+NUMBER_OF_ROTATIONS = 4
 LINEAR_VELOCITY = 0.25
 ANGULAR_VELOCITY = 2.0
 
@@ -28,7 +28,7 @@ class OdometryCalibratorNode(Node):
             self.type = self.get_parameter('type')
 
         # Subscribers
-        self.create_subscription(Odometry, '/odom', self.odometry_callback, 1)
+        self.create_subscription(Odometry, '/odometry', self.odometry_callback, 1)
 
         # Publishers
         self.pub = self.create_publisher(Twist, '/cmd_vel', 10)

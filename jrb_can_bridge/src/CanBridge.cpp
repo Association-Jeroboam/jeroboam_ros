@@ -56,6 +56,24 @@ void CanBridge::init()
         sendAdaptPidConfig(side);
     }
 
+    ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("wheel_base"), rclcpp::ParameterValue(0.258), (ros2_utils::floating_point_range){0.0, 0.5, 0.0001}, std::string("wheel base"), std::string(""), false);
+    ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("wheel_radius/left"), rclcpp::ParameterValue(0.02825), (ros2_utils::floating_point_range){0.0, 0.1, 0.000001}, std::string("left wheel redius"), std::string(""), false);
+    ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("wheel_radius/right"), rclcpp::ParameterValue(0.02825), (ros2_utils::floating_point_range){0.0, 0.1, 0.000001}, std::string("right wheel radius"), std::string(""), false);
+    ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("max_linear_speed"), rclcpp::ParameterValue(0.5), (ros2_utils::floating_point_range){0.1, 2.0, 0.01}, std::string("max linear speed"), std::string(""), false);
+    ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("max_angular_speed"), rclcpp::ParameterValue(90.0), (ros2_utils::floating_point_range){1.0, 720.0, 1.0}, std::string("max angular speed in rad/s"), std::string(""), false);
+    ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("max_linear_acceleration"), rclcpp::ParameterValue(0.5), (ros2_utils::floating_point_range){0.1, 5.0, 0.01}, std::string("max linear acceleration"), std::string(""), false);
+    ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("max_angular_acceleration"), rclcpp::ParameterValue(90.0), (ros2_utils::floating_point_range){1.0, 1440.0, 0.1}, std::string("max angular acceleration in rad/s^2"), std::string(""), false);
+
+    motionConfig.wheel_base.meter = this->get_parameter("wheel_base").as_double();
+    motionConfig.left_wheel_radius.meter = this->get_parameter("wheel_radius/left").as_double();
+    motionConfig.right_wheel_radius.meter = this->get_parameter("wheel_radius/right").as_double();
+    motionConfig.maxLinearSpeed.meter_per_second = this->get_parameter("max_linear_speed").as_double();
+    motionConfig.maxAngularSpeed.radian_per_second = this->get_parameter("max_angular_speed").as_double() * M_PI / 180.0;
+    motionConfig.maxLinearAccl.meter_per_second_per_second = this->get_parameter("max_linear_acceleration").as_double();
+    motionConfig.maxAngularAccl.radian_per_second_per_second = this->get_parameter("max_angular_acceleration").as_double() * M_PI / 180.0;
+
+    sendMotionConfig();
+
     send_config_enabled = true;
 
     // Tf
@@ -167,12 +185,27 @@ rcl_interfaces::msg::SetParametersResult CanBridge::parametersCallback(const std
             auto value = parameter.as_double();
 
             setAdaptPidParam(side, threshold, param_name, value);
+        } else if (name == "wheel_base") {
+            motionConfig.wheel_base.meter = parameter.as_double();
+        } else if (name == "wheel_radius/left") {
+            motionConfig.left_wheel_radius.meter = parameter.as_double();
+        } else if (name == "wheel_radius/right") {
+            motionConfig.right_wheel_radius.meter = parameter.as_double();
+        } else if (name == "max_linear_speed") {
+            motionConfig.maxLinearSpeed.meter_per_second = parameter.as_double();
+        } else if (name == "max_angular_speed") {
+            motionConfig.maxAngularSpeed.radian_per_second = parameter.as_double();
+        } else if (name == "max_linear_acceleration") {
+            motionConfig.maxLinearAccl.meter_per_second_per_second = parameter.as_double();
+        } else if (name == "max_angular_acceleration") {
+            motionConfig.maxAngularAccl.radian_per_second_per_second = parameter.as_double();
         }
     }
     if (send_config_enabled)
     {
         sendAdaptPidConfig("left");
         sendAdaptPidConfig("right");
+        sendMotionConfig();
     }
 
     rcl_interfaces::msg::SetParametersResult result;

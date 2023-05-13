@@ -19,7 +19,6 @@ find_package(geometry_msgs REQUIRED)
 set(msg_files
   "msg/AdaptativePIDConfig.msg"
   "msg/MotionBoardDataFrame.msg"
-  "msg/MotionConfig.msg"
   "msg/MotionSpeedCommand.msg"
   "msg/OdometryTicks.msg"
   "msg/PIDConfig.msg"

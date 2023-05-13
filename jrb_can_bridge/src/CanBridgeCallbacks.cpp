@@ -29,8 +29,6 @@ void CanBridge::initSubs() {
     servo_generic_read_sub = this->create_subscription<jrb_msgs::msg::ServoGenericRead>(
         "/hardware/servo/generic_read", qos_profile, std::bind(&CanBridge::servoGenericReadCB, this, std::placeholders::_1));
 
-    motion_config_sub = this->create_subscription<jrb_msgs::msg::MotionConfig>(
-        "/hardware/base/motion_config", qos_profile, std::bind(&CanBridge::motionConfigCB, this, std::placeholders::_1));
     motion_speed_command_sub = this->create_subscription<jrb_msgs::msg::MotionSpeedCommand>(
         "/hardware/base/speed_command", qos_profile, std::bind(&CanBridge::motionSpeedCommandCB, this, std::placeholders::_1));
 
@@ -222,19 +220,9 @@ void CanBridge::sendAdaptPidConfig(std::string side)
     send_can_msg(MOTION_SET_ADAPTATIVE_PID_ID, &transfer_id, buffer, buf_size);
 }
 
-void CanBridge::motionConfigCB(const jrb_msgs::msg::MotionConfig msg)
+void CanBridge::sendMotionConfig()
 {
     static CanardTransferID transfer_id = 0;
-
-    jeroboam_datatypes_actuators_motion_MotionConfig_0_1 motionConfig;
-
-    motionConfig.wheel_base.meter = msg.wheel_base;
-    motionConfig.left_wheel_radius.meter = msg.left_wheel_radius;
-    motionConfig.right_wheel_radius.meter = msg.right_wheel_radius;
-    motionConfig.maxLinearSpeed.meter_per_second = msg.max_linear_speed;
-    motionConfig.maxAngularSpeed.radian_per_second = msg.max_angular_speed;
-    motionConfig.maxLinearAccl.meter_per_second_per_second = msg.max_linear_accl;
-    motionConfig.maxAngularAccl.radian_per_second_per_second = msg.max_angular_accl;
 
     size_t buf_size = jeroboam_datatypes_actuators_motion_MotionConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_;
     uint8_t buffer[jeroboam_datatypes_actuators_motion_MotionConfig_0_1_SERIALIZATION_BUFFER_SIZE_BYTES_];
