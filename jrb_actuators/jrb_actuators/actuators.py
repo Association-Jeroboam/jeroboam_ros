@@ -609,7 +609,6 @@ class Actuators_robotrouge(Actuators):
     def on_arm_state_publish_timer(self):
         if self.emergency or not self.actuatorsInitialized :
             return
-
         now = self.get_clock().now().to_msg()
         self.arm_state_msg.header.stamp = now
         self.arm_state_msg.name = [
