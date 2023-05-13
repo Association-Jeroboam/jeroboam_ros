@@ -91,6 +91,15 @@ class Actuators(Node):
             time.sleep(check_rate)
 
         self.get_logger().info('{} is now available.'.format(device_path))
+    def xl320Reboot(self,ID):
+        self.get_logger().warn(f"Reboot DXL {ID}")
+        servo=dxl.connected_XL320[ID]
+        servo.isReady = False
+        servo.reboot()
+        time.sleep(0.5)
+        servo.sendVolatileConfig()
+        servo.setTorque(1)
+        servo.setGoalPosition(servo.target_position)
 
     def on_servo_angle_publish_timer(self):
         if self.emergency or not self.actuatorsInitialized:
@@ -107,8 +116,9 @@ class Actuators(Node):
                     msg.radian = value*dxl.rawToRad_XL320
                     self.pub_servo_angle.publish(msg)
                 else :
-                    self.get_logger().error(f"Unable to communicate with DXL {servo_id}")
+                    self.get_logger().error(f"Unable to communicate with XL320 {servo_id}")
                     servo_to_remove.append(servo_id)
+                    self.xl320Reboot(servo_id)
 
         for servo_id in dxl.connected_XL430 :
             if dxl.connected_XL430[servo_id].isReady :
@@ -118,7 +128,7 @@ class Actuators(Node):
                     msg.radian = float(value) #*dxl.rawToRad_XL430
                     self.pub_servo_angle.publish(msg)
                 else :
-                    self.get_logger().error(f"Unable to communicate with DXL {servo_id}")
+                    self.get_logger().error(f"Unable to communicate with 430 {servo_id}")
                     servo_to_remove.append(servo_id)
 
         for servo  in servo_to_remove :
@@ -251,13 +261,17 @@ class Actuators(Node):
                 if ID in dxl.connected_XL320 : #C'est pas un XL430
                     if dxl_error == 128 : #hardware error
                         if address == 50:
+                            if (value >> 2) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Input voltage error")
                             if (value >> 0) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overload")
                             if (value >> 1) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overheating")
-                            if (value >> 2) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Input voltage error")
+                            #self.xl320Reboot(ID)
                         else :
-                            self.readValue(1,ID,50)
+                            if (self.readValue(1,ID,50) >> 2) & 1 : #Si c'est juste input voltage error, la valeur est ok
+                                value = dxl.toSigned(value,size*8)
+                                self.get_logger().warn(f"Uvalue={value}")
+                                return value
                     else :
-                        self.get_logger().warn(f"DXL error for ID {ID} address {address} : {self.packetHandler.getRxPacketError(dxl_error)} (error:{dxl_error} / value:{value})")
+                        self.get_logger().warn(f"DXL read error for ID {ID} address {address} : {self.packetHandler.getRxPacketError(dxl_error)} (error:{dxl_error} / value:{value})")
             else:
                 value = dxl.toSigned(value,size*8)
                 return value
@@ -265,6 +279,7 @@ class Actuators(Node):
             self.get_logger().warn(f"Unable to readValue on all DXL at the same time (ID=254)")
         else :
             self.get_logger().warn(f"ID {ID} is not in connected_XL320 or connected_XL430")
+        self.get_logger().warn(f"Value : -1 for ID {ID} address {address}")
         return -1
 
     def writeValue(self, size, ID, address, value):
@@ -310,7 +325,7 @@ class Actuators(Node):
                         self.readValue(1,ID,50)
                         return
 
-                self.get_logger().error(f"DXL error for ID {ID} address {address} (value {value}) : {error_msg}")
+                self.get_logger().error(f"DXL write error for ID {ID} address {address} (value {value}) : {error_msg}")
                 if(error_msg == "[RxPacketError] The data value exceeds the limit value!"):
                     self.get_logger().error(f"value :{value}  size :{size}")
 
@@ -639,8 +654,10 @@ class Actuators_robotrouge(Actuators):
             )
             pos = transform.dot(pos)
 
-        x = pos[0]
-        y = pos[1]
+        x = pos[0]*1000
+        y = pos[1]*1000
+
+        self.get_logger().warn(f"Take disk at x={x} y={y} with arm {side}")
 
         if not arm.putArmOnDisk(x,y) :
             self.get_logger().warn("Cannot takeDisk")
@@ -796,7 +813,7 @@ class Actuators_robotbleu(Actuators):
 
     def init_actuators(self):
         self.sendRebootCommand(254)  # 254 for broadcast
-        time.sleep(1)
+        time.sleep(2)
         self.ballSystem = dxl.ball_system(self)
         self.ballSystem.setTorque(True)
 

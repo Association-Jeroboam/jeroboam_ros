@@ -1,5 +1,6 @@
 import time
 import math
+import numpy as np
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType, IntegerRange
 
 CONTROL_MODE_WHEEL = 1
@@ -42,7 +43,7 @@ def toSigned(n,base):
         n1 = n & 0xffff
         n2 = n1 | (-(n1 & 0x8000))
     else :
-        self.node.get_logger().error(f"toSigned : error base ({base})")
+        print(f"toSigned : error base ({base})")
     return n2
 
 class XL320:
@@ -83,7 +84,7 @@ class XL320:
             return 0
         else :
             connected_XL320[self.ID] = self
-            self.node.get_logger().info(f"XL320 {self.ID} was well initialized (temp:{self.getPresentTemperature()}°C  Voltage:{self.getPresentVoltage()}V)")
+            self.node.get_logger().info(f"XL320 {self.ID} was well pinged (temp:{self.getPresentTemperature()}°C  Voltage:{self.getPresentVoltage()}V)")
             return 1
 
 
@@ -103,12 +104,26 @@ class XL320:
         self.setLED(2)
         self.isReady=True
    
+    def sendVolatileConfig(self):
+        if not self.ping() : return
+
+        self.isReady=False
+        self.setTorque(0)
+        self.setMaxTorque(self.maxTorque)
+        self.setMaxSpeed(self.maxSpeed)
+        self.setPunch(self.punch)
+        self.setPositionPID(self.pid_P,self.pid_I,self.pid_D)
+        self.setLED(2)
+        self.isReady=True
+
+
     def saveCurrentPosition(self, position, isRadian=False):
         if isRadian :
             position=int(position/rawToRad_XL320)
             
         if position < 0 :
-            self.node.get_logger().error(f"DXL {self.ID} : current_position cannot be negative ({position})")
+            if position != -1 :
+                self.node.get_logger().error(f"DXL {self.ID} : current_position cannot be negative ({position})")
             return
         
         if self.reverseRotation :
@@ -267,6 +282,8 @@ class XL320:
     def getPresentPosition(self):
         dxl_present_position = self.node.readValue(2, self.ID, 37)
         if dxl_present_position < 0 :   
+            if dxl_present_position == -1 :
+                return -1
             self.node.get_logger().error(f"DXL {self.ID} : current_position cannot be negative ({dxl_present_position})")
 
         if self.reverseRotation :
@@ -365,7 +382,7 @@ class XL430:
             return 0
         else :
             connected_XL430[self.ID] = self
-            self.node.get_logger().info(f"XL430 {self.ID} was well initialized (temp:{self.getPresentTemperature()}°C  Voltage:{self.getPresentVoltage()}V)")
+            self.node.get_logger().info(f"XL430 {self.ID} was well pinged (temp:{self.getPresentTemperature()}°C  Voltage:{self.getPresentVoltage()}V)")
             return 1
 
     def setAngleLimits(self, CW_Angle_Limit, CCW_Angle_Limit):
@@ -405,7 +422,7 @@ class XL430:
         self.P = P
         self.I = I
         self.D = D
-        self.node.get_logger().warn(f"ID {self.ID} : Setting PID ({P},{I},{D})")
+        self.node.get_logger().info(f"ID {self.ID} : Setting PID ({P},{I},{D})")
         self.node.sendGenericCommand(2, self.ID, 78, P)
         self.node.sendGenericCommand(2, self.ID, 76, I)
         self.node.sendGenericCommand(2, self.ID, 80, D)
@@ -437,6 +454,7 @@ class XL430:
 
     def getPresentPosition(self):
         dxl_present_position = self.node.readValue(4, self.ID, 132)
+
         #dxl_present_position-=self.offset
         self.saveCurrentPosition(dxl_present_position)
         return dxl_present_position
@@ -575,17 +593,19 @@ class bras:
 
     def putArmOnDisk(self,x,y):
         #calcul du meilleur point sur le cercle où placer la ventouse
-        for point in points_sur_cercle(x,y,33,36):
+        self.node.get_logger().warn(f"putArmDisk at x={x} y={y}")
+
+        for point in self.points_sur_cercle(x,y,33,36):
             angles = self.xy2angles(point[0],point[1],False)
             if angles:
                 dist=sum(angles)
-                if closest_point :
+                if "closest_point" in locals() :
                     if closest_point[3] > dist :
                         closest_point=[point[0],point[1],point[2],dist]
                 else:
                     closest_point=[point[0],point[1],point[2],dist]
         
-        if not closest_point :
+        if not "closest_point" in locals() :
             self.node.get_logger().warn(f"No point reachable")
             return 0
         
@@ -611,9 +631,9 @@ class bras:
         return 1
 
 
-    def points_sur_cercle(X, Y, R, nb_points):
+    def points_sur_cercle(self,X, Y, R, nb_points):
         points = []
-        for angle in range(0,360,360/nb_points):
+        for angle in np.arange(0,360,360/nb_points):
             # Calcul des coordonnées du point
             x = X + R * math.cos(math.radians(angle))
             y = Y + R * math.sin(math.radians(angle))
@@ -626,6 +646,10 @@ class bras:
     def xy2angles(self,x_sucker,y_sucker,verbose=True):
         h1 = 54  # entraxe A et B
         h2 = 91  # entraxe B et ventouse
+
+        x_sucker=round(x_sucker,2)
+        y_sucker=round(y_sucker,2)
+
         if math.sqrt(x_sucker**2 + y_sucker**2) > (h1 + h2):
             if verbose : self.node.get_logger().warning(f"Point trop distant pour être atteint par le bras ({x_sucker};{y_sucker})")
             return []
@@ -647,8 +671,12 @@ class bras:
         xB2 = (2 * a * c + math.sqrt(d)) / (2 * (a**2 + b**2))
 
         if y_sucker == 0:
-            yB1 = b / 2 + math.sqrt(h2**2 - ((2 * c - a**2) / (2 * a)) ** 2)
-            yB2 = b / 2 - math.sqrt(h2**2 - ((2 * c - a**2) / (2 * a)) ** 2)
+            temp=(h2**2 - ((2 * c - a**2) / (2 * a)) ** 2)
+            if temp < 0 :
+                self.node.get_logger().error(f"sqrt impossible sur nombre negatif ({temp}). a={a}  b={b}  c={c}  d={d}  x_sucker={x_sucker}  y_sucker={y_sucker}")
+                return []
+            yB1 = b / 2 + math.sqrt(temp)
+            yB2 = b / 2 - math.sqrt(temp)
         else:
             yB1 = (c - a * xB1) / b
             yB2 = (c - a * xB2) / b
@@ -823,7 +851,7 @@ class bras:
         
         self.slider.setTorque(1)
         self.slider.setGoalPosition(1000000)
-        self.slider.waitMoveEnd(8)
+        self.slider.waitMoveEnd(2)
 
         pos = self.slider.getPresentPosition()
         self.setTorque(0)
