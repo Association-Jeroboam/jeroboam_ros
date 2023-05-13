@@ -21,7 +21,7 @@ using namespace std::chrono_literals;
 int send_can_frame(struct can_frame * frame) {
     int32_t res = write(canIFace, frame, sizeof(struct can_frame)) ;
     if (res != sizeof(struct can_frame)) {
-        RCLCPP_ERROR(rclcpp::get_logger("CanBridge"), "send_can_frame Write ERROR %d != %d", sizeof(struct can_frame), errno    );
+        RCLCPP_ERROR(rclcpp::get_logger("CanBridge"), "send_can_frame Write ERROR %ld != %d", sizeof(struct can_frame), errno);
         return 1;
     }
 

@@ -24,7 +24,6 @@
 #include "jrb_msgs/msg/pid_state.hpp"
 #include "jrb_msgs/msg/pid_config.hpp"
 #include "jrb_msgs/msg/adaptative_pid_config.hpp"
-#include "jrb_msgs/msg/motion_config.hpp"
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>

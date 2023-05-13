@@ -30,7 +30,6 @@
 #include "jrb_msgs/msg/pid_state.hpp"
 #include "jrb_msgs/msg/pid_config.hpp"
 #include "jrb_msgs/msg/adaptative_pid_config.hpp"
-#include "jrb_msgs/msg/motion_config.hpp"
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -114,8 +113,6 @@ class CanBridge : public rclcpp::Node
 
     void valveRightCB(const std_msgs::msg::Bool::SharedPtr msg);
 
-    void motionConfigCB( const jrb_msgs::msg::MotionConfig msg);
-
     void servoAngleCB (const jrb_msgs::msg::ServoAngle msg);
 
     void servoConfigCB (const jrb_msgs::msg::ServoConfig msg);
@@ -153,7 +150,6 @@ class CanBridge : public rclcpp::Node
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr right_valve_sub;
     rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr left_adapt_pid_conf_sub;
     rclcpp::Subscription<jrb_msgs::msg::AdaptativePIDConfig>::SharedPtr right_adapt_pid_conf_sub;
-    rclcpp::Subscription<jrb_msgs::msg::MotionConfig>::SharedPtr motion_config_sub;
     rclcpp::Subscription<jrb_msgs::msg::ServoAngle>::SharedPtr   servo_angle_sub;
     rclcpp::Subscription<jrb_msgs::msg::ServoConfig>::SharedPtr  servo_config_sub;
     rclcpp::Subscription<std_msgs::msg::UInt8>::SharedPtr      servo_reboot_sub;
