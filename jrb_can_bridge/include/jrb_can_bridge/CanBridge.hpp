@@ -21,6 +21,7 @@
 #include "std_msgs/msg/u_int16.hpp"
 #include "std_msgs/msg/u_int8.hpp"
 #include "std_msgs/msg/bool.hpp"
+#include "std_msgs/msg/float32_multi_array.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
@@ -37,8 +38,8 @@
 #include <linux/can/raw.h>
 #include "canard.h"
 #include "Heartbeat_1_0.h"
-#include "cartesian/State_0_1.h"
-#include "cartesian/Twist_0_1.h"
+#include "State2D_1_0.h"
+#include "Twist2D_1_0.h"
 #include "CanProtocol.hpp"
 #include "PIDState_0_1.h"
 #include "PumpStatus_0_1.h"
@@ -73,12 +74,14 @@ class CanBridge : public rclcpp::Node
     CanBridge();
 
     void init();
+    void initSubs();
+    void initPubs();
 
     void setAdaptPidParam(std::string side, std::string threshold, std::string param_name, double value);
 
     rcl_interfaces::msg::SetParametersResult parametersCallback(const std::vector<rclcpp::Parameter> &parameters);
   
-    void publishRobotCurrentState(reg_udral_physics_kinematics_cartesian_State_0_1 * state);
+    void publishRobotCurrentState(jeroboam_datatypes_sensors_odometry_State2D_1_0 * state);
     void publishLeftPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1* pid);
     void publishRightPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1* pid);
     void publishLeftPumpStatus(jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 * status);
@@ -125,6 +128,8 @@ class CanBridge : public rclcpp::Node
 
     void turbineSpeedCB (const std_msgs::msg::UInt16 msg);
 
+    void pwmCommandCB (const std_msgs::msg::Float32MultiArray msg);
+
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr       odom_pub;
     rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       left_pid_pub;
@@ -155,6 +160,8 @@ class CanBridge : public rclcpp::Node
     rclcpp::Subscription<jrb_msgs::msg::MotionSpeedCommand>::SharedPtr             motion_speed_command_sub;
 
     rclcpp::Subscription<std_msgs::msg::UInt16>::SharedPtr       turbine_speed_sub;
+
+    rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr pwm_command_sub;
 
     OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
 

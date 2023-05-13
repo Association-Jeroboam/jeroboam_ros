@@ -20,6 +20,7 @@ find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(jrb_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 add_definitions(-DNDEBUG)
 
@@ -134,11 +135,13 @@ add_executable(jrb_can_bridge
   src/CanBridgeTx.cpp
   src/CanBridgeRx.cpp
   src/CanBridge.cpp
+  src/CanBridgePublishers.cpp
+  src/CanBridgeCallbacks.cpp
   src/LinuxCan.cpp
   src/param_utils.cpp
   CanProtocol/Cyphal/libcanard/libcanard/canard.c
 )
-ament_target_dependencies(jrb_can_bridge rclcpp std_msgs nav_msgs geometry_msgs jrb_msgs tf2_ros)
+ament_target_dependencies(jrb_can_bridge rclcpp std_msgs nav_msgs geometry_msgs jrb_msgs tf2_ros tf2_geometry_msgs)
 target_include_directories(jrb_can_bridge PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)

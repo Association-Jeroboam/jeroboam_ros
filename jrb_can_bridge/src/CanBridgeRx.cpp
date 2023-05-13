@@ -122,10 +122,10 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
           frameErrorCount++;
           RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: Transfer lost! " << last_transfer_id << " " << transfer->metadata.transfer_id << ". rate " << (float)frameErrorCount/(float)frameCount);
       }
-
+  
       last_transfer_id = transfer->metadata.transfer_id;
-      reg_udral_physics_kinematics_cartesian_State_0_1 state;
-      int8_t res = reg_udral_physics_kinematics_cartesian_State_0_1_deserialize_(&state,
+      jeroboam_datatypes_sensors_odometry_State2D_1_0 state;
+      int8_t res = jeroboam_datatypes_sensors_odometry_State2D_1_0_deserialize_(&state,
                                                                   (uint8_t *)transfer->payload,
                                                                   &transfer->payload_size);
       if (res != NUNAVUT_SUCCESS) {
