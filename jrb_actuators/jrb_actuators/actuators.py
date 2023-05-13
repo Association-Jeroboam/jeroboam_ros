@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 USB_BOARD = True
-MIN_TIME_BETWEEN_COM = 0.006 #seconds
+MIN_TIME_BETWEEN_COM = 0.007 #seconds
 
+import os
 from re import A
 import traceback
 from rclpy.node import Node
@@ -12,22 +13,17 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDur
 from geometry_msgs.msg import PoseStamped
 from jrb_msgs.msg import (
     StackSample,
-    PumpStatus,
-    ValveStatus,
-    ServoStatus,
-    ServoConfig,
     ServoAngle,
     ServoGenericCommand,
-    ServoID,
-    BoolArray,
     ArmStatus,
+    SimplifiedGoalStatus,
+
 )
-from std_msgs.msg import Bool, Float32, Int8, Int16, UInt16
+from std_msgs.msg import Bool, Int8, Int16, UInt16, UInt8, String
 from jrb_actuators.lib import dxl
 import time
 import numpy as np
 from functools import partial
-from sensor_msgs.msg import JointState
 from tf_transformations import (
     concatenate_matrices,
     translation_matrix,
@@ -39,15 +35,12 @@ import math
 
 if USB_BOARD : from dynamixel_sdk import *
 
-def speed2rapportCyclique(speed):
-    # speed entre -100 et 100
-    # Si speed < 0 alors voltage A > voltage B
-    return 0.025 * speed + 7
-            
 class Actuators(Node):
     def __init__(self):
         super().__init__("actuators")
         self.get_logger().info("init")
+
+        self.actuatorsInitialized = False
 
         # Tf subscriber
         self.tf_buffer = Buffer()
@@ -63,32 +56,78 @@ class Actuators(Node):
 
         if USB_BOARD :
             self.get_logger().info("Using USB board for dynamixel control")
-            self.servo_angle_publish_timer = self.create_timer( 0.5, self.on_servo_angle_publish_timer)
+            self.servo_angle_publish_timer = self.create_timer(0.5, self.on_servo_angle_publish_timer)
             self.pub_servo_angle = self.create_publisher(ServoAngle, "servo_angle", 10 )
             self.initHandlers("/dev/dxl", 57600, 2.0)
         else :
             self.get_logger().info("Using can bus for dynamixel control")    
             self.pub_generic_command = self.create_publisher(ServoGenericCommand, "servo_generic_command", qos_profile)
-            self.pub_reboot_command = self.create_publisher(ServoID, "servo_reboot", qos_profile)
-        
-        self.init_actuators()
+            self.pub_reboot_command = self.create_publisher(UInt8, "servo_reboot", qos_profile)
+            self.sub_servo_angle = self.create_subscription(ServoAngle, "servo_angle", self.servoAngle_cb, 10) #pas besoin en usb car actuators connais déjà la position
 
-        self.sub_servo_angle = self.create_subscription(ServoAngle, "servo_angle", self.servoAngle_cb, 10)
+        self.sub_action_launch = self.create_subscription(String, "actuators/generic_action_launch", self.actionLaunch_cb, qos_profile)
+
+        self.pub_action_status = self.create_publisher(SimplifiedGoalStatus, "actuators/generic_action_status", qos_profile)
+        self.action_status_publish_timer = self.create_timer(0.2, self.on_action_status_publish_timer)
+
+        self.actions_running = {}
 
     def __del__(self):
         dxl.setTorque4All(self, 0)
 
     def on_servo_angle_publish_timer(self):
+        if not self.actuatorsInitialized :
+            return
         msg = ServoAngle()
+        servo_to_remove = []
+
         for servo_id in dxl.connected_XL320 :
             if dxl.connected_XL320[servo_id].isReady :
                 value=dxl.connected_XL320[servo_id].getPresentPosition()
                 if value != -1 :
                     msg.id = servo_id
-                    msg.radian = value*dxl.rawToRad
+                    msg.radian = value*dxl.rawToRad_XL320
                     self.pub_servo_angle.publish(msg)
                 else :
-                    self.get_logger().warn(f"Dynamixel {servo_id} seems not connected")
+                    self.get_logger().error(f"Unable to communicate with DXL {servo_id}")
+                    servo_to_remove.append(servo_id)
+
+        for servo_id in dxl.connected_XL430 :
+            if dxl.connected_XL430[servo_id].isReady :
+                value=dxl.connected_XL430[servo_id].getPresentPosition()
+                if value != -1 :
+                    msg.id = servo_id
+                    msg.radian = float(value) #*dxl.rawToRad_XL430
+                    self.pub_servo_angle.publish(msg)
+                else :
+                    self.get_logger().error(f"Unable to communicate with DXL {servo_id}")
+                    servo_to_remove.append(servo_id)
+
+        for servo  in servo_to_remove :
+            #del dxl.connected_XL320[servo]
+            pass
+
+    def on_action_status_publish_timer(self):
+        msg =  SimplifiedGoalStatus()
+        actions_to_close = []
+        for action_name, servos in self.actions_running.items() :
+            msg.action_name = action_name
+            msg.status = SimplifiedGoalStatus.STATUS_SUCCEEDED
+            for servo in servos :
+                if not servo.torque :
+                    msg.status = SimplifiedGoalStatus.STATUS_ABORTED
+                    actions_to_close.append(action_name)
+                    break
+                elif not servo.target_reached :
+                    msg.status = SimplifiedGoalStatus.STATUS_EXECUTING
+                    #self.get_logger().info(f"XL320 with ID {servo.ID} has gap of {abs(servo.radian_target-servo.radian_state)}.")
+                    break
+            if msg.status == SimplifiedGoalStatus.STATUS_SUCCEEDED :
+                actions_to_close.append(action_name)
+                #self.get_logger().info(f"Action {action_name} succeed !")
+            self.pub_action_status.publish(msg)
+        for name in actions_to_close :
+            del self.actions_running[name]
 
     def initHandlers(self, DEVICENAME, BAUDRATE, PROTOCOL_VERSION):
         # Initialize PortHandler instance
@@ -116,6 +155,20 @@ class Actuators(Node):
         else:
             self.get_logger().error("Failed to change the baudrate")
             return
+
+    def pingDXL(self,DXL_ID):
+        PROTOCOL_VERSION=2
+        dxl_model_number, dxl_comm_result, dxl_error = self.packetHandler.ping(self.portHandler,DXL_ID)
+        if dxl_comm_result != COMM_SUCCESS:
+            #self.get_logger().error("%s" % self.packetHandler.getTxRxResult(dxl_comm_result))
+            pass
+        elif dxl_error != 0:
+            #self.get_logger().error("%s" % self.packetHandler.getRxPacketError(dxl_error))
+            pass
+        else:
+            #self.get_logger().info("[ID:%03d] ping Succeeded. Dynamixel model number : %d" % (DXL_ID, dxl_model_number))
+            pass
+        return dxl_model_number
 
     def readValue(self, size, ID, address):
         if ( ID in dxl.connected_XL320 ) or ( ID in dxl.connected_XL430 ):
@@ -164,7 +217,8 @@ class Actuators(Node):
                 return -1
 
             if dxl_comm_result != COMM_SUCCESS:
-                self.get_logger().warn(f"Comm_result for ID {ID} address {address} : {self.packetHandler.getTxRxResult(dxl_comm_result)}")
+                if address != 37:
+                    self.get_logger().warn(f"Comm_result for ID {ID} address {address} : {self.packetHandler.getTxRxResult(dxl_comm_result)}")
                 pass
             elif dxl_error != 0:
                 if ID in dxl.connected_XL320 : #C'est pas un XL430
@@ -180,6 +234,8 @@ class Actuators(Node):
             else:
                 value = dxl.toSigned(value,size*8)
                 return value
+        elif ID==254 :
+            self.get_logger().warn(f"Unable to readValue on all DXL at the same time (ID=254)")
         else :
             self.get_logger().warn(f"ID {ID} is not in connected_XL320 or connected_XL430")
         return -1
@@ -227,7 +283,10 @@ class Actuators(Node):
                 self.get_logger().error(f"DXL error for ID {ID} address {address} (value {value}) : {error_msg}")
                 if(error_msg == "[RxPacketError] The data value exceeds the limit value!"):
                     self.get_logger().error(f"value :{value}  size :{size}")
-                    
+
+            #readValue = self.readValue(size,ID,address)
+            #if readValue != value :
+            #    self.get_logger().error(f"Write error for DXL ID {ID} address {address} (value sent {value} / value read {readValue})")
 
     def sendGenericCommand(self, len_, id, addr, data):
         while time.time() - self.last_com_time < MIN_TIME_BETWEEN_COM :
@@ -272,24 +331,31 @@ class Actuators(Node):
     def sendRebootCommand(self, id):
         if USB_BOARD :
                 self.packetHandler.reboot(self.portHandler, id)
+                time.sleep(2)
         else :
-            msg = ServoID()
-            msg.id = id
+            msg = UInt8()
+            msg.data = id
             self.pub_reboot_command.publish(msg)
 
     def servoAngle_cb(self, msg: ServoAngle):
         if msg.id in dxl.connected_XL320:
-            dxl.connected_XL320[msg.id].setRadianState(msg.radian)
+            dxl.connected_XL320[msg.id].saveCurrentPosition(msg.radian,isRadian=True)
             #self.get_logger().info(f"XL320 with ID {msg.id} is at {msg.radian} radians.")
         else:
             self.get_logger().debug(f"XL320 with ID {msg.id} is unknown.")
 
-    def init_actuators(self):
-        pass
+    def actionLaunch_cb(self, msg : String):
+        if msg.data[0] == "/" : # Abort the action requested by the server
+            action_name=msg.data.lstrip('/')
+            if action_name in self.actions_running :
+                del self.actions_running[action_name]
+        else :
+            self.get_logger().warn("Cannot launch unknown action")
 
 class Actuators_robotrouge(Actuators):
     def __init__(self):
         super().__init__()
+        self.get_logger().info("robotrouge")
 
         self.pub_arm_state_left = self.create_publisher(
             ArmStatus, "arm_state_left", 10
@@ -299,43 +365,54 @@ class Actuators_robotrouge(Actuators):
             ArmStatus, "arm_state_right", 10
         )
 
-        self.pub_pump_left = self.create_publisher(PumpStatus, "left_pump_status", 10)
+        self.pub_pump_left = self.create_publisher(
+            Bool, "/hardware/pump/left/set_status", 10
+        )
 
-        self.pub_pump_right = self.create_publisher(PumpStatus, "right_pump_status", 10)
+        self.pub_pump_right = self.create_publisher(
+            Bool, "/hardware/pump/right/set_status", 10)
 
         self.pub_valve_left = self.create_publisher(
-            ValveStatus, "left_valve_status", 10
+            Bool, "/hardware/valve/left/set_status", 10
         )
 
         self.pub_valve_right = self.create_publisher(
-            ValveStatus, "right_valve_status", 10
+            Bool, "/hardware/valve/right/set_status", 10
         )
 
+        # Subscribers
         self.sub_left_arm = self.create_subscription(
-            PoseStamped, "left_arm_goto", partial(self.arm_goto_cb, "left"), 10
+            PoseStamped, "/actuators/arm/left/go_to", partial(self.arm_goto_cb, "left"), 10
         )
 
         self.sub_right_arm = self.create_subscription(
-            PoseStamped, "right_arm_goto", partial(self.arm_goto_cb, "right"), 10
+            PoseStamped, "/actuators/arm/right/go_to", partial(self.arm_goto_cb, "right"), 10
         )
 
-        self.sub_rakes = self.create_subscription(Bool, "open_rakes", self.rakes_cb, 10)
+        self.sub_rakes = self.create_subscription(
+            Bool, "/actuators/set_open_rakes", self.rakes_cb, 10
+        )
 
         self.sub_pump_left = self.create_subscription(
-            Bool, "pump_left", partial(self.pump_cb, "left"), 10
-        )
-        self.sub_pump_right = self.create_subscription(
-            Bool, "pump_right", partial(self.pump_cb, "right"), 10
+            Bool, "/actuators/pump/left/set_enabled", partial(self.pump_cb, "left"), 10
         )
 
-        self.sub_stack_sample = self.create_subscription(
-            StackSample, "stack_sample", self.stackSample_cb, 10
+        self.sub_pump_right = self.create_subscription(
+            Bool, "/actuators/pump/right/set_enabled", partial(self.pump_cb, "right"), 10
         )
+
+        # TODO: @lucas see if this is still relevant
+        # self.sub_stack_sample = self.create_subscription(
+        #     StackSample, "stack_sample", self.stackSample_cb, 10
+        # )
 
         arm_publish_state_rate = 1 / 2  # Hz
         self.arm_state_publish_timer = self.create_timer(arm_publish_state_rate, self.on_arm_state_publish_timer)
 
         self.arm_state_msg = ArmStatus()
+
+        self.init_actuators()
+
         self.get_logger().info("init OK")
 
     def __del__(self):
@@ -368,12 +445,11 @@ class Actuators_robotrouge(Actuators):
     def init_actuators(self):
         # self.last_sending=time.time()
         self.sendRebootCommand(254)  # 254 for broadcast
-        time.sleep(1)
-
-        self.left_arm = dxl.bras(self, "left", 16, 14, 22, 2, 8, 101)  # gauche
-        self.right_arm = dxl.bras(self,"right",3, 4, 10, 9, 11, 100) #droit
 
         self.rateaux = dxl.rakes(self,7, 15, 5, 18)
+
+        self.left_arm = dxl.bras(self, "left", 16, 14, 22, 1, 8, 101)  # gauche
+        self.right_arm = dxl.bras(self,"right",3, 4, 10, 9, 11, 100) #droit
 
         # centre reservoir : 112.75 ; -22.5
         x = 112.75
@@ -384,13 +460,13 @@ class Actuators_robotrouge(Actuators):
         # self.rateaux.setTorque(1)
         # self.rateaux.close()
         self.stopPump("left")
-        #self.left_arm.setTorque(1)
+        self.left_arm.setTorque(1)
         # self.right_arm.setTorque(1)
         #self.left_arm.setArmPosition(20, 120)
         # self.right_arm.setArmPosition(-20,120)
         #time.sleep(1)
-        # self.left_arm.initSlider()
-        # self.right_arm.initSlider()
+        self.left_arm.initSlider()
+        self.right_arm.initSlider()
         #self.left_arm.setTorque(1)
         # self.right_arm.setTorque(1)
         # self.rateaux.open()
@@ -399,6 +475,10 @@ class Actuators_robotrouge(Actuators):
         # self.storeArm("right")
         #time.sleep(2)
         # self.cycle_cool()
+        self.left_arm.slider.setTorque(True)
+        self.right_arm.slider.setTorque(True)
+        self.actuatorsInitialized = True
+        self.right_arm.setSliderPosition_mm(100)
 
     def cycle_cool(self):
         while True:
@@ -406,24 +486,21 @@ class Actuators_robotrouge(Actuators):
             self.returnSample("left")
 
     def startPump(self, side):
-        # self.serial_actionBoard.write(("pump "+side+" 1\r").encode('utf-8'))
-        pump_msg = PumpStatus()
-        pump_msg.enabled = True
-        if side == "left":
+        #self.serial_actionBoard.write(("pump "+side+" 1\r").encode('utf-8'))
+        pump_msg=Bool(data=True)
+        if side == "left" :
             self.pub_pump_left.publish(pump_msg)
         else:
             self.pub_pump_right.publish(pump_msg)
 
     def stopPump(self, side):
-        # self.serial_actionBoard.write(("valve "+side+" 1\r").encode('utf-8'))
-        # self.serial_actionBoard.write(("pump "+side+" 0\r").encode('utf-8'))
-        # time.sleep(0.1)
-        # self.serial_actionBoard.write(("valve "+side+" 0\r").encode('utf-8'))
-        pump_msg = PumpStatus()
-        valve_msg = ValveStatus()
-        pump_msg.enabled = False
-        valve_msg.enabled = True
-        if side == "left":
+        #self.serial_actionBoard.write(("valve "+side+" 1\r").encode('utf-8'))
+        #self.serial_actionBoard.write(("pump "+side+" 0\r").encode('utf-8'))
+        #time.sleep(0.1)
+        #self.serial_actionBoard.write(("valve "+side+" 0\r").encode('utf-8'))
+        pump_msg=Bool(data=False)
+        valve_msg=Bool(data=True)
+        if side == "left" :
             self.pub_pump_left.publish(pump_msg)
             self.pub_valve_left.publish(valve_msg)
         else:
@@ -460,7 +537,7 @@ class Actuators_robotrouge(Actuators):
         z = pos[2]
 
         z = 0 if z < 0 else z
-        z = 0.230 if z > 0.230 else z
+        z = 0.215 if z > 0.215 else z
 
         self.get_logger().info(
             f"[GOTO] {side} ({x}, {y}, {z}) ({math.degrees(msg.pose.orientation.y)}, {math.degrees(msg.pose.orientation.x)}, {math.degrees(msg.pose.orientation.z)})"
@@ -474,7 +551,7 @@ class Actuators_robotrouge(Actuators):
                 math.degrees(msg.pose.orientation.x),
                 math.degrees(msg.pose.orientation.z),
             )
-            # self.right_arm.setSliderPosition_mm(z * 1000)
+            self.right_arm.setSliderPosition_mm(z * 1000)
         elif side == "left":
             self.left_arm.setArmPosition(
                 x * 1000,
@@ -483,7 +560,7 @@ class Actuators_robotrouge(Actuators):
                 math.degrees(msg.pose.orientation.x),
                 math.degrees(msg.pose.orientation.z),
             )
-            # self.left_arm.setSliderPosition_mm(z * 1000)
+            self.left_arm.setSliderPosition_mm(z * 1000)
 
     def stackSample_cb(self, msg: StackSample):
         self.stackSample(msg.side, msg.sample_index)
@@ -621,10 +698,13 @@ class Actuators_robotrouge(Actuators):
 class Actuators_robotbleu(Actuators):
     def __init__(self):
         super().__init__()
+        self.get_logger().info("robotbleu")
 
         self.sub_roll_speed = self.create_subscription(Int8, "hardware/roll/speed", self.roll_speed_cb, 10)
         self.sub_roll_height = self.create_subscription(Int16, "hardware/roll/height", self.roll_height_cb, 10)
         self.sub_turbine_speed = self.create_subscription(UInt16, "hardware/turbine/speed", self.turbine_speed_cb, 10)
+
+        self.init_actuators()
         self.get_logger().info("init OK")
 
     def init_actuators(self):
@@ -632,6 +712,34 @@ class Actuators_robotbleu(Actuators):
         time.sleep(1)
         self.ballSystem = dxl.ball_system(self)
         self.ballSystem.setTorque(True)
+
+        self.actuatorsInitialized = True
+
+    def actionLaunch_cb(self, msg : String):
+        if msg.data[0] == "/" : # Abort the action requested by the server
+            action_name=msg.data.lstrip('/')
+            if action_name in self.actions_running :
+                del self.actions_running[action_name]
+
+        # Roller height
+        elif msg.data == "SET_ROLLER_UP" :
+            self.actions_running[msg.data] = self.ballSystem.setRollerUp()
+        elif msg.data == "SET_ROLLER_DOWN" :
+            self.actions_running[msg.data] = self.ballSystem.setRollerDown()
+        elif msg.data == "SET_ROLLER_MIDDLE" :
+            self.actions_running[msg.data] = self.ballSystem.setRollerMiddle()
+
+        # Roller speed
+        elif msg.data == "START_ROLLER_IN" :
+            self.actions_running[msg.data] = self.ballSystem.startRoller_in()
+        elif msg.data == "START_ROLLER_OUT" :
+            self.actions_running[msg.data] = self.ballSystem.startRoller_out()
+        elif msg.data == "STOP_ROLLER" :
+            self.actions_running[msg.data] = self.ballSystem.stopRoller()
+        
+        # Other
+        else :
+            self.get_logger().warn(f"Cannot launch unknown action ({msg.data})")    
 
     def roll_speed_cb(self, msg: Int8):
         if msg.data == 1 :
@@ -658,9 +766,12 @@ class Actuators_robotbleu(Actuators):
 
 def main(args=None):
     rclpy.init(args=args)
-    # node = Actuators()
-    
-    node = Actuators_robotbleu()
+
+    if not os.environ.get("ROBOT_NAME"):
+        logger.warn("ROBOT_NAME is not set, default to robotrouge")
+        os.environ["ROBOT_NAME"] = "robotrouge"
+
+    node =  Actuators_robotbleu() if os.environ.get('ROBOT_NAME') == 'robotbleu' else Actuators_robotrouge()
 
     try:
         rclpy.spin(node)

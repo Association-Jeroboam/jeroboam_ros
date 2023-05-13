@@ -24,12 +24,10 @@ set(msg_files
   "msg/OdometryTicks.msg"
   "msg/PIDConfig.msg"
   "msg/PIDState.msg"
-  "msg/PumpStatus.msg"
   "msg/SampleDetected.msg"
   "msg/SampleDetectedArray.msg"
   "msg/ServoAngle.msg"
   "msg/ServoConfig.msg"
-  "msg/ServoID.msg"
   "msg/ServoGenericCommand.msg"
   "msg/ServoGenericRead.msg"
   "msg/ServoGenericReadResponse.msg"
@@ -37,11 +35,12 @@ set(msg_files
   "msg/SliderPosition.msg"
   "msg/SliderConfig.msg"
   "msg/SliderStatus.msg"
-  "msg/ValveStatus.msg"
   "msg/StackSample.msg"
   "msg/BoolArray.msg"
   "msg/ArmStatus.msg"
+  "msg/SimplifiedGoalStatus.msg"
   "action/GoToPose.action"
+  "action/EmptyAction.action"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

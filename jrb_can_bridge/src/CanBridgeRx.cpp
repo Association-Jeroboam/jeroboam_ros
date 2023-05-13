@@ -22,8 +22,6 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 #include "jrb_msgs/msg/pid_state.hpp"
-#include "jrb_msgs/msg/pump_status.hpp"
-#include "jrb_msgs/msg/valve_status.hpp"
 #include "jrb_msgs/msg/pid_config.hpp"
 #include "jrb_msgs/msg/adaptative_pid_config.hpp"
 #include "jrb_msgs/msg/motion_config.hpp"
@@ -107,6 +105,11 @@ void* checkRxMsg(void*) {
 }
 
 void publishReceivedMessage(CanardRxTransfer * transfer) {
+  if (!canBridge.get()->init_done) {
+    RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: CanbBridge not initialized ");
+    return;
+  }
+
   static uint32_t last_transfer_id = 0;
   static uint64_t frameCount = 0;
   static uint64_t frameErrorCount = 0;

@@ -108,7 +108,7 @@ class ArmTeleop(Node):
             elif value == "h": #homing
                 self.goto_msg.pose.pose.position.x = 0.0
                 self.goto_msg.pose.pose.position.y = 0.13
-                self.goto_msg.pose.pose.position.z = 0.200
+                self.goto_msg.pose.pose.position.z = 0.100
                 self.goto_msg.pose.pose.orientation.x = math.radians(90)
                 self.goto_msg.pose.pose.orientation.y = 0.0
                 self.goto_msg.pose.pose.orientation.z = 0.0

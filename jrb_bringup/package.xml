@@ -23,6 +23,9 @@
   <exec_depend>twist_mux</exec_depend>
   <exec_depend>navigation2</exec_depend>
   <exec_depend>nav2_bringup</exec_depend>
+  <exec_depend>joy</exec_depend>
+  <exec_depend>teleop-twist-joy</exec_depend>
+
   <exec_depend>jrb_actuators</exec_depend>
   <exec_depend>jrb_description</exec_depend>
   <exec_depend>jrb_hardware_bridge</exec_depend>

@@ -56,8 +56,8 @@ UNDERLAY=/opt/ros/humble
 
 ################# CHOOSE A MIDDLEWARE
 
-export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-# export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+# export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 # export RMW_IMPLEMENTATION=rmw_fastrtps_dynamic_cpp
 # export RMW_IMPLEMENTATION=rmw_gurumdds_cpp
 
@@ -94,6 +94,7 @@ fi
 
 ################# Runtime preferences
 
+export ROBOT_NAME=$(cat /etc/hostname)
 export ROS_DOMAIN_ID=42 # make this number different than your coworkers' to isolate your ROS from theirs
 # export COLCON_HOME=/opt/ros/_common/colcon
 # export COLCON_DEFAULTS_FILE=$PWD/colcon.yaml
@@ -120,6 +121,8 @@ export_alias() {
 
 export_alias b "cd ${ROS_WS_PATH} && pwd && colcon build --symlink-install"
 export_alias c "rm -rf ${ROS_WS_PATH}/{build,install,log}"
+export_alias r "ros2 launch jrb_bringup robotrouge.launch.py"
+export_alias k "output=\$(ps aux | grep -E 'ros/humble|jrb' | grep -v 'grep' | awk '{print \$2}'); if [ -z \"\$output\" ]; then echo 'No matching processes found'; else echo \$output | xargs kill; fi"
 export_alias rosdep_install "rosdep install -i --from-path ${ROS_WS_PATH}/src --rosdistro ${ROS_DISTRO} -y"
 
 python3 -c "
@@ -130,6 +133,6 @@ print('Python:', platform.python_implementation(), platform.python_version())
 print('   RMW:', os.environ.get('RMW_IMPLEMENTATION','?'))
 print('   ROS:', os.environ.get('ROS_DISTRO','distro?'))
 print('   DOMAIN_ID:', os.environ.get('ROS_DOMAIN_ID'))
-print('🤖 Welcome to ROS on', platform.node())
+print('🤖 ', os.environ.get('ROBOT_NAME'),' 🔴')
 print()
 "
