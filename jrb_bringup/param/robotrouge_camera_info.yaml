@@ -1,17 +1,17 @@
-image_width: 1280
-image_height: 720
-camera_name: webcam:_webcam
+image_width: 1920
+image_height: 1080
+camera_name: narrow_stereo
 camera_matrix:
   rows: 3
   cols: 3
-  data: [1532.310544, 0.          , 473.564903 ,
-          0.        , 1521.222457 , 314.656573 ,
-          0.        , 0.          , 1.         ]
+  data: [1475.74846,    0.     ,  813.16797,
+            0.     , 1470.79372,  501.1922 ,
+            0.     ,    0.     ,    1.     ]
 distortion_model: plumb_bob
 distortion_coefficients:
   rows: 1
   cols: 5
-  data: [-0.428682, 0.241646, 0.006020, 0.003566, 0.      ]
+  data: [-0.344157, 0.122988, -0.000456, 0.002635, 0.000000]
 rectification_matrix:
   rows: 3
   cols: 3
@@ -21,6 +21,6 @@ rectification_matrix:
 projection_matrix:
   rows: 3
   cols: 4
-  data: [1392.58313,   0.       , 451.023913,   0.     ,
-           0.      , 1482.136841, 313.631935,   0.     ,
-           0.      ,   0.       ,   1.      ,   0.     ]
+  data: [1226.30554,    0.     ,  769.20076,    0.     ,
+            0.     , 1393.86768,  496.25823,    0.     ,
+            0.     ,    0.     ,    1.     ,    0.     ]
