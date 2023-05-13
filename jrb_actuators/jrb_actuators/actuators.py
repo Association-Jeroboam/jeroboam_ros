@@ -82,8 +82,9 @@ class Actuators(Node):
         dxl.setTorque4All(self, 0)
 
     def on_servo_angle_publish_timer(self):
-        if not self.actuatorsInitialized :
+        if self.emergency or not self.actuatorsInitialized:
             return
+
         msg = ServoAngle()
         servo_to_remove = []
 
@@ -116,9 +117,9 @@ class Actuators(Node):
     def on_action_status_publish_timer(self):
         msg =  SimplifiedGoalStatus()
         actions_to_close = []
-        if self.emergency :
+        if self.emergency and len(self.actions_running) > 0:
             actions_to_close, servos = self.actions_running.items()
-            msg.status = SimplifiedGoalStatus.STATUS_SUCCEEDED
+            msg.status = SimplifiedGoalStatus.STATUS_ABORTED
         for action_name, servos in self.actions_running.items() :
             msg.action_name = action_name
             msg.status = SimplifiedGoalStatus.STATUS_SUCCEEDED
@@ -166,7 +167,9 @@ class Actuators(Node):
             return
 
     def pingDXL(self,DXL_ID):
-        if self.emergency : return
+        if self.emergency: 
+            return
+
         PROTOCOL_VERSION=2
         dxl_model_number, dxl_comm_result, dxl_error = self.packetHandler.ping(self.portHandler,DXL_ID)
         if dxl_comm_result != COMM_SUCCESS:
@@ -181,7 +184,9 @@ class Actuators(Node):
         return dxl_model_number
 
     def readValue(self, size, ID, address):
-        if self.emergency : return
+        if self.emergency: 
+            return
+
         if ( ID in dxl.connected_XL320 ) or ( ID in dxl.connected_XL430 ):
             while time.time() - self.last_com_time < MIN_TIME_BETWEEN_COM :
                 pass
@@ -252,7 +257,9 @@ class Actuators(Node):
         return -1
 
     def writeValue(self, size, ID, address, value):
-        if self.emergency : return
+        if self.emergency: 
+            return
+
         if ( ID in dxl.connected_XL320 ) or ( ID in dxl.connected_XL430 ) or ID==254:
             value=dxl.toUnsigned(value,size*8)
             #self.get_logger().info(f"Writing on ID {ID}  address {address}  value {value}  size {size}")
@@ -367,16 +374,24 @@ class Actuators(Node):
             self.get_logger().warn("Cannot launch unknown action")
 
     def emergency_cb(self, msg : Bool):
-        self.emergency=msg.data
-        if not msg.data :
+        self.emergency = msg.data
+
+        if self.emergency:
+            self.actuatorsInitialized = False
+    
+        if not self.emergency:
             self.sendRebootCommand(254)  # 254 for broadcast
             time.sleep(1)
+
             for servo_id in dxl.connected_XL320 :
                 dxl.connected_XL320[servo_id].sendConfig()
                 dxl.connected_XL320[servo_id].setTorque(True)
+
             for servo_id in dxl.connected_XL430 :
                 dxl.connected_XL430[servo_id].sendConfig()
                 dxl.connected_XL430[servo_id].setTorque(True)
+
+            self.actuatorsInitialized = True
             
 class Actuators_robotrouge(Actuators):
     def __init__(self):
