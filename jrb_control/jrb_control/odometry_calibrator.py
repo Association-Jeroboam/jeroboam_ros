@@ -63,7 +63,13 @@ class OdometryCalibratorNode(Node):
         self.pub.publish(self.twist_msg)
 
     def odometry_callback(self, msg: Odometry):
-        _, _, yaw = euler_from_quaternion(msg.pose.pose.orientation)
+        q = [
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w,
+        ]
+        _, _, yaw = euler_from_quaternion(q)
 
         if not self.odom_params_initialised:
             if yaw < 0:
