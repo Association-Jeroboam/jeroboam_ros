@@ -133,6 +133,13 @@ print('Python:', platform.python_implementation(), platform.python_version())
 print('   RMW:', os.environ.get('RMW_IMPLEMENTATION','?'))
 print('   ROS:', os.environ.get('ROS_DISTRO','distro?'))
 print('   DOMAIN_ID:', os.environ.get('ROS_DOMAIN_ID'))
-print('🤖 ', os.environ.get('ROBOT_NAME'),' 🔴')
+robot_name = os.environ.get('ROBOT_NAME')
+if robot_name == 'robotrouge':
+    emoji = ' 🔴'
+elif robot_name == 'robotbleu':
+    emoji = ' 🔵'
+else:
+    emoji = ' ⚪'
+print('🤖 ', robot_name.upper(), emoji)
 print()
 "
