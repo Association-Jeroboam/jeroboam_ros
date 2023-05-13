@@ -167,9 +167,6 @@ public:
     {
         if (fullscreen_)
         {
-            // Disable GNOME notifications
-            system("dconf write /org/gnome/desktop/notifications/show-banners false");
-            
             InitWindow(0, 0, "jeroboam_screen");
             ToggleFullscreen();
             HideCursor();
