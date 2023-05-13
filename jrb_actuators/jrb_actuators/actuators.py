@@ -41,7 +41,7 @@ class Actuators(Node):
         self.get_logger().info("init")
 
         self.actuatorsInitialized = False
-        self.emergency = False
+        self.emergency = True
 
         # Tf subscriber
         self.tf_buffer = Buffer()
@@ -53,6 +53,13 @@ class Actuators(Node):
             history=QoSHistoryPolicy.KEEP_ALL,
             reliability=QoSReliabilityPolicy.RELIABLE,
             durability=QoSDurabilityPolicy.VOLATILE 
+        )
+
+        emergency_qos_profile = QoSProfile(
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=10,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL 
         )
 
         if USB_BOARD:
@@ -70,8 +77,7 @@ class Actuators(Node):
             self.pub_reboot_command = self.create_publisher(UInt8, "servo_reboot", qos_profile)
             self.sub_servo_angle = self.create_subscription(ServoAngle, "servo_angle", self.servoAngle_cb, 10) #pas besoin en usb car actuators connais déjà la position
 
-
-        self.sub_emergency = self.create_subscription(Bool, "hardware/emergency/status", self.emergency_cb, 1)
+        self.sub_emergency = self.create_subscription(Bool, "hardware/emergency/status", self.emergency_cb, emergency_qos_profile)
         
         self.sub_action_launch = self.create_subscription(String, "actuators/generic_action_launch", self.actionLaunch_cb, qos_profile)
 
@@ -400,24 +406,28 @@ class Actuators(Node):
             self.get_logger().warn("Cannot launch unknown action")
 
     def emergency_cb(self, msg : Bool):
+        self.get_logger().warn(f"emergency_cb {msg.data}")
+        if self.emergency == msg.data :
+            return
+        
         self.emergency = msg.data
-
-        if self.emergency:
-            self.actuatorsInitialized = False
     
         if not self.emergency:
-            self.sendRebootCommand(254)  # 254 for broadcast
-            time.sleep(1)
+            if not self.actuatorsInitialized :
+                self.get_logger().info(f"Emergency remove, initialization of actuators for first time")
+                self.init_actuators()
+            else :
+                self.get_logger().info(f"Emergency remove, reboot and reconfig actuators")
+                self.sendRebootCommand(254)  # 254 for broadcast
+                time.sleep(1)
 
-            for servo_id in dxl.connected_XL320 :
-                dxl.connected_XL320[servo_id].sendConfig()
-                dxl.connected_XL320[servo_id].setTorque(True)
+                for servo_id in dxl.connected_XL320 :
+                    dxl.connected_XL320[servo_id].sendVolatileConfig()
+                    dxl.connected_XL320[servo_id].setTorque(True)
 
-            for servo_id in dxl.connected_XL430 :
-                dxl.connected_XL430[servo_id].sendConfig()
-                dxl.connected_XL430[servo_id].setTorque(True)
-
-            self.actuatorsInitialized = True
+                for servo_id in dxl.connected_XL430 :
+                    dxl.connected_XL430[servo_id].sendConfig()
+                    dxl.connected_XL430[servo_id].setTorque(True)
             
 class Actuators_robotrouge(Actuators):
     def __init__(self):
@@ -482,8 +492,6 @@ class Actuators_robotrouge(Actuators):
 
         self.arm_state_msg = ArmStatus()
 
-        self.init_actuators()
-
         self.get_logger().info("init OK")
 
     def __del__(self):
@@ -492,6 +500,8 @@ class Actuators_robotrouge(Actuators):
         self.stopPump("right")
 
     def on_arm_state_publish_timer(self):
+        if self.emergency or not self.actuatorsInitialized :
+            return
         now = self.get_clock().now().to_msg()
         self.arm_state_msg.header.stamp = now
         self.arm_state_msg.name = [
@@ -514,6 +524,10 @@ class Actuators_robotrouge(Actuators):
         self.pub_arm_state_right.publish(self.arm_state_msg)
 
     def init_actuators(self):
+        if self.emergency :
+            self.get_logger().info("Wait emergency removal")
+        while self.emergency :
+            time.sleep(0.1)
         # self.last_sending=time.time()
         self.sendRebootCommand(254)  # 254 for broadcast
 
@@ -549,7 +563,6 @@ class Actuators_robotrouge(Actuators):
         self.left_arm.slider.setTorque(True)
         self.right_arm.slider.setTorque(True)
         self.actuatorsInitialized = True
-        self.right_arm.setSliderPosition_mm(100)
 
     def cycle_cool(self):
         while True:
@@ -808,10 +821,13 @@ class Actuators_robotbleu(Actuators):
         self.sub_roll_height = self.create_subscription(Int16, "hardware/roll/height", self.roll_height_cb, 10)
         self.sub_turbine_speed = self.create_subscription(UInt16, "hardware/turbine/speed", self.turbine_speed_cb, 10)
 
-        self.init_actuators()
         self.get_logger().info("init OK")
 
     def init_actuators(self):
+        if self.emergency :
+            self.get_logger.info("Wait emergency removal")
+        while self.emergency :
+            time.sleep(0.1)
         self.sendRebootCommand(254)  # 254 for broadcast
         time.sleep(2)
         self.ballSystem = dxl.ball_system(self)
