@@ -642,7 +642,7 @@ class Actuators_robotrouge(Actuators):
         x = pos[0]
         y = pos[1]
 
-        if not arm.putArmOnDisque(x,y) :
+        if not arm.putArmOnDisk(x,y) :
             self.get_logger().warn("Cannot takeDisk")
             return
 

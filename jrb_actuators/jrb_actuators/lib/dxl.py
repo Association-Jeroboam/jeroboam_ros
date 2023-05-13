@@ -573,45 +573,53 @@ class bras:
         self.joinE.setPositionPID(70, 30, 0)
         self.slider.setPositionPID(1000, 1000, 1000)
 
-    def putArmOnDisque(self,x,y):
+    def putArmOnDisk(self,x,y):
+        #calcul du meilleur point sur le cercle où placer la ventouse
         for point in points_sur_cercle(x,y,33,36):
             angles = self.xy2angles(point[0],point[1],False)
             if angles:
                 dist=sum(angles)
                 if closest_point :
-                    if closest_point[2] > dist :
-                        closest_point=[point[0],point[1],dist]
+                    if closest_point[3] > dist :
+                        closest_point=[point[0],point[1],point[2],dist]
                 else:
-                    closest_point=[point[0],point[1],dist]
+                    closest_point=[point[0],point[1],point[2],dist]
         
         if not closest_point :
             self.node.get_logger().warn(f"No point reachable")
             return 0
         
-        self.setArmPosition(closest_point[0],closest_point[1]): #todo : ajouter angle de la ventouse
+        #positionnement de la ventouse
+        self.setArmPosition(closest_point[0],closest_point[1])
+        self.setAbsoluteVentouseAngle(closest_point[2])
+        end_time = time.time() + 2 #timeout
         while not self.isTargetReached :
-            #Todo : add timeout
-            pass
+            if time.time() > end_time :
+                self.node.get_logger().warn(f"Timeout to put arm {self.side} on disk (x,y)")
+                return 0
+            time.sleep(0.01)
+            
+        #positionnement du slider
+        end_time = time.time() + 2 #timeout
         self.setSliderPosition_mm(10)
-        return 1
+        while not self.isTargetReached :
+            if time.time() > end_time :
+                self.node.get_logger().warn(f"Timeout to put arm {self.side} on disk (slider)")
+                return 0
+            time.sleep(0.01)
 
+        return 1
 
 
     def points_sur_cercle(X, Y, R, nb_points):
         points = []
-        angle = 0
-        angle_increment = 360 / nb_points
-
-        for _ in range(nb_points):
+        for angle in range(0,360,360/nb_points):
             # Calcul des coordonnées du point
             x = X + R * math.cos(math.radians(angle))
             y = Y + R * math.sin(math.radians(angle))
 
             # Ajout des coordonnées du point au tableau
-            points.append([x, y])
-
-            # Incrémentation de l'angle
-            angle += angle_increment
+            points.append([x, y, angle])
 
         return points    
 
@@ -772,6 +780,18 @@ class bras:
 
         else:
             self.node.get_logger().error(f"Join inconnu : {join}")
+
+    def setAbsoluteVentouseAngle(self, angle):
+        #A tester
+        ratio = 614 / 180
+        alpha = 180 - ((self.joinA.target_position - (512 - 307)) / ratio)
+        beta = (self.joinB.target_position - 512) / ratio
+        alpha = formatAngle(alpha)
+        beta = formatAngle(beta)
+        angle = (angle - alpha - beta) % 360
+        angle = formatAngle(angle)
+        value=1023 - (angle * ratio + 512+307)
+        self.goToAngle('E',int((value-512)/ratio))
 
     def isReachableAngle(self, join, angle):
         ratio = 614 / 180
