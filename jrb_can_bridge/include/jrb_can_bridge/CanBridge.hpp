@@ -84,6 +84,8 @@ class CanBridge : public rclcpp::Node
     void publishRobotCurrentState(jeroboam_datatypes_sensors_odometry_State2D_1_0 * state);
     void publishLeftPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1* pid);
     void publishRightPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1* pid);
+    void publishLinearPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1* pid);
+    void publishAngularPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1* pid);
     void publishLeftPumpStatus(jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 * status);
     void publishRightPumpStatus(jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 * status);
     void publishLeftValveStatus(jeroboam_datatypes_actuators_pneumatics_ValveStatus_0_1 * status);
@@ -133,6 +135,8 @@ class CanBridge : public rclcpp::Node
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr       odom_pub;
     rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       left_pid_pub;
     rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       right_pid_pub;
+    rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       linear_pid_pub;
+    rclcpp::Publisher<jrb_msgs::msg::PIDState>::SharedPtr       angular_pid_pub;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr     left_pump_pub;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr     right_pump_pub;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr    left_valve_pub;

@@ -164,11 +164,22 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
       if (res != NUNAVUT_SUCCESS) {
         RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: MOTION_PID_STATE_ID deserialize failed " << res);
         break;
-      } 
-      if (pidState.ID == 0) {
-        canBridge.get()->publishLeftPIDState(&pidState);
-      } else {
-        canBridge.get()->publishRightPIDState(&pidState);
+      }
+      switch(pidState.ID) {
+        case CAN_PROTOCOL_LEFT_SPEED_PID_ID:
+          canBridge.get()->publishLeftPIDState(&pidState);
+          break;
+        case CAN_PROTOCOL_RIGHT_SPEED_PID_ID:
+          canBridge.get()->publishRightPIDState(&pidState);
+          break;
+        case CAN_PROTOCOL_LINEAR_SPEED_PID_ID:
+          canBridge.get()->publishLinearPIDState(&pidState);
+          break;
+        case CAN_PROTOCOL_ANGULAR_SPEED_PID_ID:
+          canBridge.get()->publishAngularPIDState(&pidState);
+          break;
+        default:
+          RCLCPP_WARN_STREAM(rclcpp::get_logger("CanBridge"), "PID ID unknown " << res);
       }
       break;
     }

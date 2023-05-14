@@ -16,6 +16,8 @@ void CanBridge::initPubs() {
 
     left_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("/hardware/base/pid/left_state", 10);
     right_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("/hardware/base/pid/right_state", 10);
+    linear_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("/hardware/base/pid/linear_state", 10);
+    angular_pid_pub = this->create_publisher<jrb_msgs::msg::PIDState>("/hardware/base/pid/angular_state", 10);
     odometry_ticks_pub = this->create_publisher<jrb_msgs::msg::OdometryTicks>("/hardware/base/odometry_ticks", 10);
 
     servo_generic_read_response_pub = this->create_publisher<jrb_msgs::msg::ServoGenericReadResponse>("/hardware/servo/generic_read_response", 10);
@@ -98,6 +100,27 @@ void CanBridge::publishRightPIDState(jeroboam_datatypes_actuators_motion_PIDStat
 
     right_pid_pub->publish(pid_msg);
 }
+
+void CanBridge::publishLinearPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1 *pid)
+{
+    auto pid_msg = jrb_msgs::msg::PIDState();
+    pid_msg.output = pid->output;
+    pid_msg.setpoint = pid->setpoint;
+    pid_msg.error = pid->_error;
+
+    linear_pid_pub->publish(pid_msg);
+}
+
+void CanBridge::publishAngularPIDState(jeroboam_datatypes_actuators_motion_PIDState_0_1 *pid)
+{
+    auto pid_msg = jrb_msgs::msg::PIDState();
+    pid_msg.output = pid->output;
+    pid_msg.setpoint = pid->setpoint;
+    pid_msg.error = pid->_error;
+
+    angular_pid_pub->publish(pid_msg);
+}
+
 void CanBridge::publishLeftPumpStatus(jeroboam_datatypes_actuators_pneumatics_PumpStatus_0_1 *status)
 {
     auto status_msg = std_msgs::msg::Bool();
