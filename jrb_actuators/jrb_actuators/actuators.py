@@ -11,6 +11,7 @@ import rclpy
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
 
 from geometry_msgs.msg import PoseStamped
+from sensor_msgs.msg import JointState
 from jrb_msgs.msg import (
     StackSample,
     ServoAngle,
@@ -68,7 +69,7 @@ class Actuators(Node):
             if not os.path.exists("/dev/dxl"):
                 self.wait_for_device("/dev/dxl")
 
-            self.servo_angle_publish_timer = self.create_timer(0.5, self.on_servo_angle_publish_timer)
+            self.servo_angle_publish_timer = self.create_timer(1/10, self.on_servo_angle_publish_timer)
             self.pub_servo_angle = self.create_publisher(ServoAngle, "servo_angle", 10 )
             self.initHandlers("/dev/dxl", 57600, 2.0)
         else:
@@ -78,10 +79,17 @@ class Actuators(Node):
             self.sub_servo_angle = self.create_subscription(ServoAngle, "servo_angle", self.servoAngle_cb, 10) #pas besoin en usb car actuators connais déjà la position
 
         self.sub_emergency = self.create_subscription(Bool, "hardware/emergency/status", self.emergency_cb, emergency_qos_profile)
-        
         self.sub_action_launch = self.create_subscription(String, "actuators/generic_action_launch", self.actionLaunch_cb, qos_profile)
 
         self.pub_action_status = self.create_publisher(SimplifiedGoalStatus, "actuators/generic_action_status", qos_profile)
+        self.pub_actuator_state = self.create_publisher(
+            JointState, "actuator_state", 10
+        )
+
+        # Timers
+        # publish_joint_state_rate = 1 / 6  # Hz
+        self.joint_state_msg = JointState()
+
         self.action_status_publish_timer = self.create_timer(0.2, self.on_action_status_publish_timer)
 
         self.actions_running = {}
@@ -97,6 +105,10 @@ class Actuators(Node):
             time.sleep(check_rate)
 
         self.get_logger().info('{} is now available.'.format(device_path))
+
+    def on_joint_state_publish_timer(self):
+        pass
+
     def xl320Reboot(self,ID):
         self.get_logger().warn(f"Reboot DXL {ID}")
         servo=dxl.connected_XL320[ID]
@@ -140,6 +152,8 @@ class Actuators(Node):
         for servo  in servo_to_remove :
             #del dxl.connected_XL320[servo]
             pass
+
+        self.on_joint_state_publish_timer()
 
     def on_action_status_publish_timer(self):
         msg =  SimplifiedGoalStatus()
@@ -487,10 +501,10 @@ class Actuators_robotrouge(Actuators):
             PoseStamped, "take_disk", self.takeDisk_cb, 10
         )
 
+        # Timers
+        self.arm_state_msg = ArmStatus()
         arm_publish_state_rate = 1 / 2  # Hz
         self.arm_state_publish_timer = self.create_timer(arm_publish_state_rate, self.on_arm_state_publish_timer)
-
-        self.arm_state_msg = ArmStatus()
 
         self.get_logger().info("init OK")
 
@@ -499,9 +513,34 @@ class Actuators_robotrouge(Actuators):
         self.stopPump("left")
         self.stopPump("right")
 
+    def on_joint_state_publish_timer(self):
+        now = self.get_clock().now().to_msg()
+        left_state = self.left_arm.getState()
+        right_state = self.right_arm.getState()
+
+        self.joint_state_msg.header.stamp = now
+        self.joint_state_msg.name = [
+            "left_arm_joint",
+            "left_b_joint",
+            "left_c_joint",
+            "left_d_joint",
+            "left_e_joint",
+            "left_f_joint",
+            "right_arm_joint",
+            "right_b_joint",
+            "right_c_joint",
+            "right_d_joint",
+            "right_e_joint",
+            "right_f_joint",
+        ]
+        self.joint_state_msg.position = left_state + right_state
+
+        self.pub_actuator_state.publish(self.joint_state_msg)
+
     def on_arm_state_publish_timer(self):
         if self.emergency or not self.actuatorsInitialized :
             return
+
         now = self.get_clock().now().to_msg()
         self.arm_state_msg.header.stamp = now
         self.arm_state_msg.name = [

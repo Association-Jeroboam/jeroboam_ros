@@ -591,6 +591,20 @@ class bras:
         self.joinE.setPositionPID(70, 30, 0)
         self.slider.setPositionPID(1000, 1000, 1000)
 
+    def getState(self):
+        joints = []
+        joints.append(self.joinA.current_position)
+        joints.append(self.joinB.current_position)
+        if self.side == "right":
+            joints.append(1023-self.joinC.current_position)
+            joints.append(1023-self.joinD.current_position)
+        else :
+            joints.append(self.joinC.current_position)
+            joints.append(self.joinD.current_position)
+        joints.append(self.joinE.current_position)
+
+        return [self.getSliderPosition_mm() / 1000] + [pos * rawToRad_XL320 for pos in joints]
+
     def putArmOnDisk(self,x,y):
         #calcul du meilleur point sur le cercle où placer la ventouse
         self.node.get_logger().warn(f"putArmDisk at x={x} y={y}")
