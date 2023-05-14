@@ -95,15 +95,13 @@ int main(int argc, char * argv[])
   executor.add_node(canBridge);
   
   // Threads init
-  std::this_thread::sleep_for(100ms);
   TxThread::CanBridgeInitTxThread();
+  std::this_thread::sleep_for(100ms);
   RxThread::CanBridgeInitRxThread();
   std::this_thread::sleep_for(100ms);
 
   canBridge->init();
   executor.spin();
-
-  rclcpp::shutdown();
 
   // Threads join
   TxThread::CanBridgeDeinitTxThread();
@@ -191,7 +189,7 @@ void initCAN(char * iface) {
     }
 
     strcpy(ifr.ifr_name, iface );
-    ioctl(canIFace, SIOCGIFINDEX, &ifr);
+    ioctl(canIFace, SIOCGIFINDEX, &ifr);    
 
     memset(&addr, 0, sizeof(addr));
     addr.can_family = AF_CAN;
