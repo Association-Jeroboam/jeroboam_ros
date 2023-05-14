@@ -71,6 +71,7 @@ class Actuators(Node):
 
             self.servo_angle_publish_timer = self.create_timer(1/10, self.on_servo_angle_publish_timer)
             self.pub_servo_angle = self.create_publisher(ServoAngle, "servo_angle", 10 )
+            self.check_servo_hardware_error_timer = self.create_timer(0.5, self.on_check_servo_hardware_error_timer)
             self.initHandlers("/dev/dxl", 57600, 2.0)
         else:
             self.get_logger().info("Using can bus for dynamixel control")    
@@ -109,15 +110,68 @@ class Actuators(Node):
     def on_joint_state_publish_timer(self):
         pass
 
-    def xl320Reboot(self,ID):
+    def dxlReboot(self,ID):
         self.get_logger().warn(f"Reboot DXL {ID}")
-        servo=dxl.connected_XL320[ID]
-        servo.isReady = False
-        servo.reboot()
-        time.sleep(0.5)
-        servo.sendVolatileConfig()
-        servo.setTorque(1)
-        servo.setGoalPosition(servo.target_position)
+        if ( ID in dxl.connected_XL320 ):
+            servo=dxl.connected_XL320[ID]
+            servo.isReady = False
+            servo.reboot()
+            time.sleep(0.5)
+            servo.sendVolatileConfig()
+            servo.setTorque(1)
+            servo.setGoalPosition(servo.target_position)
+        elif ( ID in dxl.connected_XL430 ):
+            servo=dxl.connected_XL430[ID]
+            servo.isReady = False
+            servo.reboot()
+            time.sleep(0.5)
+            servo.sendConfig()
+            servo.setTorque(1)
+            servo.setGoalPosition(servo.target_position)
+
+
+    def on_check_servo_hardware_error_timer(self):
+        if self.emergency or not self.actuatorsInitialized:
+            return
+        for ID in dxl.connected_XL320 :
+            if dxl.connected_XL320[ID].isReady :
+                value=self.readValue(1,ID,50)
+                if (value >> 0) & 1 :
+                    self.get_logger().error(f"Reboot {ID} after Overload")
+                    self.dxlReboot(ID)
+
+                elif (value >> 1) & 1 :
+                    self.get_logger().error(f"Reboot {ID} after Overheating")
+                    self.dxlReboot(ID)
+
+                #elif (value >> 2) & 1 :
+                #    self.get_logger().error(f"Reboot {ID} after Input voltage error")
+                #    self.dxlReboot(ID)
+        
+        for ID in dxl.connected_XL430 :
+            if dxl.connected_XL430[ID].isReady :
+                value=self.readValue(1,ID,70)
+                if (value >> 5) & 1 :
+                    self.get_logger().error(f"Reboot {ID} after Overload")
+                    self.dxlReboot(ID)
+
+                elif (value >> 2) & 1 :
+                    self.get_logger().error(f"Reboot {ID} after Overheating")
+                    self.dxlReboot(ID)
+
+                elif (value >> 3) & 1 :
+                    self.get_logger().error(f"Reboot {ID} after Motor Encoder Error")
+                    self.dxlReboot(ID)
+                
+                elif (value >> 4) & 1 :
+                    self.get_logger().error(f"Reboot {ID} after Electrical Shock Error")
+                    self.dxlReboot(ID)
+
+                #elif (value >> 0) & 1 :
+                #    self.get_logger().error(f"Reboot {ID} after Input voltage error")
+                #    self.dxlReboot(ID)
+
+
 
     def on_servo_angle_publish_timer(self):
         if self.emergency or not self.actuatorsInitialized:
@@ -136,20 +190,22 @@ class Actuators(Node):
                 else :
                     self.get_logger().error(f"Unable to communicate with XL320 {servo_id}")
                     servo_to_remove.append(servo_id)
-                    self.xl320Reboot(servo_id)
+                    self.dxlReboot(servo_id)
 
         for servo_id in dxl.connected_XL430 :
             if dxl.connected_XL430[servo_id].isReady :
                 value=dxl.connected_XL430[servo_id].getPresentPosition()
                 if value != -1 :
                     msg.id = servo_id
-                    msg.radian = float(value) #*dxl.rawToRad_XL430
+                    msg.radian = value*dxl.rawToRad_XL430
                     self.pub_servo_angle.publish(msg)
                 else :
                     self.get_logger().error(f"Unable to communicate with 430 {servo_id}")
                     servo_to_remove.append(servo_id)
+                    self.dxlReboot(servo_id)
 
         for servo  in servo_to_remove :
+            #self.get_logger().error(f"DXL {servo_id} ignored from now")
             #del dxl.connected_XL320[servo]
             pass
 
@@ -284,22 +340,35 @@ class Actuators(Node):
                             if (value >> 2) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Input voltage error")
                             if (value >> 0) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overload")
                             if (value >> 1) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overheating")
-                            #self.xl320Reboot(ID)
                         else :
                             if (self.readValue(1,ID,50) >> 2) & 1 : #Si c'est juste input voltage error, la valeur est ok
                                 value = dxl.toSigned(value,size*8)
-                                self.get_logger().warn(f"Uvalue={value}")
                                 return value
                     else :
                         self.get_logger().warn(f"DXL read error for ID {ID} address {address} : {self.packetHandler.getRxPacketError(dxl_error)} (error:{dxl_error} / value:{value})")
+                
+                if ID in dxl.connected_XL430 :
+                    if dxl_error == 128 : #hardware error
+                        if address == 70:
+                            if (value >> 0) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Input voltage error")
+                            if (value >> 5) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overload")
+                            if (value >> 2) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overheating")
+                            if (value >> 3) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Motor Encoder Error")
+                            if (value >> 4) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Electrical Shock Error")
+                        else :
+                            if (self.readValue(1,ID,70) >> 1) & 1 : #Si c'est juste input voltage error, la valeur est ok
+                                value = dxl.toSigned(value,size*8)
+                                return value
+                    else :
+                        self.get_logger().warn(f"DXL read error for ID {ID} address {address} : {self.packetHandler.getRxPacketError(dxl_error)} (error:{dxl_error} / value:{value})")
+            
             else:
                 value = dxl.toSigned(value,size*8)
                 return value
         elif ID==254 :
             self.get_logger().warn(f"Unable to readValue on all DXL at the same time (ID=254)")
         else :
-            self.get_logger().warn(f"ID {ID} is not in connected_XL320 or connected_XL430")
-        self.get_logger().warn(f"Value : -1 for ID {ID} address {address}")
+            self.get_logger().warn(f"ID {ID} is not in connected_XL320 or connected_XL430 (address={address})")
         return -1
 
     def writeValue(self, size, ID, address, value):
@@ -570,37 +639,31 @@ class Actuators_robotrouge(Actuators):
         # self.last_sending=time.time()
         self.sendRebootCommand(254)  # 254 for broadcast
 
-        self.rateaux = dxl.rakes(self,7, 15, 5, 18)
+        self.rakes = dxl.rakes(self,7, 15, 5, 18)
 
         self.left_arm = dxl.bras(self, "left", 16, 14, 22, 1, 8, 101)  # gauche
         self.right_arm = dxl.bras(self,"right",3, 4, 10, 9, 11, 100) #droit
 
-        # centre reservoir : 112.75 ; -22.5
-        x = 112.75
-        y = -22.5
-
-        self.startPump("left")
-        #time.sleep(2)
-        # self.rateaux.setTorque(1)
-        # self.rateaux.close()
-        self.stopPump("left")
         self.left_arm.setTorque(1)
-        # self.right_arm.setTorque(1)
-        #self.left_arm.setArmPosition(20, 120)
-        # self.right_arm.setArmPosition(-20,120)
-        #time.sleep(1)
+        self.right_arm.setTorque(1)
+        self.rakes.setTorque(1)
+
+        self.left_arm.setArmPosition(0,130)
+        self.right_arm.setArmPosition(0,130)
+        self.rakes.close()
+
+        time.sleep(0.5)
+
         self.left_arm.initSlider()
         self.right_arm.initSlider()
-        #self.left_arm.setTorque(1)
-        # self.right_arm.setTorque(1)
-        # self.rateaux.open()
 
-        # self.storeArm("left")
-        # self.storeArm("right")
-        #time.sleep(2)
-        # self.cycle_cool()
-        self.left_arm.slider.setTorque(True)
-        self.right_arm.slider.setTorque(True)
+        self.left_arm.setSliderPosition_mm(200)
+        self.right_arm.setSliderPosition_mm(200)
+        time.sleep(1)
+
+        self.storeArm("left")
+        self.storeArm("right")
+
         self.actuatorsInitialized = True
 
     def cycle_cool(self):
@@ -638,9 +701,9 @@ class Actuators_robotrouge(Actuators):
 
     def rakes_cb(self, msg: Bool):
         if msg.data:
-            self.rateaux.open()
+            self.rakes.open()
         else:
-            self.rateaux.close()
+            self.rakes.close()
 
     def arm_goto_cb(self, side: str, msg: PoseStamped):
         pos = np.array(
@@ -691,12 +754,22 @@ class Actuators_robotrouge(Actuators):
         )
 
         # choix du bras
-        if pos[0]>0 :
+        if msg.header.frame_id != "chassis":
+            transform = self.lookupTransform(
+                "chassis",
+                msg.header.frame_id,
+                rclpy.time.Time().to_msg(),
+            )
+            pos = transform.dot(pos)
+        if pos[1]>0 :
             side="left"
             arm=self.left_arm
         else :
             side="right"
             arm=self.right_arm
+
+        self.get_logger().info(f"Take disk at x={pos[1]*1000} y={pos[2]*1000} @ chassis")
+
 
         if msg.header.frame_id != side + "_arm_origin_link":
             transform = self.lookupTransform(
@@ -709,8 +782,8 @@ class Actuators_robotrouge(Actuators):
         x = pos[0]*1000
         y = pos[1]*1000
 
-        self.get_logger().warn(f"Take disk at x={x} y={y} with arm {side}")
 
+        self.get_logger().info(f"Take disk at x={x} y={y} @ arm {side}")
         if not arm.putArmOnDisk(x,y) :
             self.get_logger().warn("Cannot takeDisk")
             return
@@ -723,7 +796,7 @@ class Actuators_robotrouge(Actuators):
         # self.returnSample(msg.side)
 
     def returnSample(self, side):
-        self.rateaux.close()
+        self.rakes.close()
         self.left_arm.setSliderPosition_mm(200)
         self.right_arm.setSliderPosition_mm(200)
 
@@ -764,7 +837,7 @@ class Actuators_robotrouge(Actuators):
         self.left_arm.setArmPosition(0, 130, 0, 90, 0)
         self.left_arm.setSliderPosition_mm(z + 20)
         time.sleep(1)
-        self.rateaux.open()
+        self.rakes.open()
         time.sleep(1)
         self.left_arm.setArmPosition(112.75, -22.5, 0, 90, -65)
         time.sleep(1)
@@ -785,7 +858,7 @@ class Actuators_robotrouge(Actuators):
         if side == "left":
             self.left_arm.setSliderPosition_mm(z)
             self.left_arm.slider.waitMoveEnd(10)
-            self.rateaux.open()
+            self.rakes.open()
             self.left_arm.setArmPosition(112.75, -22.5, 0, 90, -65)
             time.sleep(1)
             self.stopPump(side)
@@ -794,7 +867,7 @@ class Actuators_robotrouge(Actuators):
         else:
             self.right_arm.setSliderPosition_mm(z + 10)
             self.right_arm.slider.waitMoveEnd(10)
-            self.rateaux.open()
+            self.rakes.open()
             self.right_arm.setArmPosition(-112.75, -22.5, 0, 90, -65)
             time.sleep(2)
             self.stopPump(side)
@@ -814,7 +887,7 @@ class Actuators_robotrouge(Actuators):
 
         # time.sleep(2)
         # self.storeArm(side)
-        self.rateaux.close()
+        self.rakes.close()
 
     def storeArm(self, side):
         if side == "left":
