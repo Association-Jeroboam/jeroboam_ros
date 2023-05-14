@@ -55,12 +55,16 @@ class Actuators(Node):
             durability=QoSDurabilityPolicy.VOLATILE 
         )
 
-        if USB_BOARD :
+        if USB_BOARD:
             self.get_logger().info("Using USB board for dynamixel control")
+
+            if not os.path.exists("/dev/dxl"):
+                self.wait_for_device("/dev/dxl")
+
             self.servo_angle_publish_timer = self.create_timer(0.5, self.on_servo_angle_publish_timer)
             self.pub_servo_angle = self.create_publisher(ServoAngle, "servo_angle", 10 )
             self.initHandlers("/dev/dxl", 57600, 2.0)
-        else :
+        else:
             self.get_logger().info("Using can bus for dynamixel control")    
             self.pub_generic_command = self.create_publisher(ServoGenericCommand, "servo_generic_command", qos_profile)
             self.pub_reboot_command = self.create_publisher(UInt8, "servo_reboot", qos_profile)
@@ -76,10 +80,17 @@ class Actuators(Node):
 
         self.actions_running = {}
 
-
-
     def __del__(self):
         dxl.setTorque4All(self, 0)
+
+    def wait_for_device(self, device_path, check_frequency_hz=1.0):
+        check_rate = 1.0 / check_frequency_hz
+
+        self.get_logger().info('Waiting for {} to become available...'.format(device_path))
+        while not os.path.exists(device_path) and rclpy.ok():
+            time.sleep(check_rate)
+
+        self.get_logger().info('{} is now available.'.format(device_path))
 
     def on_servo_angle_publish_timer(self):
         if self.emergency or not self.actuatorsInitialized:
