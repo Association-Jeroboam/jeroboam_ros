@@ -28,7 +28,8 @@ def generate_launch_description():
         logger.warn("ROBOT_NAME is not set, default to robotrouge")
         os.environ["ROBOT_NAME"] = "robotrouge"
 
-    isRobotrouge = os.environ["ROBOT_NAME"] == "robotrouge"
+    robotName = os.environ["ROBOT_NAME"]
+    isRobotrouge = robotName == "robotrouge"
 
     camera_param_path = LaunchConfiguration("camera_param_path")
     lidar_param_path = LaunchConfiguration("lidar_param_path")
@@ -55,7 +56,7 @@ def generate_launch_description():
         "can_bridge_param_path",
         description="Full path to can_bridge parameter file to load",
         default_value=PathJoinSubstitution(
-            [this_pkg, "param", "robotrouge_can_bridge_param.yaml"]
+            [this_pkg, "param", robotName + "_can_bridge_param.yaml"]
         ),
     )
     declare_global_localization = DeclareLaunchArgument(
@@ -78,7 +79,10 @@ def generate_launch_description():
                 )
             ]
         ),
-        launch_arguments={"display_meshes": "true"}.items(),
+        launch_arguments={
+            "display_meshes": "true",
+            "urdf_file": PathJoinSubstitution([FindPackageShare("jrb_description"), "urdf", robotName+".urdf.xacro"])
+        }.items(),
     )
 
     can_bridge = Node(

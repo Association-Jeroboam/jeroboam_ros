@@ -121,7 +121,7 @@ export_alias() {
 
 export_alias b "cd ${ROS_WS_PATH} && pwd && colcon build --symlink-install"
 export_alias c "rm -rf ${ROS_WS_PATH}/{build,install,log}"
-export_alias r "ros2 launch jrb_bringup robotrouge.launch.py"
+export_alias r "ros2 launch jrb_bringup robot.launch.py"
 export_alias k "output=\$(ps aux | grep -E 'ros/humble|jrb' | grep -v 'grep' | awk '{print \$2}'); if [ -z \"\$output\" ]; then echo 'No matching processes found'; else echo \$output | xargs kill; fi"
 export_alias rosdep_install "rosdep install -i --from-path ${ROS_WS_PATH}/src --rosdistro ${ROS_DISTRO} -y"
 
