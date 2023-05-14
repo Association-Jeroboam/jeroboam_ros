@@ -49,6 +49,7 @@
 #include "ServoConfig_0_1.h"
 #include "jrb_can_bridge.hpp"
 
+using namespace std::chrono_literals;
 
 const uint32_t CAN_EXT_ID_MASK = (1 <<29) - 1;
 
@@ -58,7 +59,25 @@ void publishReceivedMessage(CanardRxTransfer * transfer);
 pthread_t rxThread;
 
 void RxThread::CanBridgeInitRxThread() {
-    pthread_create(&rxThread, NULL, &checkRxMsg, NULL);
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+
+    // Set thread priority to 98 (using SCHED_RR policy)
+    struct sched_param param;
+    param.sched_priority = 98;
+    pthread_attr_setschedpolicy(&attr, SCHED_RR);
+    pthread_attr_setschedparam(&attr, &param);
+
+    // Prevent thread from inheriting the scheduler attributes of the main thread
+    pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+
+    int ret =  pthread_create(&rxThread, &attr, &checkRxMsg, NULL);
+    if (ret != 0) {
+        RCLCPP_ERROR(rclcpp::get_logger("CanBridge"), "Failed to create real-time TxThread");
+        return;
+    }
+
+    pthread_attr_destroy(&attr);
 }
 
 void* RxThread::CanBridgeDeinitRxThread() {
@@ -105,7 +124,7 @@ void* checkRxMsg(void*) {
 
 void publishReceivedMessage(CanardRxTransfer * transfer) {
   if (!canBridge.get()->init_done) {
-    RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: CanbBridge not initialized ");
+    // RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: CanbBridge not initialized ");
     return;
   }
 
@@ -119,7 +138,7 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
         frameCount++;
       if ((last_transfer_id +1) % 32 != transfer->metadata.transfer_id) {
           frameErrorCount++;
-          RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: Transfer lost! " << last_transfer_id << " " << transfer->metadata.transfer_id << ". rate " << (float)frameErrorCount/(float)frameCount);
+          RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "CanBridgeRx::publishReceivedMessage error: Transfer lost! " << static_cast<int>(last_transfer_id) << " " << static_cast<int>(transfer->metadata.transfer_id) << ". rate " << (float)frameErrorCount/(float)frameCount);
       }
   
       last_transfer_id = transfer->metadata.transfer_id;
@@ -242,6 +261,7 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
       if(res == NUNAVUT_SUCCESS) {
         if(heartbeat.vendor_specific_status_code == CAN_PROTOCOL_MOTION_BOARD_ID) {
           if(heartbeat.mode.value == uavcan_node_Mode_1_0_INITIALIZATION) {
+            canBridge.get()->sendMotionConfig();
             canBridge.get()->sendAdaptPidConfig("left");
             canBridge.get()->sendAdaptPidConfig("right");
           }

@@ -34,7 +34,26 @@ void TxThread::CanBridgeInitTxThread() {
     {  
       RCLCPP_ERROR(rclcpp::get_logger("CanBridge"), "TxThread::CanBridgeInitTxThread: queue mutex init failed");
     }
-    pthread_create(&txThread, NULL, &checkTxQueue, NULL);
+
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+
+    // Set thread priority to 98 (using SCHED_RR policy)
+    struct sched_param param;
+    param.sched_priority = 98;
+    pthread_attr_setschedpolicy(&attr, SCHED_RR);
+    pthread_attr_setschedparam(&attr, &param);
+
+    // Prevent thread from inheriting the scheduler attributes of the main thread
+    pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+
+    int ret =  pthread_create(&txThread, &attr, &checkTxQueue, NULL);
+    if (ret != 0) {
+        RCLCPP_ERROR(rclcpp::get_logger("CanBridge"), "Failed to create real-time TxThread");
+        return;
+    }
+
+    pthread_attr_destroy(&attr);
 }
 
 void* TxThread::CanBridgeDeinitTxThread() {
