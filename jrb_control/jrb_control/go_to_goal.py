@@ -1,28 +1,32 @@
 import traceback
+from math import pi, radians
+from typing import Optional
+import threading
 
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType, FloatingPointRange
-import rclpy
-import rclpy.time
-import time
 from rclpy.node import Node
 from rclpy.action import ActionServer, ActionClient, GoalResponse, CancelResponse
 from rclpy.action.server import ServerGoalHandle
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.qos import QoSReliabilityPolicy, QoSProfile
+import rclpy
+import rclpy.time
+import time
 from rcl_interfaces.msg import SetParametersResult
 from visualization_msgs.msg import Marker
 from builtin_interfaces.msg import Duration
-from math import pi, radians
+
 from tf_transformations import euler_from_quaternion
-from geometry_msgs.msg import Twist, PoseStamped, Quaternion
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+import tf2_geometry_msgs
+from geometry_msgs.msg import Twist, PoseStamped, Pose
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Float32, Bool
-from typing import Optional
-import threading
 from action_msgs.msg import GoalStatus
-from rclpy.executors import MultiThreadedExecutor
-from rclpy.qos import QoSReliabilityPolicy, QoSProfile
+from jrb_msgs.action import GoToPose
 
 from .goal_controller import GoalController, Pose2D
-from jrb_msgs.action import GoToPose
 
 
 class GoToGoalNode(Node):
@@ -74,6 +78,10 @@ class GoToGoalNode(Node):
             self.on_goal,
             10,
         )
+
+        # Tf subscriber
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
 
         self.declare_parameter(
             "rate",
@@ -338,12 +346,37 @@ class GoToGoalNode(Node):
         # Accept all cancel
         return CancelResponse.ACCEPT
 
+    def convert_pose_to_map(self, pose_stamped:PoseStamped):
+        if pose_stamped.header.frame_id == 'map':
+            return pose_stamped
+        else:
+            try:
+                # Wait for the transform to become available
+                self.tf_buffer.can_transform('map', pose_stamped.header.frame_id, pose_stamped.header.stamp, timeout=rclpy.time.Duration(seconds=0.5))
+
+                # Transform the pose
+                transform = self.tf_buffer.lookup_transform('map', pose_stamped.header.frame_id, pose_stamped.header.stamp)
+                pose_transformed = tf2_geometry_msgs.do_transform_pose_stamped(pose_stamped, transform)
+
+                return pose_transformed
+            except Exception as e:
+                self.get_logger().error('Failed to convert pose: %s' % e)
+                raise e
+                return None
+
     def on_execute(self, goal_handle: ServerGoalHandle):
-        self.goal = self.get_angle_pose(goal_handle.request.pose.pose)
+        # Goal can be a pose in any frame (in the robot's frame to do relative moves)
+        # Convert the goal to the map frame
+        goal_pose = goal_handle.request.pose
+        goal_pose_map = self.convert_pose_to_map(goal_pose)
+
+        # Convert the Pose ROS msg to the Pose2D internall class
+        self.goal = self.get_angle_pose(goal_pose_map.pose)
         self.get_logger().info(
             f"Goal: ({self.goal.x}, {self.goal.y}, ${self.goal.theta})"
         )
 
+        # Debug marker
         self.publish_marker(
             self.get_clock().now().to_msg(), goal_handle.request.pose.pose
         )
@@ -430,7 +463,7 @@ class GoToGoalNode(Node):
         twist.angular.z = float(thetaVel)
         self.twist_pub.publish(twist)
 
-    def on_odometry(self, newPose):
+    def on_odometry(self, newPose: Odometry):
         self.pose = self.get_angle_pose(newPose.pose.pose)
 
     def on_goal(self, goal):
@@ -439,18 +472,18 @@ class GoToGoalNode(Node):
         action_goal.pose.pose = goal.pose
         self.action_client.send_goal_async(action_goal)
 
-    def get_angle_pose(self, quaternion_pose: Quaternion) -> Pose2D:
+    def get_angle_pose(self, pose: Pose) -> Pose2D:
         q = [
-            quaternion_pose.orientation.x,
-            quaternion_pose.orientation.y,
-            quaternion_pose.orientation.z,
-            quaternion_pose.orientation.w,
+            pose.orientation.x,
+            pose.orientation.y,
+            pose.orientation.z,
+            pose.orientation.w,
         ]
         _, _, yaw = euler_from_quaternion(q)
 
         angle_pose = Pose2D()
-        angle_pose.x = quaternion_pose.position.x
-        angle_pose.y = quaternion_pose.position.y
+        angle_pose.x = pose.position.x
+        angle_pose.y = pose.position.y
         angle_pose.theta = yaw
 
         return angle_pose
