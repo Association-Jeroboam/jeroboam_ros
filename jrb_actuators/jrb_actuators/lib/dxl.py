@@ -80,7 +80,7 @@ class XL320:
 
     def ping(self):
         if self.node.pingDXL(self.ID) != 350 :
-            self.node.get_logger().error(f"Error : DXL with ID {self.ID} not detected")
+            self.node.get_logger().error(f"DXL with ID {self.ID} not detected")
             return 0
         else :
             connected_XL320[self.ID] = self
@@ -89,9 +89,8 @@ class XL320:
 
 
     def sendConfig(self):
-        if not self.ping() : return
-
         self.isReady=False
+        if not self.ping() : return
         self.setTorque(0)
         self.setDriveMode(self.driveMode)
         self.setMaxSpeed(self.maxSpeed)
@@ -105,9 +104,8 @@ class XL320:
         self.isReady=True
    
     def sendVolatileConfig(self):
-        if not self.ping() : return
-
         self.isReady=False
+        if not self.ping() : return
         self.setTorque(0)
         self.setMaxTorque(self.maxTorque)
         self.setMaxSpeed(self.maxSpeed)
@@ -164,7 +162,7 @@ class XL320:
         self.reverseRotation=value
         if value :
             self.setAngleLimits(self.CW_Angle_Limit, self.CCW_Angle_Limit)
-            self.node.get_logger().info(f"XL320 with ID {self.ID} has its rotation reversed.")
+            #self.node.get_logger().info(f"XL320 with ID {self.ID} has its rotation reversed.")
 
     def setHomingOffset(self, offset):
         oldOffset = self.offset
@@ -354,10 +352,13 @@ class XL430:
         self.offset = 0
         self.isReady = False
         self.target_reached = False
+        self.target_position=-1
+        self.current_position=-1
 
         self.sendConfig()
 
     def sendConfig(self):
+        self.isReady=False
         if not self.ping() :
             return
         self.isReady=False
@@ -371,14 +372,10 @@ class XL430:
         self.setHomingOffset(self.offset)
         self.setLED(1)
         self.isReady=True
-        self.current_position = -1
-        self.target_position = -1
-
-
 
     def ping(self):
         if self.node.pingDXL(self.ID) != 1060 :
-            self.node.get_logger().error(f"Error : DXL with ID {self.ID} not detected")
+            self.node.get_logger().error(f"DXL with ID {self.ID} not detected")
             return 0
         else :
             connected_XL430[self.ID] = self
@@ -422,7 +419,7 @@ class XL430:
         self.P = P
         self.I = I
         self.D = D
-        self.node.get_logger().info(f"ID {self.ID} : Setting PID ({P},{I},{D})")
+        #self.node.get_logger().info(f"ID {self.ID} : Setting PID ({P},{I},{D})")
         self.node.sendGenericCommand(2, self.ID, 78, P)
         self.node.sendGenericCommand(2, self.ID, 76, I)
         self.node.sendGenericCommand(2, self.ID, 80, D)
@@ -461,8 +458,7 @@ class XL430:
 
     def saveCurrentPosition(self, position, isRadian=False):
         if isRadian :
-            self.node.get_logger().warn(f"saveCurrentPosition : Calcul à vérifier car rawToRad_XL320 valable pour XL320 uniquement ?")
-            position=int(position/rawToRad_XL320)
+            position=int(position/rawToRad_XL430)
             
         self.current_position=position
         if self.target_position == -1 :
@@ -504,7 +500,7 @@ class XL430:
             self.node.get_logger().error("You can't set speed goal if you are not in Velocity Mode")
 
     def reboot(self):
-        packetHandler.reboot(self.ID)
+        self.node.sendRebootCommand(self.ID)
 
     def setReverseRotation(self,value):
         if value :
@@ -513,7 +509,7 @@ class XL430:
             driveModeValue=4
         self.node.sendGenericCommand(1, self.ID, 10, driveModeValue)        
         self.reverseRotation = value
-        self.node.get_logger().info(f"XL430 with ID {self.ID} has its rotation reversed.")
+        #self.node.get_logger().info(f"XL430 with ID {self.ID} has its rotation reversed.")
 
     def setDriveMode(self, MODE): #dans la doc c'est pas appelé driveMode mais operatingMode car driveMode est utilisé pour autre chose
         self.node.sendGenericCommand(1, self.ID, 11, MODE)  # XL320 : 1: wheel mode   2: joint mode   // XL430 : 1:Velocity  3:Position  4:Extended position  16:PWM
@@ -603,27 +599,30 @@ class bras:
             joints.append(self.joinD.current_position)
         joints.append(self.joinE.current_position)
 
-        return [self.getSliderPosition_mm() / 1000] + [pos * rawToRad_XL320 for pos in joints]
+        return [self.getSliderPosition_mm() / 1000 + 15] + [pos * rawToRad_XL320 for pos in joints]
 
     def putArmOnDisk(self,x,y):
         #calcul du meilleur point sur le cercle où placer la ventouse
-        self.node.get_logger().warn(f"putArmDisk at x={x} y={y}")
+        #self.node.get_logger().warn(f"putArmDisk at x={x} y={y}")
 
-        for point in self.points_sur_cercle(x,y,33,36):
-            angles = self.xy2angles(point[0],point[1],False)
-            if angles:
-                dist=sum(angles)
-                if "closest_point" in locals() :
-                    if closest_point[3] > dist :
-                        closest_point=[point[0],point[1],point[2],dist]
-                else:
-                    closest_point=[point[0],point[1],point[2],dist]
-        
-        if not "closest_point" in locals() :
-            self.node.get_logger().warn(f"No point reachable")
-            return 0
-        
+        #for point in self.points_sur_cercle(x,y,33,36):
+        #    angles = self.xy2angles(point[0],point[1],False)
+        #    if angles:
+        #        dist=sum(angles)
+        #        if "closest_point" in locals() :
+        #            if closest_point[3] > dist :
+        #                closest_point=[point[0],point[1],point[2],dist]
+        #        else:
+        #            closest_point=[point[0],point[1],point[2],dist]
+        #
+        #if not "closest_point" in locals() :
+        #    self.node.get_logger().warn(f"No point reachable")
+        #    return 0
+
+        closest_point=[x,y,0]
+
         #positionnement de la ventouse
+        self.node.get_logger().info(f"Point retenu : x={closest_point[0]}, y={closest_point[1]}")
         self.setArmPosition(closest_point[0],closest_point[1])
         self.setAbsoluteVentouseAngle(closest_point[2])
         end_time = time.time() + 2 #timeout
@@ -635,7 +634,7 @@ class bras:
             
         #positionnement du slider
         end_time = time.time() + 2 #timeout
-        self.setSliderPosition_mm(10)
+        self.setSliderPosition_mm(15)
         while not self.isTargetReached :
             if time.time() > end_time :
                 self.node.get_logger().warn(f"Timeout to put arm {self.side} on disk (slider)")
@@ -855,20 +854,21 @@ class bras:
             self.node.get_logger().error(f"Join inconnu : {join}")
 
     def initSlider(self, positionEnButeeBasse=0):
-
-        self.setTorque(0)
+        if not self.slider.isReady :
+            return 0
+        self.slider.setTorque(0)
 
         speed_setup = self.slider.maxSpeed
-        self.slider.setMaxSpeed(300)
+        self.slider.setMaxSpeed(500)
 
         self.slider.setHomingOffset(0)  
         
         self.slider.setTorque(1)
         self.slider.setGoalPosition(1000000)
-        self.slider.waitMoveEnd(2)
+        self.slider.waitMoveEnd(4)
 
         pos = self.slider.getPresentPosition()
-        self.setTorque(0)
+        self.slider.setTorque(0)
 
         offset=positionEnButeeBasse - pos
         if self.slider.reverseRotation :
@@ -877,13 +877,17 @@ class bras:
         self.node.get_logger().info(f"Offset for slider {self.side} set to {offset}")
 
         self.slider.setMaxSpeed(speed_setup)
+        self.slider.setTorque(1)
+
+        return 1
+
 
     def setSliderPosition_mm(self, mm):
         value = -int(self.mmToRaw * mm)
         self.slider.setGoalPosition(value)
 
     def getSliderPosition_mm(self):
-        return -int(self.slider.getPresentPosition() / self.mmToRaw)
+        return -int(self.slider.current_position / self.mmToRaw)
 
 class rakes:
     def __init__(self, node, ID_gauche_bas=7, ID_droit_bas=15, ID_gauche_haut=5, ID_droit_haut=18):
