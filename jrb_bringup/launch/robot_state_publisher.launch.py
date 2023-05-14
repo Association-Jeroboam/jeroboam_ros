@@ -31,7 +31,7 @@ def generate_launch_description():
     joint_state_publisher_param_file = LaunchConfiguration(
         "robot_state_publisher_param_file",
         default=PathJoinSubstitution(
-            [this_pkg, "param", "robotrouge_joint_state_publisher_param.yaml"]
+            [this_pkg, "param", "joint_state_publisher_param.yaml"]
         ),
     )
 
