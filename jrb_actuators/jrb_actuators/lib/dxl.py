@@ -581,7 +581,7 @@ class bras:
         # self.joinD.setPunch(70)
 
         self.joinA.setPositionPID(60, 20, 0)
-        self.joinB.setPositionPID(60, 25, 0)
+        self.joinB.setPositionPID(60, 35, 0)
         self.joinC.setPositionPID(70, 30, 0)
         self.joinD.setPositionPID(120, 30, 0)
         self.joinE.setPositionPID(70, 30, 0)
@@ -599,30 +599,30 @@ class bras:
             joints.append(self.joinD.current_position)
         joints.append(self.joinE.current_position)
 
-        return [self.getSliderPosition_mm() / 1000 + 15] + [pos * rawToRad_XL320 for pos in joints]
+        return [(self.getSliderPosition_mm()+15) / 1000] + [pos * rawToRad_XL320 for pos in joints]
 
     def putArmOnDisk(self,x,y):
         #calcul du meilleur point sur le cercle où placer la ventouse
         #self.node.get_logger().warn(f"putArmDisk at x={x} y={y}")
 
-        #for point in self.points_sur_cercle(x,y,33,36):
-        #    angles = self.xy2angles(point[0],point[1],False)
-        #    if angles:
-        #        dist=sum(angles)
-        #        if "closest_point" in locals() :
-        #            if closest_point[3] > dist :
-        #                closest_point=[point[0],point[1],point[2],dist]
-        #        else:
-        #            closest_point=[point[0],point[1],point[2],dist]
-        #
-        #if not "closest_point" in locals() :
-        #    self.node.get_logger().warn(f"No point reachable")
-        #    return 0
+        for point in self.points_sur_cercle(x,y,33,36):
+            angles = self.xy2angles(point[0],point[1],False)
+            if angles:
+                dist=sum(angles)
+                if "closest_point" in locals() :
+                    if closest_point[3] > dist :
+                        closest_point=[point[0],point[1],point[2],dist]
+                else:
+                    closest_point=[point[0],point[1],point[2],dist]
+        
+        if not "closest_point" in locals() :
+            #self.node.get_logger().warn(f"No point reachable")
+            return 0
 
-        closest_point=[x,y,0]
+        #closest_point=[x,y,0]
 
         #positionnement de la ventouse
-        self.node.get_logger().info(f"Point retenu : x={closest_point[0]}, y={closest_point[1]}")
+        #self.node.get_logger().info(f"Point retenu : x={closest_point[0]}, y={closest_point[1]}")
         self.setArmPosition(closest_point[0],closest_point[1])
         self.setAbsoluteVentouseAngle(closest_point[2])
         end_time = time.time() + 2 #timeout
@@ -634,7 +634,7 @@ class bras:
             
         #positionnement du slider
         end_time = time.time() + 2 #timeout
-        self.setSliderPosition_mm(15)
+        self.setSliderPosition_mm(10)
         while not self.isTargetReached :
             if time.time() > end_time :
                 self.node.get_logger().warn(f"Timeout to put arm {self.side} on disk (slider)")

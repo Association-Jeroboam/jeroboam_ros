@@ -635,7 +635,10 @@ class Actuators_robotrouge(Actuators):
             self.get_logger().info("Wait emergency removal")
         while self.emergency :
             time.sleep(0.1)
-        # self.last_sending=time.time()
+
+        self.stopPump("left")
+        self.stopPump("right")
+
         self.sendRebootCommand(254)  # 254 for broadcast
 
         self.rakes = dxl.rakes(self,7, 15, 5, 18)
@@ -656,9 +659,9 @@ class Actuators_robotrouge(Actuators):
         self.left_arm.initSlider()
         self.right_arm.initSlider()
 
-        self.left_arm.setSliderPosition_mm(200)
-        self.right_arm.setSliderPosition_mm(200)
-        time.sleep(1)
+        #self.left_arm.setSliderPosition_mm(200)
+        #self.right_arm.setSliderPosition_mm(200)
+        #time.sleep(1)
 
         self.storeArm("left")
         self.storeArm("right")
@@ -759,16 +762,13 @@ class Actuators_robotrouge(Actuators):
                 msg.header.frame_id,
                 rclpy.time.Time().to_msg(),
             )
-            pos = transform.dot(pos)
-        if pos[1]>0 :
+            pos_chassis = transform.dot(pos)
+        if pos_chassis[1]>0 :
             side="left"
             arm=self.left_arm
         else :
             side="right"
             arm=self.right_arm
-
-        self.get_logger().info(f"Take disk at x={pos[1]*1000} y={pos[2]*1000} @ chassis")
-
 
         if msg.header.frame_id != side + "_arm_origin_link":
             transform = self.lookupTransform(
@@ -776,19 +776,24 @@ class Actuators_robotrouge(Actuators):
                 msg.header.frame_id,
                 rclpy.time.Time().to_msg(),
             )
-            pos = transform.dot(pos)
+            pos_bras = transform.dot(pos)
 
-        x = pos[0]*1000
-        y = pos[1]*1000
+        x = pos_bras[0]*1000
+        y = pos_bras[1]*1000
 
 
-        self.get_logger().info(f"Take disk at x={x} y={y} @ arm {side}")
+        self.get_logger().info(f"Take disk : ({x},{y})@arm_{side}")
         if not arm.putArmOnDisk(x,y) :
             self.get_logger().warn("Cannot takeDisk")
             return
 
         self.startPump(side)
-        time.sleep(1)
+        time.sleep(6)
+        self.storeArm(side)
+        time.sleep(5)
+        self.stopPump(side)
+
+
 
     def stackSample_cb(self, msg: StackSample):
         self.stackSample(msg.side, msg.sample_index)
@@ -890,10 +895,14 @@ class Actuators_robotrouge(Actuators):
 
     def storeArm(self, side):
         if side == "left":
+            self.left_arm.setSliderPosition_mm(200)
+            time.sleep(0.5)
             self.left_arm.setArmPosition(-88, 47, 0, -90, 0)
             time.sleep(0.8)
             self.left_arm.setArmPosition(-88, 47, 90, -90, 0)
         else:
+            self.right_arm.setSliderPosition_mm(200)
+            time.sleep(0.5)
             self.right_arm.setArmPosition(88, 47, 0, -90, 0)
             time.sleep(0.8)
             self.right_arm.setArmPosition(88, 47, 90, -90, 0)
