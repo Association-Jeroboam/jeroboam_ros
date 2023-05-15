@@ -27,6 +27,7 @@ setup(
             "base_teleop = jrb_control.base_teleop:main",
             "odometry_calibrator = jrb_control.odometry_calibrator:main",
             "robot_navigator = jrb_control.robot_navigator:main",
+            "stuck_detector = jrb_control.stuck_detector:main",
         ],
     },
 )
