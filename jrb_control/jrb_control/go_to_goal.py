@@ -518,7 +518,7 @@ class GoToGoalNode(Node):
                     self.get_logger().warn("Robot stucked, aborting action")
                     self.goal_handle.abort()
 
-    def on_goal(self, goal):
+    def on_goal(self, goal: PoseStamped):
         self.action_client.wait_for_server()
         action_goal = GoToPose.Goal()
         action_goal.pose: PoseStamped = goal
