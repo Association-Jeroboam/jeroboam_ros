@@ -88,12 +88,12 @@ class StuckDetector(Node):
         v_right_cmd, v_left_cmd = self.compute_v_wheel_from_twist(cmd_vel_msg.twist)
 
         # Compute normalized errors, avoiding division by zero
-        if abs(v_right_cmd) > 0.1:
+        if abs(v_right_cmd) > 0.01:
             v_right_error = abs((v_right_cmd - v_right) / v_right_cmd)
         else:
             v_right_error = 0.0
 
-        if abs(v_left_cmd) > 0.1:
+        if abs(v_left_cmd) > 0.01:
             v_left_error = abs((v_left_cmd - v_left) / v_left_cmd)
         else:
             v_left_error = 0.0
