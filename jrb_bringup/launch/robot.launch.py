@@ -103,6 +103,13 @@ def generate_launch_description():
         emulate_tty=True,
     )
 
+    stuck_detector = Node(
+        package="jrb_control",
+        executable="stuck_detector",
+        output="screen",
+        emulate_tty=True,
+    )
+
     lidar = Node(
         package="rplidar_ros2",
         executable="rplidar_scan_publisher",
@@ -266,6 +273,8 @@ def generate_launch_description():
     ld.add_action(actuators)
     ld.add_action(teleop_actuators_joy)
     ld.add_action(go_to_goal)
+    ld.add_action(stuck_detector)
+    # ld.add_action(strategy)
 
     if isRobotrouge:
         ld.add_action(camera)
