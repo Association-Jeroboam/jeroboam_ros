@@ -103,6 +103,13 @@ def generate_launch_description():
         emulate_tty=True,
     )
 
+    stuck_detector = Node(
+        package="jrb_control",
+        executable="stuck_detector",
+        output="screen",
+        emulate_tty=True,
+    )
+
     lidar = Node(
         package="rplidar_ros2",
         executable="rplidar_scan_publisher",
