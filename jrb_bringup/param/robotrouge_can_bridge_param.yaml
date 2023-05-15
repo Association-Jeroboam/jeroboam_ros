@@ -1,8 +1,8 @@
 /can_bridge:
   ros__parameters:
-    wheel_base: 0.26085
-    wheel_radius/left: 0.0281543068
-    wheel_radius/right: 0.02825
+    wheel_base: 0.25906
+    wheel_radius/left: 0.028067683
+    wheel_radius/right: 0.027991164
 
     pid/left/high/bias: 0.0
     pid/left/high/p: 0.001
