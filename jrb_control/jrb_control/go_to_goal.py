@@ -86,6 +86,9 @@ class GoToGoalNode(Node):
             self.on_goal,
             10,
         )
+        self.stucked_spub = self.create_subscription(
+            Bool, "/stuck", self.on_stucked, 10
+        )
 
         # Tf subscriber
         self.tf_buffer = Buffer()
@@ -378,7 +381,6 @@ class GoToGoalNode(Node):
                 return pose_transformed
             except Exception as e:
                 self.get_logger().error("Failed to convert pose: %s" % e)
-                raise e
                 return None
 
     def on_execute(self, goal_handle: ServerGoalHandle):
@@ -393,29 +395,30 @@ class GoToGoalNode(Node):
 
         goal_pose_map = self.convert_pose_to_map(goal_pose)
 
+        if goal_pose_map is None:
+            self.stop_robot()
+            self.goal_achieved_pub.publish(Bool(data=False))
+            return GoToPose.Result(success=False)
+
         # Convert the Pose ROS msg to the Pose2D internall class
         self.goal = self.get_angle_pose(goal_pose_map.pose)
 
         if self.rotation:
-            self.get_logger().info(
-                f"ROTATION Goal: ${self.goal.theta})"
-            )
+            self.get_logger().info(f"ROTATION Goal: ${self.goal.theta})")
         else:
             self.get_logger().info(
                 f"Goal: ({self.goal.x}, {self.goal.y}, ${self.goal.theta})"
             )
 
         # Debug marker
-        self.publish_marker(
-            self.get_clock().now().to_msg(), goal_pose.pose
-        )
+        self.publish_marker(self.get_clock().now().to_msg(), goal_pose.pose)
 
         success = True
         while rclpy.ok() and self.goal is not None:
             nextWork = self.get_clock().now() + rclpy.time.Duration(seconds=self.dT)
 
             # Work
-            self.publish()
+            self.work()
 
             now = self.get_clock().now()
             if now > nextWork:
@@ -434,13 +437,12 @@ class GoToGoalNode(Node):
                 or not goal_handle.is_active
             ):
                 self.get_logger().info("Goal aborted")
+                self.stop_robot()
                 self.goal_achieved_pub.publish(Bool(data=False))
                 return GoToPose.Result(success=False)
 
             if goal_handle.is_cancel_requested:
-                self.send_velocity(0.0, 0.0)
-                self.controller.last_linear_speed_cmd = [0.0, 0.0]
-                self.controller.last_angular_speed_cmd = [0.0, 0.0]
+                self.stop_robot()
                 success = False
                 break
 
@@ -453,13 +455,15 @@ class GoToGoalNode(Node):
             goal_handle.canceled()
             self.goal_achieved_pub.publish(Bool(data=False))
 
-        self.send_velocity(0.0, 0.0)
-        self.controller.last_linear_speed_cmd = [0.0, 0.0]
-        self.controller.last_angular_speed_cmd = [0.0, 0.0]
-
+        self.stop_robot()
         self.goal_handle = None
 
         return GoToPose.Result(success=success)
+
+    def stop_robot(self):
+        self.send_velocity(0.0, 0.0)
+        self.controller.last_linear_speed_cmd = [0.0, 0.0]
+        self.controller.last_angular_speed_cmd = [0.0, 0.0]
 
     def init_pose(self):
         self.pose = Pose2D()
@@ -467,11 +471,13 @@ class GoToGoalNode(Node):
         self.pose.y = 0.0
         self.pose.theta = 0.0
 
-    def publish(self):
+    def work(self):
         if self.controller.at_goal(self.pose, self.goal, self.rotation):
             desired = Pose2D()
         else:
-            desired = self.controller.get_velocity(self.pose, self.goal, self.dT, self.rotation)
+            desired = self.controller.get_velocity(
+                self.pose, self.goal, self.dT, self.rotation
+            )
 
         d = self.controller.get_goal_distance(self.pose, self.goal)
         self.dist_pub.publish(Float32(data=float(d)))
@@ -498,10 +504,17 @@ class GoToGoalNode(Node):
     def on_odometry(self, newPose: Odometry):
         self.pose = self.get_angle_pose(newPose.pose.pose)
 
-    def on_goal(self, goal:PoseStamped):
+    def on_stucked(self, stuckedMsg: Bool):
+        if stuckedMsg.data:
+            with self.goal_handle_lock:
+                if self.goal_handle is not None and self.goal_handle.is_active:
+                    self.get_logger().warn("Robot stucked, aborting action")
+                    self.goal_handle.abort()
+
+    def on_goal(self, goal):
         self.action_client.wait_for_server()
         action_goal = GoToPose.Goal()
-        action_goal.pose = goal
+        action_goal.pose: PoseStamped = goal
         self.action_client.send_goal_async(action_goal)
 
     def get_angle_pose(self, pose: Pose) -> Pose2D:
