@@ -6,11 +6,11 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image, CompressedImage, CameraInfo
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType, IntegerRange, SetParametersResult
 
-
 import numpy as np
 import cv2
 from cv_bridge import CvBridge
-
+import serial
+   
 def nothing(x):
     pass
 
@@ -69,6 +69,9 @@ class CherriesCounter(Node):
         # upper boundary RED color range values; Hue (160 - 180)
         self.lower2 = np.array([self.hue_hight_min,self.sat_min,self.val_min])
         self.upper2 = np.array([179,self.sat_max,self.val_max])
+
+        #self.ser = serial.Serial("/dev/pts/4", 9600,timeout=0.5)
+        self.ser = serial.Serial("/dev/ttyUSB0", 9600,timeout=0.5)
 
     def on_update_parameters(self, params):
         self.get_logger().info("Params updated")
@@ -180,6 +183,15 @@ class CherriesCounter(Node):
         nb_balls=np.median(self.values)
         self.get_logger().info(f"Detected balls : {nb_balls}")
 
+        value=str(int(nb_balls))
+        value+="\r\n"
+        #print(value)
+        self.ser.write(value.encode()) #+ str(chr(13)) #)#+chr(10))
+
+        #while self.ser.inWaiting():
+        #print(self.ser.readline())
+
+            
         #write how many balls there are
         cv2.putText(img, str(nb_balls) + " cerises", (0, 70), cv2.FONT_HERSHEY_DUPLEX,1.5, (255, 0, 0))
         
