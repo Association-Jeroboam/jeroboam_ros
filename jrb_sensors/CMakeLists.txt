@@ -20,7 +20,7 @@ install(PROGRAMS
 )
 
 install(DIRECTORY
-  launch meshes
+  launch meshes launch param
   DESTINATION share/${PROJECT_NAME}/
 )
 
