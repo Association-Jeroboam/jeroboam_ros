@@ -18,7 +18,7 @@ void setup()
 
       digit(-1,1);
       digit(-1,0);
-      module.show(); 
+      module.show();
 }
 
 
@@ -26,16 +26,22 @@ void digit(int number, int digit_pos)
 {
   int offset=digit_pos*15;
   int r=0;
-  int g=150;
-  int b=0;
+  int g=200;
+  int b=10;
+
   Serial.println(number);
   switch (number)
   {
     case 0 : 
-      for(int i=0;i<=14;i++) module.setPixelColor(i+offset,r,g,b);     
-      module.setPixelColor(6+offset,0,0,0);
-      module.setPixelColor(7+offset,0,0,0); 
-      module.setPixelColor(8+offset,0,0,0); 
+      if(digit_pos==1) for(int i=0;i<=14;i++)
+        module.setPixelColor(i+offset,0,0,0); 
+      else
+      {
+        for(int i=0;i<=14;i++) module.setPixelColor(i+offset,r,g,b);     
+        module.setPixelColor(6+offset,0,0,0);
+        module.setPixelColor(7+offset,0,0,0); 
+        module.setPixelColor(8+offset,0,0,0); 
+      } 
       break;
 
     case 1 : 
@@ -48,11 +54,11 @@ void digit(int number, int digit_pos)
 
     case 2 : 
       for(int i=0;i<=14;i++) module.setPixelColor(i+offset,r,g,b);
-      module.setPixelColor(2+offset,0,0,0);
+      module.setPixelColor(0+offset,0,0,0);
       module.setPixelColor(3+offset,0,0,0); 
       module.setPixelColor(6+offset,0,0,0); 
-      module.setPixelColor(8+offset,0,0,0); 
-      module.setPixelColor(12+offset,0,0,0);
+      module.setPixelColor(8+offset,0,0,0);
+      module.setPixelColor(11+offset,0,0,0); 
       break;
 
     case 3 : 
@@ -111,9 +117,9 @@ void digit(int number, int digit_pos)
 
     default :
       for(int i=0;i<=14;i++) module.setPixelColor(i+offset,0,0,0);
-      module.setPixelColor(4+offset,r,g,b);
-      module.setPixelColor(5+offset,r,g,b);
-      module.setPixelColor(14+offset,r,g,b);
+      module.setPixelColor(2+offset,50,0,0);
+      module.setPixelColor(7+offset,50,0,0);
+      module.setPixelColor(12+offset,50,0,0);
       break;
   }
 }
@@ -130,12 +136,20 @@ void loop()
       //Serial.println(score);
       if(score>=2) digitalWrite(LED_BUILTIN, 1);
       else digitalWrite(LED_BUILTIN, 0);
-      if(score!=-1)
+      if(score==-2)
       {
-        digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN)); //toggle led
-        digit(int(score/10),1);
-        digit(int(score%10),0);
-        module.show(); 
+        for(int i=0;i<=29;i++) module.setPixelColor(i,255,0,0);
+        module.show();
       }
+      else
+        if(score!=-1)
+        {
+          digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN)); //toggle led
+          digit(int(score/10),1);
+          digit(int(score%10),0);
+          
+          module.show(); 
+          module.show(); //des fois ça passe pas du premier coup
+        }
     }
 }
