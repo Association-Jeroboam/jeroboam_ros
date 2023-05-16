@@ -27,6 +27,8 @@ setup(
             "eurobot = jrb_strategy.eurobot:main",
             "bag_recorder = jrb_strategy.bag_recorder:main",
             "bag_player = jrb_strategy.bag_player:main",
+            "robotbleu = jrb_strategy.robotbleu:main",
+            "robotrouge = jrb_strategy.robotrouge:main",
         ],
     },
 )
