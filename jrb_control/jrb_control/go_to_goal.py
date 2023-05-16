@@ -29,6 +29,14 @@ from jrb_msgs.action import GoToPose
 from .goal_controller import GoalController, Pose2D
 
 
+# TODO : spin in place
+# TODO : timeout
+# TODO : oscillations rejection
+# TODO : max vel lin / ang
+# TODO : deceleration ramp
+# TODO : frequency
+# TODO : feedback with remaining distance, angle, and navigation_duration
+# TODO : soft ESTOP
 class GoToGoalNode(Node):
     def __init__(self):
         super().__init__("go_to_goal")
@@ -346,21 +354,30 @@ class GoToGoalNode(Node):
         # Accept all cancel
         return CancelResponse.ACCEPT
 
-    def convert_pose_to_map(self, pose_stamped:PoseStamped):
-        if pose_stamped.header.frame_id == 'map':
+    def convert_pose_to_map(self, pose_stamped: PoseStamped):
+        if pose_stamped.header.frame_id == "map":
             return pose_stamped
         else:
             try:
                 # Wait for the transform to become available
-                self.tf_buffer.can_transform('map', pose_stamped.header.frame_id, pose_stamped.header.stamp, timeout=rclpy.time.Duration(seconds=0.5))
+                self.tf_buffer.can_transform(
+                    "map",
+                    pose_stamped.header.frame_id,
+                    pose_stamped.header.stamp,
+                    timeout=rclpy.time.Duration(seconds=0.5),
+                )
 
                 # Transform the pose
-                transform = self.tf_buffer.lookup_transform('map', pose_stamped.header.frame_id, pose_stamped.header.stamp)
-                pose_transformed = tf2_geometry_msgs.do_transform_pose_stamped(pose_stamped, transform)
+                transform = self.tf_buffer.lookup_transform(
+                    "map", pose_stamped.header.frame_id, pose_stamped.header.stamp
+                )
+                pose_transformed = tf2_geometry_msgs.do_transform_pose_stamped(
+                    pose_stamped, transform
+                )
 
                 return pose_transformed
             except Exception as e:
-                self.get_logger().error('Failed to convert pose: %s' % e)
+                self.get_logger().error("Failed to convert pose: %s" % e)
                 raise e
                 return None
 
@@ -420,7 +437,7 @@ class GoToGoalNode(Node):
             goal_handle.succeed()
             self.goal_achieved_pub.publish(Bool(data=True))
         else:
-            self.get_logger().info("Goal cancelled")
+            self.get_logger().warn("Goal cancelled")
             goal_handle.canceled()
             self.goal_achieved_pub.publish(Bool(data=False))
 
