@@ -10,9 +10,13 @@ import numpy as np
 import cv2
 from cv_bridge import CvBridge
 import serial
-   
-def nothing(x):
-    pass
+import RPi.GPIO as GPIO
+import os
+
+bouton_pin_number=14
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(bouton_pin_number, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.add_event_detect(bouton_pin_number, GPIO.RISING)
 
 def opencv_to_ros(vec):
     return np.array([-vec[1], vec[0], vec[2]])
@@ -72,6 +76,18 @@ class CherriesCounter(Node):
 
         #self.ser = serial.Serial("/dev/pts/4", 9600,timeout=0.5)
         self.ser = serial.Serial("/dev/ttyUSB0", 9600,timeout=0.5)
+
+        GPIO.add_event_callback(bouton_pin_number, self.on_poweroff)
+        self.stop=False
+
+
+    def on_poweroff(self,channel):
+        self.stop=True
+        self.get_logger().warn("Poweroff raspberry pi")
+        self.ser.write(str("-2").encode()) #prevenir l'arduino pour afficher un truc spécial avec les leds
+        #os.system("sudo poweroff")
+        #GPIO.cleanup()
+
 
     def on_update_parameters(self, params):
         self.get_logger().info("Params updated")
@@ -185,13 +201,9 @@ class CherriesCounter(Node):
 
         value=str(int(nb_balls))
         value+="\r\n"
-        #print(value)
-        self.ser.write(value.encode()) #+ str(chr(13)) #)#+chr(10))
+        if not self.stop :
+            self.ser.write(value.encode())
 
-        #while self.ser.inWaiting():
-        #print(self.ser.readline())
-
-            
         #write how many balls there are
         cv2.putText(img, str(nb_balls) + " cerises", (0, 70), cv2.FONT_HERSHEY_DUPLEX,1.5, (255, 0, 0))
         
@@ -225,6 +237,7 @@ def main(args=None):
     finally:
         node.destroy_node()
         rclpy.shutdown()
+        GPIO.cleanup()
 
 
 if __name__ == "__main__":
