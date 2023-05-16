@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from math import radians
 import traceback
 import rclpy
 from rclpy.node import Node
@@ -31,6 +32,10 @@ from rclpy.qos import QoSReliabilityPolicy, QoSProfile
 
 
 DATA_PATH = get_package_share_directory("jrb_sensors")
+DETECT_ANGLE = radians(60.0)  # deg
+LASER_LINK_ANGLE_TO_ROBOT = radians(90.0)  # deg
+MIN_ANGLE = LASER_LINK_ANGLE_TO_ROBOT - DETECT_ANGLE / 2.0
+MAX_ANGLE = LASER_LINK_ANGLE_TO_ROBOT + DETECT_ANGLE / 2.0
 
 
 def transform_msg_to_matrix(msg: Transform):
@@ -217,7 +222,10 @@ class ObstacleDetector(Node):
         for i, (cos_sin, angle, range) in enumerate(
             zip(self.__cos_sin_map, angles, ranges)
         ):
-            if not self.min_distance <= range <= self.max_distance:
+            if (
+                not (self.min_distance <= range <= self.max_distance)
+                and MIN_ANGLE <= angle <= MAX_ANGLE
+            ):
                 self.cluster_buffer.add_pose(pose=None, valid=False)
                 msg.ranges[i] = float("inf")
                 continue
