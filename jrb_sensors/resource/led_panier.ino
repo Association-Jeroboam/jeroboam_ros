@@ -15,12 +15,10 @@ void setup()
   module.begin();
 
   pinMode(LED_BUILTIN, OUTPUT);
-
       digit(-1,1);
       digit(-1,0);
       module.show();
 }
-
 
 void digit(int number, int digit_pos)
 {
@@ -46,9 +44,10 @@ void digit(int number, int digit_pos)
 
     case 1 : 
       for(int i=0;i<=14;i++) module.setPixelColor(i+offset,0,0,0);
-      for(int i=0;i<=4;i++) module.setPixelColor(i+offset,r,g,b);
-      module.setPixelColor(9+offset,r,g,b);
+      for(int i=4;i<=9;i++) module.setPixelColor(i+offset,r,g,b);
       module.setPixelColor(11+offset,r,g,b); 
+      module.setPixelColor(14+offset,r,g,b); 
+
       break;
 
 
@@ -58,7 +57,9 @@ void digit(int number, int digit_pos)
       module.setPixelColor(3+offset,0,0,0); 
       module.setPixelColor(6+offset,0,0,0); 
       module.setPixelColor(8+offset,0,0,0);
-      module.setPixelColor(11+offset,0,0,0); 
+      module.setPixelColor(11+offset,0,0,0);
+      module.setPixelColor(12+offset,0,0,0); 
+
       break;
 
     case 3 : 

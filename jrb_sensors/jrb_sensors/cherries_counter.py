@@ -34,7 +34,7 @@ class CherriesCounter(Node):
         self.cv_bridge = CvBridge()
         self.cameraMatrix = None
         self.distCoeffs = None
-        self.values=np.zeros(30)
+        self.values=np.zeros(10)
 
         self.declare_parameter('sat_max', 255,descriptor=ParameterDescriptor(type=ParameterType.PARAMETER_INTEGER,integer_range=[IntegerRange(from_value=0, to_value=255, step=1)],),)
         self.declare_parameter('sat_min', 81,descriptor=ParameterDescriptor(type=ParameterType.PARAMETER_INTEGER,integer_range=[IntegerRange(from_value=0, to_value=255, step=1)],),)
@@ -44,12 +44,8 @@ class CherriesCounter(Node):
         self.declare_parameter('hue_low_max', 8,descriptor=ParameterDescriptor(type=ParameterType.PARAMETER_INTEGER,integer_range=[IntegerRange(from_value=0, to_value=179, step=1)],),)
         self.declare_parameter('hue_hight_min', 169,descriptor=ParameterDescriptor(type=ParameterType.PARAMETER_INTEGER,integer_range=[IntegerRange(from_value=0, to_value=179, step=1)],),)
 
-        self.declare_parameter('min_radius', 10,descriptor=ParameterDescriptor(type=ParameterType.PARAMETER_INTEGER,integer_range=[IntegerRange(from_value=0, to_value=255, step=1)],),)
-        self.declare_parameter('max_radius', 14,descriptor=ParameterDescriptor(type=ParameterType.PARAMETER_INTEGER,integer_range=[IntegerRange(from_value=0, to_value=255, step=1)],),)
+        self.declare_parameter('seuil_pixel', 986,descriptor=ParameterDescriptor(type=ParameterType.PARAMETER_INTEGER,integer_range=[IntegerRange(from_value=0, to_value=2000, step=1)],),)
 
-        self.declare_parameter('dp', 32,descriptor=ParameterDescriptor(type=ParameterType.PARAMETER_INTEGER,integer_range=[IntegerRange(from_value=0, to_value=100, step=1)],),)
-        self.declare_parameter('minDist', 19,descriptor=ParameterDescriptor(type=ParameterType.PARAMETER_INTEGER,integer_range=[IntegerRange(from_value=0, to_value=100, step=1)],),)
-        self.declare_parameter('seuil_mask', 130,descriptor=ParameterDescriptor(type=ParameterType.PARAMETER_INTEGER,integer_range=[IntegerRange(from_value=0, to_value=255, step=1)],),)
 
         self.add_on_set_parameters_callback(self.on_update_parameters)
 
@@ -60,11 +56,9 @@ class CherriesCounter(Node):
         self.val_min = self.get_parameter('val_min').get_parameter_value().integer_value
         self.hue_low_max = self.get_parameter('hue_low_max').get_parameter_value().integer_value
         self.hue_hight_min = self.get_parameter('hue_hight_min').get_parameter_value().integer_value
-        self.min_radius = self.get_parameter('min_radius').get_parameter_value().integer_value
-        self.max_radius = self.get_parameter('max_radius').get_parameter_value().integer_value
-        self.dp = self.get_parameter('dp').get_parameter_value().integer_value
-        self.minDist = self.get_parameter('minDist').get_parameter_value().integer_value
-        self.seuil_mask = self.get_parameter('seuil_mask').get_parameter_value().integer_value
+        self.seuil_pixel = self.get_parameter('seuil_pixel').get_parameter_value().integer_value
+
+
 
         # lower boundary RED color range values; Hue (0 - 10)
         self.lower1 = np.array([0, self.sat_min, self.val_min])
@@ -116,6 +110,8 @@ class CherriesCounter(Node):
                 self.minDist = param.value
             elif param.name == "seuil_mask" :
                 self.seuil_mask  = param.value
+            elif param.name == "seuil_pixel" :
+                self.seuil_pixel  = param.value
             else :
                 self.get_logger().info("Param unknown")
 
@@ -163,9 +159,9 @@ class CherriesCounter(Node):
         now = self.get_clock().now().to_msg()
 
         img_origin = self.cv_bridge.compressed_imgmsg_to_cv2(msg)
-        img_origin = self.undistort_image(img_origin)
+        img = self.undistort_image(img_origin)
 
-        img = cv2.GaussianBlur(img_origin, (5, 5), 0)
+        #img = cv2.GaussianBlur(img_origin, (5, 5), 0)
         hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 
         lower_mask = cv2.inRange(hsv, self.lower1, self.upper1)
@@ -173,45 +169,66 @@ class CherriesCounter(Node):
         full_mask = lower_mask + upper_mask
 
         result = cv2.bitwise_and(img , img , mask=full_mask)
-        img_GRAY = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
 
-        circles = cv2.HoughCircles(img_GRAY,cv2.HOUGH_GRADIENT,self.dp/10,self.minDist,
-                        param1=60,param2=40,minRadius=self.min_radius,maxRadius=self.max_radius)
-        if circles is not None  :
-            nb=circles.shape[1]
-            circles = np.uint16(np.around(circles))
-            # Draw the circles
-            for i in circles[0,:]:          
-                roi = full_mask[i[1]-self.min_radius:i[1]+self.min_radius, i[0]-self.min_radius:i[0]+self.min_radius]
-                average = roi.mean(axis=0).mean(axis=0)
-                if average < self.seuil_mask :
-                    cv2.circle(img,(i[0],i[1]),i[2],(255,0,0),2)
-                    nb-=1
-                else :
-                    cv2.circle(img,(i[0],i[1]),i[2],(0,255,0),2)
-                # draw the center of the circle
-                cv2.circle(img,(i[0],i[1]),2,(0,0,255),3)
-        else :
-            nb=0
+        # counting the number of pixels
+        number_of_white_pix = np.sum(full_mask == 255)
+
+#
+    #    circles = cv2.HoughCircles(img_GRAY,cv2.HOUGH_GRADIENT,self.dp/10,self.minDist,
+    #                    param1=60,param2=40,minRadius=self.min_radius,maxRadius=self.max_radius)
+    #    if circles is not None  :
+    #        nb=circles.shape[1]
+    #        circles = np.uint16(np.around(circles))
+    #        # Draw the circles
+    #        for i in circles[0,:]:          
+    #            roi = full_mask[i[1]-self.min_radius:i[1]+self.min_radius, i[0]-self.min_radius:i[0]+self.min_radius]
+    #            average = roi.mean(axis=0).mean(axis=0)
+    #            if average < self.seuil_mask :
+    #                cv2.circle(img,(i[0],i[1]),i[2],(255,0,0),2)
+    #                nb-=1
+    #            else :
+    #                cv2.circle(img,(i[0],i[1]),i[2],(0,255,0),2)
+    #            # draw the center of the circle
+    #            cv2.circle(img,(i[0],i[1]),2,(0,0,255),3)
+    #    else :
+    #        nb=0
             
-        self.values[-1]=nb
-        self.values=np.roll(self.values,1)
-        nb_balls=np.median(self.values)
-        self.get_logger().info(f"Detected balls : {nb_balls}")
+    #    self.values[-1]=nb
+    #    self.values=np.roll(self.values,1)
+    #    nb_balls=np.median(self.values)
+    #    self.get_logger().info(f"Detected balls : {nb_balls}")
+#
 
-        value=str(int(nb_balls))
+        self.values[-1]=number_of_white_pix
+        self.values=np.roll(self.values,1)
+        number_of_white_pix=np.median(self.values)
+
+        #Formule : approximation selon excel
+        nb_balls = 0.0010034847 * number_of_white_pix + 0.1582007881
+        #nb_balls = self.seuil_pixel * number_of_white_pix
+
+        self.get_logger().info(f"nb balls={nb_balls}  (nb white={number_of_white_pix})")
+
+
+#        xp = [1100, 40000]
+#        fp = [3, 40]
+
+#np.interp(2.5, xp, fp)
+
+
+        value=str(int(round(nb_balls)))
         value+="\r\n"
         if not self.stop :
             self.ser.write(value.encode())
 
         #write how many balls there are
-        cv2.putText(img, str(nb_balls) + " cerises", (0, 70), cv2.FONT_HERSHEY_DUPLEX,1.5, (255, 0, 0))
+    #    cv2.putText(img, str(nb_balls) + " cerises", (0, 70), cv2.FONT_HERSHEY_DUPLEX,1.5, (255, 0, 0))
         
         # config circle
-        cv2.circle(img,(60,100),self.max_radius,(0,0,255),2)
-        cv2.circle(img,(60,100),self.min_radius,(255,0,0),2)
-        cv2.circle(img,(60,140),int((self.max_radius+self.min_radius)/2),(0,255,255),2)
-        cv2.circle(img,(60+self.minDist,140),int((self.max_radius+self.min_radius)/2),(0,255,255),2)      
+    #    cv2.circle(img,(60,100),self.max_radius,(0,0,255),2)
+    #    cv2.circle(img,(60,100),self.min_radius,(255,0,0),2)
+    #    cv2.circle(img,(60,140),int((self.max_radius+self.min_radius)/2),(0,255,255),2)
+    #    cv2.circle(img,(60+self.minDist,140),int((self.max_radius+self.min_radius)/2),(0,255,255),2)      
 
         img_msg = self.cv_bridge.cv2_to_imgmsg(img, encoding='bgr8')
         img_msg.header.frame_id = "camera_link_optical"
