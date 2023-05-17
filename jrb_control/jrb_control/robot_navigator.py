@@ -29,6 +29,7 @@ from rclpy.node import Node
 from rclpy.task import Future
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
+from rclpy.executors import MultiThreadedExecutor
 
 from tf_transformations import quaternion_from_euler, euler_from_quaternion
 
@@ -60,6 +61,8 @@ class NavTaskResult(Enum):
 class BasicNavigator(Node):
     def __init__(self, node_name="basic_navigator"):
         super().__init__(node_name=node_name)
+        self.executor = MultiThreadedExecutor(num_threads=4)
+
         self.initial_pose: Optional[Pose2D] = None
         self.pose: Optional[Pose2D] = None
 
@@ -132,7 +135,7 @@ class BasicNavigator(Node):
 
         send_goal_future = self.go_to_pose.send_goal_async(goal_msg)
 
-        rclpy.spin_until_future_complete(self, send_goal_future)
+        rclpy.spin_until_future_complete(self, send_goal_future, executor=self.executor)
 
         self.nav_goal_handle = send_goal_future.result()
 
@@ -173,12 +176,12 @@ class BasicNavigator(Node):
 
     def cancelNavTask(self):
         """Cancel pending task request of any type."""
-        self.info("Canceling current task.")
 
         if self.nav_result_future:
+            self.info("Canceling current task.")
             future = self.nav_goal_handle.cancel_goal_async()
             # todo : this never resolves / always timeout
-            # rclpy.spin_until_future_complete(self, future, timeout_sec=1.0)
+            # rclpy.spin_until_future_complete(self, future, timeout_sec=1.0, executor=self.executor)
 
         return
 
@@ -188,7 +191,9 @@ class BasicNavigator(Node):
             # task was cancelled or completed
             return True
 
-        rclpy.spin_until_future_complete(self, self.nav_result_future, timeout_sec=0.10)
+        rclpy.spin_until_future_complete(
+            self, self.nav_result_future, timeout_sec=0.10, executor=self.executor
+        )
 
         if self.nav_result_future.result():
             self.nav_status = self.nav_result_future.result().status
@@ -221,7 +226,9 @@ class BasicNavigator(Node):
             return False
 
     def sleep(self, seconds: float):
-        rclpy.spin_until_future_complete(self, Future(), timeout_sec=seconds)
+        rclpy.spin_until_future_complete(
+            self, Future(), timeout_sec=seconds, executor=self.executor
+        )
 
     def getFeedback(self):
         """Get the pending action feedback message."""
