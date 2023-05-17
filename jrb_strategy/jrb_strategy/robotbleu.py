@@ -1,7 +1,7 @@
 import rclpy
 from .strategy import Strategy
 from std_msgs.msg import Bool, Int8, Int16, UInt16, UInt8, String
-from geometry_msgs.msg import Pose2D
+from geometry_msgs.msg import Pose2D, PoseArray
 
 ROLL_HEIGHT_ACTION_TIME = 1  # s
 
@@ -68,8 +68,6 @@ class RobotBleu(Strategy):
         self.pub_turbine_speed.publish(UInt16(data=2))
 
     def turbineStop(self):
-        if self.isMatchFinished():
-            return
         self.info("turbine stop")
         self.pub_turbine_speed.publish(UInt16(data=0))
 
@@ -82,18 +80,34 @@ class RobotBleu(Strategy):
         self.rollerStop()
         self.turbineStop()
 
+    def on_obstacle_detected(self, msg: PoseArray):
+        # pass
+        super().on_obstacle_detected(msg)
+
     def doStrategy(self):
         self.stop()
 
-        self.info("Init strategy. Wait for team...")
+        self.info("Init strategy ROBOTBLEU. Wait for team...")
         self.waitForTeamSelect()
 
         self.info("Wait for start...")
         self.waitForMatchToStart()
 
         self.info(f"Start ! team: {self.getTeam()}")
-        # TODO : initial pose
-        # self.setInitialPose(Pose2D())
+        
+        # Set initial pause
+        self.setInitialPose(Pose2D(x=0.25, y=2.75, theta=90.0))
+
+        # Backup
+        self.backup(dist=0.5)
+
+        # Shoot balls for 10s
+        self.turbineStartFullSpeed()
+        self.sleep(10)
+        self.turbineStop()
+
+
+
 
         # self.goToPose(Pose2D(x=0.5, y=0.0, theta=0.0))
         # self.printPose()
@@ -103,24 +117,6 @@ class RobotBleu(Strategy):
 
         # self.backup(dist=0.3)
         # self.printPose()
-
-        self.spin(45)
-        self.printPose()
-
-        self.spin(-45)
-        self.printPose()
-
-        self.spin(0)
-        self.printPose()
-
-        self.info("Wait for match to end")
-        self.waitForMatchToEnd()
-
-        self.info("Sleep 2s before funny action")
-        self.sleep(2)
-
-        self.info("FUNNY ACTION LOL")
-
 
 def main():
     rclpy.init()

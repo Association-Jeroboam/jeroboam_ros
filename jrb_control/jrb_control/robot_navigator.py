@@ -60,8 +60,7 @@ class NavTaskResult(Enum):
 class BasicNavigator(Node):
     def __init__(self, node_name="basic_navigator"):
         super().__init__(node_name=node_name)
-        self.initial_pose = PoseStamped()
-        self.initial_pose.header.frame_id = "map"
+        self.initial_pose: Optional[Pose2D] = None
         self.pose: Optional[Pose2D] = None
 
         self.nav_goal_handle: Optional[ClientGoalHandle] = None
@@ -102,14 +101,11 @@ class BasicNavigator(Node):
         self.go_to_pose.destroy()
         super().destroy_node()
 
-    def setInitialPose(self, initial_pose: Pose):
-        """Set the initial pose to the localization system."""
-        self.initial_pose = initial_pose
-
+    def setInitialPose(self, initial_pose: Pose2D):
         msg = PoseWithCovarianceStamped()
-        msg.pose.pose = self.initial_pose.pose
-        msg.header.frame_id = self.initial_pose.header.frame_id
-        msg.header.stamp = self.initial_pose.header.stamp
+        pose = self._createPoseMsgFromPose2D(initial_pose)
+        msg.header = pose.header
+        msg.pose.pose = pose.pose
 
         self.info("Publishing Initial Pose")
         self.initial_pose_pub.publish(msg)

@@ -274,7 +274,7 @@ class ObstacleDetector(Node):
             _, _, yaw_map = euler_from_matrix(transform) + angle
             q_map = quaternion_from_euler(0, 0, yaw_map)
 
-            if not (0 <= x_map <= 2000) or not (0 <= y_map <= 3000):
+            if not (0 + 0.1 <= x_map <= 2.0 - 0.1) or not (0 + 0.1 <= y_map <= 3.0 - 0.1):
                 self.cluster_buffer.add_pose(pose=None, valid=False)
                 msg.ranges[i] = float("inf")
                 continue

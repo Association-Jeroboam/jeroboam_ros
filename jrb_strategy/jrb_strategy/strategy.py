@@ -7,7 +7,7 @@ from geometry_msgs.msg import PoseArray, Pose2D
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 
-MATCH_DURATION = 60  # s
+MATCH_DURATION = 20  # s
 
 
 class Strategy(BasicNavigator):
@@ -85,8 +85,8 @@ class Strategy(BasicNavigator):
 
     def on_obstacle_detected(self, msg: PoseArray):
         if len(msg.poses) > 0:
-            self.warn("Obstacle detected ! Cancelling all goals")
-            self.stop()
+            self.warn("Obstacle detected ! Cancelling nav goal")
+            self.cancelNavTask()
 
     def on_end_match(self):
         self.info("End match timer")
@@ -130,12 +130,14 @@ class Strategy(BasicNavigator):
     def getPose(self, pose: Pose2D) -> Pose2D:
         team = self.getTeam()
 
-        if team == "yellow":
+        # yellow = green = droite
+        # purple = blue = gauche
+        if team == "purple":
             return pose
-        elif team == "purple":
+        elif team == "yellow":
             ret = Pose2D()
-            ret.x = pose.x
-            ret.y = 3.0 - pose.y
+            ret.x = 2 - pose.x
+            ret.y = pose.y
             ret.theta = (360.0 - ret.theta) % 360.0
 
             return ret
@@ -148,6 +150,10 @@ class Strategy(BasicNavigator):
 
         pose_transformed = self.getPose(pose)
         super().goToPose(pose_transformed, relative, blocking)
+
+    def setInitialPose(self, initial_pose: Pose2D):
+        pose_transformed = self.getPose(initial_pose)
+        super().setInitialPose(pose_transformed)
 
     def secSinceStartMatch(self) -> float:
         duration = self.get_clock().now() - self.start_time
