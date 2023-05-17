@@ -92,15 +92,17 @@ class RobotBleu(Strategy):
         self.waitForMatchToStart()
 
         self.info(f"Start ! team: {self.getTeam()}")
+        # TODO : initial pose
+        # self.setInitialPose(Pose2D())
 
-        self.goToPose(Pose2D(x=0.5, y=0.0, theta=0.0))
-        self.printPose()
+        # self.goToPose(Pose2D(x=0.5, y=0.0, theta=0.0))
+        # self.printPose()
 
-        self.forward()
-        self.printPose()
+        # self.forward(dist=0.3)
+        # self.printPose()
 
-        self.backup()
-        self.printPose()
+        # self.backup(dist=0.3)
+        # self.printPose()
 
         self.spin(45)
         self.printPose()

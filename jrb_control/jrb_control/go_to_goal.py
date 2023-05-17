@@ -136,7 +136,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "linear_tolerance",
-            0.01,
+            0.03,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -169,7 +169,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "max_angular_speed",
-            90.0,
+            360.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -483,10 +483,10 @@ class GoToGoalNode(Node):
     def on_odometry(self, newPose: Odometry):
         self.pose = self.get_angle_pose(newPose.pose.pose)
 
-    def on_goal(self, goal):
+    def on_goal(self, goal:PoseStamped):
         self.action_client.wait_for_server()
         action_goal = GoToPose.Goal()
-        action_goal.pose.pose = goal.pose
+        action_goal.pose = goal
         self.action_client.send_goal_async(action_goal)
 
     def get_angle_pose(self, pose: Pose) -> Pose2D:
