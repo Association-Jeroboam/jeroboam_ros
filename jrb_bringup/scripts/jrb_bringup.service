@@ -1,12 +1,19 @@
+# To install
+#    sudo cp ./jrb_bringup/scripts/jrb_bringup.service /etc/systemd/user/
+#    systemctl --user daemon-reload
+#    systemctl --user enable jrb_bringup.service
 [Unit]
 Description=Start jeroboam robot stack
 
 [Service]
-User=ubuntu
-ExecStart=/bin/bash -c 'source /home/$USER/ros2_ws/install/setup.bash; ros2 launch jrb_bringup robotrouge.launch.py; sleep 30'
-RemainAfterExit=no
-Restart=on-failure
+ExecStart=/bin/bash -c 'cd /home/jeroboam/ros2_ws/src/jeroboam_ros ; eval "$(direnv hook bash)" ; _direnv_hook ; ros2 launch jrb_bringup robot.launch.py'
+RemainAfterExit=always
+Restart=always
 RestartSec=2s
+TimeoutStopSec=2s
 
 [Install]
-WantedBy=user.target
+WantedBy=default.target
+
+
+
