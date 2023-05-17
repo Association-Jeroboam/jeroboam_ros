@@ -1,9 +1,0 @@
-/**:
-  ros__parameters:
-    camera_frame_id: camera_optical_link
-    camera_info_url: 'file:///home/jeroboam/ros2_ws/src/jeroboam_ros/jrb_bringup/param/panier_camera_info.yaml'
-    image_size:
-    - 640
-    - 480
-    video_device: /dev/video0
-
