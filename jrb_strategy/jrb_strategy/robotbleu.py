@@ -81,7 +81,7 @@ class RobotBleu(Strategy):
         self.turbineStop()
 
     def on_obstacle_detected(self, msg: PoseArray):
-        pass
+        # pass
         super().on_obstacle_detected(msg)
 
     def doStrategy(self):
@@ -107,8 +107,9 @@ class RobotBleu(Strategy):
         self.waitForMatchToStart()
 
         self.info(f"Start ! team: {self.getTeam()}")
-        # TODO : initial pose
-        # self.setInitialPose(Pose2D())
+        
+        # Set initial pause
+        self.setInitialPose(Pose2D(x=0.25, y=2.75, theta=90.0))
 
         # Set initial pause
         
