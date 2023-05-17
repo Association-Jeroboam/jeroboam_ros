@@ -23,11 +23,11 @@ class RobotRouge(Strategy):
 
         self.info(f"Start ! team: {self.getTeam()}")
         
-        # Set initial pause
-        self.setInitialPose(Pose2D(x=0.25, y=2.75, theta=90.0))
+        # Set initial pause 
+        self.setInitialPose(Pose2D(x=0.25, y=1.1, theta=0.0))
 
         # Backup
-        self.backup(dist=0.5)
+        self.forward(dist=0.5)
         self.printPose()
 
 def main():

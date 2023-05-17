@@ -205,9 +205,16 @@ def generate_launch_description():
         emulate_tty=True
     )
     
-    strategy = Node(
+    strategy_robotbleu = Node(
         package="jrb_strategy", 
         executable="robotbleu", 
+        output="screen",
+        emulate_tty=True
+    )
+
+    strategy_robotrouge = Node(
+        package="jrb_strategy", 
+        executable="robotrouge", 
         output="screen",
         emulate_tty=True
     )
@@ -232,10 +239,12 @@ def generate_launch_description():
     ld.add_action(actuators)
     ld.add_action(teleop_actuators_joy)
     ld.add_action(go_to_goal)
-    ld.add_action(strategy)
 
     if isRobotrouge:
         ld.add_action(camera)
         ld.add_action(sample_detector)
+        ld.add_action(strategy_robotrouge)
+    else:
+        ld.add_action(strategy_robotbleu)
 
     return ld

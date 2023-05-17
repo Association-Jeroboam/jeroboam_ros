@@ -8,37 +8,37 @@
     pid/left/high/p: 0.001
     pid/left/high/i: 0.001
     pid/left/high/d: 0.0
-    pid/left/high/threshold: 0.50
+    pid/left/high/threshold: 1.0
 
     pid/left/medium/bias: 0.0
-    pid/left/medium/p: 0.003
-    pid/left/medium/i: 0.002
+    pid/left/medium/p: 0.0034
+    pid/left/medium/i: 0.003
     pid/left/medium/d: 0.0
-    pid/left/medium/threshold: 0.1
+    pid/left/medium/threshold: 0.5
 
     pid/left/low/bias: 0.0
-    pid/left/low/p: 0.0002
-    pid/left/low/i: 0.0001
+    pid/left/low/p: 0.003
+    pid/left/low/i: 0.023
     pid/left/low/d: 0.0
-    pid/left/low/threshold: 0.025
+    pid/left/low/threshold: 0.1
 
     pid/right/high/bias: 0.0
     pid/right/high/p: 0.001
     pid/right/high/i: 0.001
     pid/right/high/d: 0.0
-    pid/right/high/threshold: 0.50
+    pid/right/high/threshold: 1.0
 
     pid/right/medium/bias: 0.0
-    pid/right/medium/p: 0.003
-    pid/right/medium/i: 0.0025
+    pid/right/medium/p: 0.0034
+    pid/right/medium/i: 0.002
     pid/right/medium/d: 0.0
-    pid/right/medium/threshold: 0.1
+    pid/right/medium/threshold: 0.5
 
     pid/right/low/bias: 0.0
-    pid/right/low/p: 0.0002
-    pid/right/low/i: 0.0001
+    pid/right/low/p: 0.003
+    pid/right/low/i: 0.02
     pid/right/low/d: 0.0
-    pid/right/low/threshold: 0.025
+    pid/right/low/threshold: 0.1
 
     qos_overrides:
       /parameter_events:
