@@ -248,7 +248,7 @@ def generate_launch_description():
 
     strategy_robotrouge = Node(
         package="jrb_strategy",
-        executable="robotrouge",
+        executable="robotrouge2",
         output="screen",
         emulate_tty=True,
     )
