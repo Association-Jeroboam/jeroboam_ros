@@ -8,7 +8,7 @@ from geometry_msgs.msg import PoseArray, Pose2D
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 
-MATCH_DURATION = 60  # s
+MATCH_DURATION = 100  # s
 
 
 class Strategy(BasicNavigator):
