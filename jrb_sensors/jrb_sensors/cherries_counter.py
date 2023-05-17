@@ -79,7 +79,7 @@ class CherriesCounter(Node):
         self.stop=True
         self.get_logger().warn("Poweroff raspberry pi")
         self.ser.write(str("-2").encode()) #prevenir l'arduino pour afficher un truc spécial avec les leds
-        #os.system("sudo poweroff")
+        os.system("sudo poweroff")
         #GPIO.cleanup()
 
 
