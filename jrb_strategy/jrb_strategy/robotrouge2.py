@@ -31,13 +31,12 @@ from jrb_msgs.msg import (
 
 from jrb_msgs.action import GoToPose
 
-ROLL_HEIGHT_ACTION_TIME = 1  # s
 MATCH_DURATION = 100 #s
-EXPECTED_STATIC_SCORE = 2 # 2 palets, sans les balles 
+EXPECTED_STATIC_SCORE = 0 
 
 class EurobotStrategyNode(Node):
     def __init__(self):
-        super().__init__("robotbleu_eurobot_strategy")
+        super().__init__("robotrouge_eurobot_strategy")
         self.get_logger().info("init")
 
         latchedQoS = QoSProfile(
@@ -49,20 +48,12 @@ class EurobotStrategyNode(Node):
         self.cb_group = ReentrantCallbackGroup()
 
 
-        self.pub_roll_height = self.create_publisher(Int16, "hardware/roll/height", 10)
-        self.pub_roll_speed = self.create_publisher(Int8, "hardware/roll/speed", 10)
-        self.pub_turbine_speed = self.create_publisher(
-            UInt16, "hardware/turbine/speed", 10
-        )
         self.pub_end_match = self.create_publisher(Empty, "strategy/end_match", 1)
         self.pub_initialpose = self.create_publisher(
             PoseWithCovarianceStamped, "/initialpose", 10
         )
         self.pub_twist = self.create_publisher(Twist, "/cmd_vel", 10)
         self.pub_score = self.create_publisher(String, "screen/score", 10)
-        self.pub_led = self.create_publisher(String, "/hardware/arduino/serial_write", 10)
-
-        # self.pub_servo = self.create_publisher(ServoAngle, "servo_angle_target", 10)
 
         self.goto_action_client = ActionClient(
             self, GoToPose, "diff_drive_go_to_goal", callback_group=self.cb_group
@@ -90,10 +81,6 @@ class EurobotStrategyNode(Node):
             Bool, "/hardware/emergency/status", self.on_emergency, latchedQoS
         )
         
-        self.sub_panier = self.create_subscription(
-            UInt8, "/panier/score", self.on_panier, 10
-        )
-
         self.sub_odometry = self.create_subscription(
             Odometry,
             "odometry",
@@ -134,7 +121,12 @@ class EurobotStrategyNode(Node):
 
     def on_panier(self, msg: UInt8):
         value = msg.data
-        score = EXPECTED_STATIC_SCORE + value
+        self.panier = value
+        self.printScore()
+        
+
+    def printScore(self):
+        score = EXPECTED_STATIC_SCORE
         self.pub_score.publish(String(data=str(score)))
 
     def on_starter(self, msg: Bool):
@@ -155,6 +147,7 @@ class EurobotStrategyNode(Node):
         self.strategy = msg.data
 
     def on_obstacle_detected(self, msg: PoseArray):
+        return
         if not self.start.done():
             return
 
@@ -203,11 +196,9 @@ class EurobotStrategyNode(Node):
         # purple = blue = gauche
 
         if self.team.result() == "purple":
-            print("get pose theta: ", theta)
             return (x, y, theta)
         else:
-            print("get pose theta: ", -pi + theta)
-            return (2 - x, y, -pi + theta)
+            return (2 - x, y, pi - theta)
 
     def goto_cancel_callback(self, future):
         cancel_response = future.result()
@@ -266,13 +257,16 @@ class EurobotStrategyNode(Node):
             
             theta_ = atan2(y_ - self.currentY, x_ - self.currentX)
 
-        self.get_logger().info(f"GoTo ({str(x_)}, {str(y_)}, ${str(theta_)}) ")
+        # self.get_logger().info(f"GoTo ({str(x_)}, {str(y_)}, ${str(theta_)}) ")
 
         self.goto_goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
         self.goto_goal_msg.pose.header.frame_id = "map" if not relative else "base_footprint"
 
         x, y, theta = self.get_pose(x_, y_, theta_)
+        self.get_logger().info(f"GoTo ({str(x)}, {str(y)}, ${str(theta)}) ")
         q = quaternion_from_euler(0, 0, theta)
+        self.get_logger().info(f"theta {theta}")
+
 
         self.goto_goal_msg.pose.pose.position.x = float(x)
         self.goto_goal_msg.pose.pose.position.y = float(y)
@@ -280,6 +274,8 @@ class EurobotStrategyNode(Node):
         self.goto_goal_msg.pose.pose.orientation.y = q[1]
         self.goto_goal_msg.pose.pose.orientation.z = q[2]
         self.goto_goal_msg.pose.pose.orientation.w = q[3]
+
+        self.get_logger().info(f"{q[0]} {q[1]} {q[2]} {q[3]}")
 
         self.goto_goal_msg.rotation = rotation
 
@@ -297,47 +293,8 @@ class EurobotStrategyNode(Node):
         self.goto_goal_handle = None
 
     def spin(self, yaw, relative=False):
+        self.get_logger().info(f"spin")
         self.goto(self.currentX, self.currentY, yaw, relative, rotation=True)
-        if self.end_match.done():
-            self.get_logger().warn("Match is finished, ignoring GoTo")
-            return False
-
-        # if self.obstacle_stop:
-        #     self.get_logger().warn("Obstacle ahead, ignoring GoTo")
-        #     return False
-
-        
-
-
-        self.get_logger().info(f"GoTo ({str(self.currentX)}, {str(self.currentY)}, ${str(yaw)}) ")
-
-        self.goto_goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
-        self.goto_goal_msg.pose.header.frame_id = "map" if not relative else "base_footprint"
-
-        x, y, theta = self.get_pose(self.currentX, self.currentY, yaw)
-        q = quaternion_from_euler(0, 0, theta)
-
-        self.goto_goal_msg.pose.pose.position.x = float(self.currentX)
-        self.goto_goal_msg.pose.pose.position.y = float(self.currentY)
-        self.goto_goal_msg.pose.pose.orientation.x = q[0]
-        self.goto_goal_msg.pose.pose.orientation.y = q[1]
-        self.goto_goal_msg.pose.pose.orientation.z = q[2]
-        self.goto_goal_msg.pose.pose.orientation.w = q[3]
-
-        self.goto_goal_msg.rotation = rotation
-
-        self.goto_action_client.wait_for_server()
-
-        send_goal_future = self.goto_action_client.send_goal_async(self.goto_goal_msg)
-        send_goal_future.add_done_callback(self.goto_response_callback)
-
-        rclpy.spin_until_future_complete(self, send_goal_future)
-
-        goal_handle = send_goal_future.result()
-        goal_finished_future = goal_handle.get_result_async()
-
-        rclpy.spin_until_future_complete(self, goal_finished_future)
-        self.goto_goal_handle = None
 
     def forward(self, dist=0.15):
         self.goto(dist, 0, 0, relative=True)
@@ -370,8 +327,6 @@ class EurobotStrategyNode(Node):
 
     def loop(self):
         while rclpy.ok():
-            self.stopLed()
-            self.rollerUp()
             self.pub_twist.publish(Twist())
             self.get_logger().info("Init strategy. Wait for team...")
             rclpy.spin_until_future_complete(self, self.team)
@@ -387,78 +342,16 @@ class EurobotStrategyNode(Node):
             )
 
             ######### Strategy here, written for PURPLE TEAM #########
-
-            ## STRAT 1
-            start_angle = 0.0
+            
+            ## STRAT 0
+            start_angle = 90.0
             self.set_initialpose(0.33, 2.67, radians(start_angle))
 
-            self.spin(radians(90))
-            self.turbineStart()
-            time.sleep(10)
-            self.turbineStop()
-
-            self.rollerMiddle()
-            self.rollerIn()
-
-            
-            self.goto(0.90, 2.77)
-
-            time.sleep(4)
-
-            self.rollerOut()
-            self.rollerUp()
-
-            self.goto(0.33, 2.67, radians(0.0))
-
-            self.spin(radians(90))
-
-            self.turbineStart()
-            time.sleep(10)
-            self.turbineStop()
-
-            ## END STRAT 1
-
-            # TODO : remove
-            #self.startLed()
-            #time.sleep(1)
-            #self.stopLed()
-
-            # got to push disks
-            # self.goto(0.56, 2.20, radians(-90.0))
-            # self.goto(0.56, 2.20)
-
-
-            # self.goto(0.27, 1.83, radians(90.0))
-            # self.goto(0.27, 1.83)
-
-            #ready to push disks
-
-            # self.goto(0.27, 2.57, -radians(90.0))
-            # self.goto(0.27, 2.57)
-
-            # self.goto(0.27, 2.4, radians(0.0))
-            # self.goto(0.27, 2.4)
-
-            #ready to go fetch cherries
-
-            # self.goto(0.72, 2.57, radians(90.0))
-            # self.goto(0.72, 2.57)
-
-            # self.goto(0.72, 2.77, radians(0.0))
-            # self.goto(0.72, 2.77)
-
-            #READY TO FECTH
-
             
 
-            # self.goto(0.80, 2.77, radians(0.0))
+            self.printScore()
 
-            # self.goto(0.5, 2.56, radians(113.0))
-            # self.goto(0.5, 2.56)
-
-            # self.turbineStartFullSpeed()
-            # time.sleep(10)
-            # self.turbineStop()
+            ## END STRAT 0
 
             ######### End strategy ##########
 
@@ -477,76 +370,6 @@ class EurobotStrategyNode(Node):
 
             self.start = Future()
             self.end_match = Future()
-
-
-    def rollerUp(self):
-        if self.end_match.done():
-            self.get_logger().warn("Match is finished, ignoring rollerUp")
-            return False
-        self.get_logger().info("roller up")
-        self.pub_roll_height.publish(Int16(data=2))
-        time.sleep(ROLL_HEIGHT_ACTION_TIME)
-
-    def rollerMiddle(self):
-        if self.end_match.done():
-            self.get_logger().warn("Match is finished, ignoring rollerMIddle")
-            return False
-        self.get_logger().info("roller middle")
-        self.pub_roll_height.publish(Int16(data=1))
-        time.sleep(ROLL_HEIGHT_ACTION_TIME)
-
-    def rollerLow(self):
-        if self.end_match.done():
-            self.get_logger().warn("Match is finished, ignoring rollerLow")
-            return False
-        self.get_logger().info("roller low")
-        self.pub_roll_height.publish(Int16(data=0))
-        time.sleep(ROLL_HEIGHT_ACTION_TIME)
-
-    def rollerIn(self):
-        if self.end_match.done():
-            self.get_logger().warn("Match is finished, ignoring rollerIn")
-            return False
-        self.get_logger().info("roller in")
-        self.pub_roll_speed.publish(Int8(data=1))
-
-    def rollerOut(self):
-        if self.end_match.done():
-            self.get_logger().warn("Match is finished, ignoring rollerOut")
-            return False
-        self.get_logger().info("roller out")
-        self.pub_roll_speed.publish(Int8(data=-1))
-
-    def rollerStop(self):
-        self.get_logger().info("roller stop")
-        self.pub_roll_speed.publish(Int8(data=0))
-
-    def turbineStart(self):
-        if self.end_match.done():
-            self.get_logger().warn("Match is finished, ignoring turbineStart")
-            return False
-        self.get_logger().info("turbine start")
-        self.pub_turbine_speed.publish(UInt16(data=1))
-
-    def turbineStartFullSpeed(self):
-        if self.end_match.done():
-            self.get_logger().warn("Match is finished, ignoring turbineStart")
-            return False
-        self.get_logger().info("turbine start FULLSPEED")
-        self.pub_turbine_speed.publish(UInt16(data=2))
-
-    def turbineStop(self):
-        self.get_logger().info("turbine stop")
-        self.pub_turbine_speed.publish(UInt16(data=0))
-
-    def stopLed(self):
-        self.get_logger().info("stop led")
-        self.pub_led.publish(String(data="l 0"))
-
-    def startLed(self):
-        self.get_logger().info("start led")
-        self.pub_led.publish(String(data="l 1"))
-
 
 
 def main(args=None):
