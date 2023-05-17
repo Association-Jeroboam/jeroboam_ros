@@ -109,9 +109,6 @@ class RobotBleu(Strategy):
         self.info(f"Start ! team: {self.getTeam()}")
 
         # Set initial pause
-        self.setInitialPose(Pose2D(x=0.25, y=2.75, theta=90.0))
-
-        # Set initial pause
         
         self.setInitialPose(Pose2D(x=0.33, y=2.67, theta=0.0))
         self.printPose()
