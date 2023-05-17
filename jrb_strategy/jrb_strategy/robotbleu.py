@@ -94,7 +94,7 @@ class RobotBleu(Strategy):
         self.waitForMatchToStart()
 
         self.info(f"Start ! team: {self.getTeam()}")
-        
+
         # Set initial pause
         self.setInitialPose(Pose2D(x=0.25, y=2.75, theta=90.0))
 
@@ -103,11 +103,10 @@ class RobotBleu(Strategy):
 
         # Shoot balls for 10s
         self.turbineStartFullSpeed()
-        self.sleep(10)
+        self.wait_seconds(10)
         self.turbineStop()
 
-
-
+        self.on_end_match()
 
         # self.goToPose(Pose2D(x=0.5, y=0.0, theta=0.0))
         # self.printPose()
@@ -117,6 +116,7 @@ class RobotBleu(Strategy):
 
         # self.backup(dist=0.3)
         # self.printPose()
+
 
 def main():
     rclpy.init()

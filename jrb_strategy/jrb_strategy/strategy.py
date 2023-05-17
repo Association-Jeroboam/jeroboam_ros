@@ -1,4 +1,5 @@
 import traceback
+import time
 import rclpy
 from rclpy.task import Future
 from jrb_control.robot_navigator import BasicNavigator
@@ -7,7 +8,7 @@ from geometry_msgs.msg import PoseArray, Pose2D
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 
-MATCH_DURATION = 20  # s
+MATCH_DURATION = 100  # s
 
 
 class Strategy(BasicNavigator):
@@ -45,6 +46,9 @@ class Strategy(BasicNavigator):
             self.on_obstacle_detected,
             10,
         )
+        self.sub_emergency = self.create_subscription(
+            Bool, "/hardware/emergency/status", self.on_emergency, self.latched_qos
+        )
 
         self.pub_end_match = self.create_publisher(Empty, "strategy/end_match", 1)
 
@@ -57,12 +61,32 @@ class Strategy(BasicNavigator):
         self.obstacle_stop = False
         self.start_time = None
 
+    def wait_seconds(self, seconds: float, step=0.1):
+        if seconds <= step:
+            self.sleep(seconds)
+            return
+
+        start_time = time.time()
+        end_time = start_time + seconds
+
+        while (
+            (remaining_time := end_time - time.time()) > 0
+            and rclpy.ok()
+            and not self.isMatchFinished()
+        ):
+            self.sleep(min(remaining_time, step))
+
+    def on_emergency(self, msg: Bool):
+        if msg.data and self.start_match_future.done():
+            self.warn("EMERGENCY")
+            self.on_end_match()
+
     def on_starter(self, msg: Bool):
         value = msg.data
         self.info("starter : " + str(value))
 
         if value and not self.start_match_future.done():
-            self.info("start match")
+            self.warn("start match")
             self.start_match_future.set_result("set")
             self.reset_future = Future()
 
@@ -71,7 +95,7 @@ class Strategy(BasicNavigator):
 
         # Reset so we can start match again when it is finished
         if not value and self.start_match_future.done():
-            self.info("start match")
+            self.warn("reset")
             self.reset_future.set_result("set")
             self.start_match_future = Future()
             self.end_match_future = Future()
@@ -89,7 +113,10 @@ class Strategy(BasicNavigator):
             self.cancelNavTask()
 
     def on_end_match(self):
-        self.info("End match timer")
+        if self.isMatchFinished():
+            return
+
+        self.warn("end match")
         self.end_match_future.set_result("set")
 
         if self.end_match_timer is not None:
@@ -114,7 +141,7 @@ class Strategy(BasicNavigator):
         if not rclpy.ok():
             return True
 
-        if not self.end_match_future:
+        if not self.end_match_future.done():
             return False
 
         rclpy.spin_until_future_complete(self, self.end_match_future, timeout_sec=0.10)
@@ -164,7 +191,6 @@ class Strategy(BasicNavigator):
         while rclpy.ok():
             try:
                 self.doStrategy()
-                self.stop()
                 self.info("Strategy finished !")
             except Exception:
                 self.error("Error while executing strategy")
