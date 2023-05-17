@@ -277,7 +277,7 @@ def generate_launch_description():
     ld.add_action(joystick)
     ld.add_action(marker_publisher)
     ld.add_action(screen_manager)
-    ld.add_action(actuators)
+    # ld.add_action(actuators)
     ld.add_action(teleop_actuators_joy)
     ld.add_action(go_to_goal)
     ld.add_action(stuck_detector)
