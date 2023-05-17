@@ -4,6 +4,7 @@ import math
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CompressedImage, CameraInfo
+from std_msgs.msg import UInt8
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType, IntegerRange, SetParametersResult
 
 import numpy as np
@@ -30,6 +31,8 @@ class CherriesCounter(Node):
         self.mask_image_publisher = self.create_publisher(Image, "debug/mask_image", 2)
         self.image_subscriber = self.create_subscription(CompressedImage,"/image_raw/compressed",self.on_image_compressed,10,)
         self.camera_info_subscriber = self.create_subscription(CameraInfo, "/camera_info", self.on_camera_info, 10)
+        self.score_publisher = self.create_publisher(UInt8, "/panier/score", 10)
+
 
         self.cv_bridge = CvBridge()
         self.cameraMatrix = None
@@ -207,8 +210,11 @@ class CherriesCounter(Node):
         nb_balls = 0.0010034847 * number_of_white_pix + 0.1582007881
         #nb_balls = self.seuil_pixel * number_of_white_pix
 
-        self.get_logger().info(f"nb balls={nb_balls}  (nb white={number_of_white_pix})")
+        score_msg = UInt8()
+        score_msg.data = int(nb_balls)
+        self.score_publisher.publish(score_msg)
 
+        self.get_logger().info(f"nb balls={nb_balls}  (nb white={number_of_white_pix})")
 
 #        xp = [1100, 40000]
 #        fp = [3, 40]
