@@ -97,9 +97,11 @@ class RobotBleu(Strategy):
 
         # Set initial pause
         self.setInitialPose(Pose2D(x=0.25, y=2.75, theta=90.0))
+        self.printPose()
 
         # Backup
         self.backup(dist=0.5)
+        self.printPose()
 
         # Shoot balls for 10s
         self.turbineStartFullSpeed()

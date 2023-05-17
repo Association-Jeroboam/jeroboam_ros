@@ -19,14 +19,14 @@ class Strategy(BasicNavigator):
             durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
             reliability=QoSReliabilityPolicy.RELIABLE,
             history=QoSHistoryPolicy.KEEP_LAST,
-            depth=1,
+            depth=10,
         )
 
         self.sub_start = self.create_subscription(
             Bool,
             "hardware/starter",
             self.on_starter,
-            1,
+            10,
         )
         self.sub_team = self.create_subscription(
             String,
@@ -93,8 +93,7 @@ class Strategy(BasicNavigator):
             self.end_match_timer = self.create_timer(MATCH_DURATION, self.on_end_match)
             self.start_time = self.get_clock().now()
 
-        # Reset so we can start match again when it is finished
-        if not value and self.start_match_future.done():
+        if not value and self.end_match_future.done():
             self.warn("reset")
             self.reset_future.set_result("set")
             self.start_match_future = Future()
@@ -108,8 +107,11 @@ class Strategy(BasicNavigator):
         self.strategy = msg.data
 
     def on_obstacle_detected(self, msg: PoseArray):
+        if not self.isMatchStarted():
+            return
+
         if len(msg.poses) > 0:
-            self.warn("Obstacle detected ! Cancelling nav goal")
+            self.warn("Obstacle detected !")
             self.cancelNavTask()
 
     def on_end_match(self):
@@ -126,16 +128,21 @@ class Strategy(BasicNavigator):
         self.pub_end_match.publish(Empty())
 
     def waitForMatchToStart(self):
-        rclpy.spin_until_future_complete(self, self.start_match_future)
+        rclpy.spin_until_future_complete(
+            self, self.start_match_future, executor=self.executor
+        )
 
     def waitForMatchToEnd(self):
-        rclpy.spin_until_future_complete(self, self.end_match_future)
+        while not self.isMatchFinished():
+            pass
 
     def waitForTeamSelect(self):
-        rclpy.spin_until_future_complete(self, self.team_future)
+        rclpy.spin_until_future_complete(self, self.team_future, executor=self.executor)
 
     def waitForReset(self):
-        rclpy.spin_until_future_complete(self, self.reset_future)
+        rclpy.spin_until_future_complete(
+            self, self.reset_future, executor=self.executor
+        )
 
     def isMatchFinished(self):
         if not rclpy.ok():
@@ -144,9 +151,27 @@ class Strategy(BasicNavigator):
         if not self.end_match_future.done():
             return False
 
-        rclpy.spin_until_future_complete(self, self.end_match_future, timeout_sec=0.10)
+        rclpy.spin_until_future_complete(
+            self, self.end_match_future, timeout_sec=0.10, executor=self.executor
+        )
 
         if self.end_match_future.result():
+            return True
+        else:
+            return False
+
+    def isMatchStarted(self):
+        if not rclpy.ok():
+            return True
+
+        if not self.start_match_future.done():
+            return False
+
+        rclpy.spin_until_future_complete(
+            self, self.start_match_future, timeout_sec=0.10, executor=self.executor
+        )
+
+        if self.start_match_future.result():
             return True
         else:
             return False
