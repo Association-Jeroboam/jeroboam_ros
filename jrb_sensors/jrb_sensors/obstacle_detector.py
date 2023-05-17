@@ -250,7 +250,6 @@ class ObstacleDetector(Node):
         self.pose_array_msg.poses = []
         self.pose_array_msg.header.stamp = msg.header.stamp
         self.marker_array_msg.markers = []
-        print((-pi, MIN_ANGLE_REVERSE, MAX_ANGLE_REVERSE, pi))
 
         for i, (cos_sin, angle, range) in enumerate(
             zip(self.__cos_sin_map, angles, ranges)
