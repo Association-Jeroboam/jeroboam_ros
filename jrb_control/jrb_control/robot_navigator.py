@@ -177,7 +177,8 @@ class BasicNavigator(Node):
 
         if self.nav_result_future:
             future = self.nav_goal_handle.cancel_goal_async()
-            rclpy.spin_until_future_complete(self, future, timeout_sec=1.0)
+            # todo : this never resolves / always timeout
+            # rclpy.spin_until_future_complete(self, future, timeout_sec=1.0)
 
         return
 
