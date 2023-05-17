@@ -71,6 +71,11 @@ class Actuators(Node):
 
             self.servo_angle_publish_timer = self.create_timer(1/10, self.on_servo_angle_publish_timer)
             self.pub_servo_angle = self.create_publisher(ServoAngle, "servo_angle", 10 )
+            
+            #valeurs brutes pour debug
+            self.servo_value_publish_timer = self.create_timer(1/20, self.on_servo_value_publish_timer)
+            self.pub_servo_value = self.create_publisher(ServoAngle, "servo_value", 10 )
+            
             self.check_servo_hardware_error_timer = self.create_timer(0.5, self.on_check_servo_hardware_error_timer)
             self.initHandlers("/dev/dxl", 57600, 2.0)
         else:
@@ -210,6 +215,26 @@ class Actuators(Node):
             pass
 
         self.on_joint_state_publish_timer()
+
+    def on_servo_value_publish_timer(self):
+        if self.emergency or not self.actuatorsInitialized:
+            return
+
+        msg = ServoAngle()
+
+        for servo_id in dxl.connected_XL320 :
+            if dxl.connected_XL320[servo_id].isReady :
+                value=dxl.connected_XL320[servo_id].current_position
+                msg.id = servo_id
+                msg.radian = value
+                self.pub_servo_angle.publish(msg)
+
+        for servo_id in dxl.connected_XL430 :
+            if dxl.connected_XL430[servo_id].isReady :
+                value=dxl.connected_XL430[servo_id].getSliderPosition_mm()
+                msg.id = servo_id
+                msg.radian = value
+                self.pub_servo_angle.publish(msg)
 
     def on_action_status_publish_timer(self):
         msg =  SimplifiedGoalStatus()
@@ -906,6 +931,9 @@ class Actuators_robotrouge(Actuators):
             self.right_arm.setArmPosition(88, 47, 0, -90, 0)
             time.sleep(0.8)
             self.right_arm.setArmPosition(88, 47, 90, -90, 0)
+
+    def bulldozer(self):
+        pass
 
     def lookupTransform(self, target_frame, source_frame, time=rclpy.time.Time().to_msg()):
         transform_msg = self.tf_buffer.lookup_transform(
