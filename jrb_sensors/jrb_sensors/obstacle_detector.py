@@ -250,11 +250,18 @@ class ObstacleDetector(Node):
         self.pose_array_msg.poses = []
         self.pose_array_msg.header.stamp = msg.header.stamp
         self.marker_array_msg.markers = []
+        print((-pi, MIN_ANGLE_REVERSE, MAX_ANGLE_REVERSE, pi))
 
         for i, (cos_sin, angle, range) in enumerate(
             zip(self.__cos_sin_map, angles, ranges)
         ):
             if not (self.min_distance <= range <= self.max_distance):
+            if (
+                # not (self.min_distance <= range <= self.max_distance)
+                False
+                or (sgn(self.linear_velocity) > 0 and not (MIN_ANGLE <= angle <= MAX_ANGLE))
+                or (sgn(self.linear_velocity) < 0 and not (MIN_ANGLE_REVERSE <= angle <= MAX_ANGLE_REVERSE))
+            ):
                 self.cluster_buffer.add_pose(pose=None, valid=False)
                 msg.ranges[i] = float("inf")
                 continue

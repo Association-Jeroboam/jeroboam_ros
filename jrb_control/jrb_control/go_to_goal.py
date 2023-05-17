@@ -139,7 +139,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "linear_tolerance",
-            0.01,
+            0.03,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[

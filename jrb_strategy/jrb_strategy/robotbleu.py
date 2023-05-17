@@ -107,6 +107,8 @@ class RobotBleu(Strategy):
         self.waitForMatchToStart()
 
         self.info(f"Start ! team: {self.getTeam()}")
+        # TODO : initial pose
+        # self.setInitialPose(Pose2D())
 
         # Set initial pause
         
