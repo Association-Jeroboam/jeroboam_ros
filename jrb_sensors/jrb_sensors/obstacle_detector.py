@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from math import radians, pi
+from math import radians, pi, degrees
 import traceback
 import rclpy
 from rclpy.node import Node
@@ -50,9 +50,12 @@ DETECT_ANGLE = 90  # deg
 LASER_LINK_ANGLE_TO_ROBOT = 90  # deg
 MIN_ANGLE = normalize_angle(radians(LASER_LINK_ANGLE_TO_ROBOT - DETECT_ANGLE / 2.0))
 MAX_ANGLE = normalize_angle(radians(LASER_LINK_ANGLE_TO_ROBOT + DETECT_ANGLE / 2.0))
-print("min", MIN_ANGLE, " max", MAX_ANGLE)
 MIN_ANGLE_REVERSE = normalize_angle(MIN_ANGLE + pi)
 MAX_ANGLE_REVERSE = normalize_angle(MAX_ANGLE + pi)
+
+print("min", degrees(MIN_ANGLE), " max", degrees(MAX_ANGLE))
+print("min", MIN_ANGLE, " max", MAX_ANGLE)
+print("min reverse", MIN_ANGLE_REVERSE, " max reverse", MAX_ANGLE_REVERSE)
 
     
 
@@ -220,8 +223,8 @@ class ObstacleDetector(Node):
         self.marker_array_msg.markers.append(marker)
 
     def on_odometry(self, msg:Odometry):
-        # self.linear_velocity = msg.twist.twist.linear.x
-        self.linear_velocity = -1
+        self.linear_velocity = msg.twist.twist.linear.x
+        # self.linear_velocity = 1.0
 
     def on_scan(self, msg: LaserScan, transform_msg: TransformStamped):
         N = len(msg.ranges)
@@ -245,17 +248,21 @@ class ObstacleDetector(Node):
         self.pose_array_msg.poses = []
         self.pose_array_msg.header.stamp = msg.header.stamp
         self.marker_array_msg.markers = []
-        print((-pi, MIN_ANGLE_REVERSE, MAX_ANGLE_REVERSE, pi))
 
         for i, (cos_sin, angle, range) in enumerate(
             zip(self.__cos_sin_map, angles, ranges)
         ):
-            if (
-                # not (self.min_distance <= range <= self.max_distance)
-                False
-                or (sgn(self.linear_velocity) > 0 and not (MIN_ANGLE <= angle <= MAX_ANGLE))
-                or (sgn(self.linear_velocity) < 0 and not (MIN_ANGLE_REVERSE <= angle <= MAX_ANGLE_REVERSE))
-            ):
+            if not (self.min_distance <= range <= self.max_distance):
+                self.cluster_buffer.add_pose(pose=None, valid=False)
+                msg.ranges[i] = float("inf")
+                continue
+
+            if sgn(self.linear_velocity) > 0 and not (MIN_ANGLE <= angle <= MAX_ANGLE):
+                self.cluster_buffer.add_pose(pose=None, valid=False)
+                msg.ranges[i] = float("inf")
+                continue
+
+            if sgn(self.linear_velocity) < 0 and not (MIN_ANGLE_REVERSE <= angle <= MAX_ANGLE_REVERSE):
                 self.cluster_buffer.add_pose(pose=None, valid=False)
                 msg.ranges[i] = float("inf")
                 continue
