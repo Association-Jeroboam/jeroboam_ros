@@ -237,5 +237,8 @@ def generate_launch_description():
     if isRobotrouge:
         ld.add_action(camera)
         ld.add_action(sample_detector)
+        # ld.add_action(strategy_robotrouge)
+    else:
+        ld.add_action(strategy_robotbleu)
 
     return ld
