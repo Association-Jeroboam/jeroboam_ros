@@ -156,11 +156,43 @@ class BasicNavigator(Node):
         if blocking:
             self.waitForNavTaskToComplete()
 
-    def spin(self, yaw: float, relative=False):
+    def spin(self, yaw: float, relative=False, blocking=True):
+        self.debug("Waiting for 'GoToPose' action server")
+        while not self.go_to_pose.wait_for_server(timeout_sec=5.0):
+            self.info("'GoToPose' action server not available, waiting...")
+
         pose = Pose2D()
         pose.theta = float(yaw)
 
-        return self.goToPose(pose, relative)
+        frame_id = "map" if not relative else "base_footprint"
+        goal_msg = GoToPose.Goal()
+        goal_msg.pose = self._createPoseMsgFromPose2D(pose, frame_id=frame_id)
+        goal_msg.rotation = True
+
+        self.info(
+            "Rotating to goal: "
+            + str(pose.theta)
+            + "..."
+        )
+
+        send_goal_future = self.go_to_pose.send_goal_async(goal_msg)
+
+        rclpy.spin_until_future_complete(self, send_goal_future, executor=self.executor)
+
+        self.nav_goal_handle = send_goal_future.result()
+
+        if not self.nav_goal_handle.accepted:
+            self.error(
+                "Rotating goal to "
+                + str(pose.theta)
+                + " was rejected!"
+            )
+            return False
+
+        self.nav_result_future = self.nav_goal_handle.get_result_async()
+
+        if blocking:
+            self.waitForNavTaskToComplete()
 
     def forward(self, dist=0.15, backup_speed=0.025):
         pose = Pose2D()

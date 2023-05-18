@@ -81,11 +81,24 @@ class RobotBleu(Strategy):
         self.turbineStop()
 
     def on_obstacle_detected(self, msg: PoseArray):
-        # pass
+        pass
         super().on_obstacle_detected(msg)
 
     def doStrategy(self):
         self.stop()
+
+        self.rollerUp()
+        self.wait_seconds(2)
+        self.rollerMiddle()
+        self.wait_seconds(2)
+        self.rollerLow()
+
+        self.wait_seconds(2)
+        self.rollerIn()
+        self.wait_seconds(2)
+        self.rollerOut()
+        self.wait_seconds(2)
+        self.rollerStop()
 
         self.info("Init strategy ROBOTBLEU. Wait for team...")
         self.waitForTeamSelect()
@@ -96,17 +109,36 @@ class RobotBleu(Strategy):
         self.info(f"Start ! team: {self.getTeam()}")
 
         # Set initial pause
-        self.setInitialPose(Pose2D(x=0.25, y=2.75, theta=90.0))
+        self.setInitialPose(Pose2D(x=0.25, y=2.75, theta=0.0))
         self.printPose()
 
+        # spin
+        self.forward(0.5)
+        self.spin(90.0)
+        self.forward(0.5)
+        self.spin(180)
+        self.forward(0.5)
+        self.spin(-90.0)
+        self.forward(0.5)
+        self.spin(0.0)
+
+        self.backup(0.5)
+        self.spin(90.0)
+        self.backup(0.5)
+        self.spin(180)
+        self.backup(0.5)
+        self.spin(-90.0)
+        self.backup(0.5)
+        self.spin(0.0)
+
         # Backup
-        self.backup(dist=0.5)
+        # self.backup(dist=0.5)
         self.printPose()
 
         # Shoot balls for 10s
-        self.turbineStartFullSpeed()
-        self.wait_seconds(10)
-        self.turbineStop()
+        # self.turbineStartFullSpeed()
+        # self.wait_seconds(10)
+        # self.turbineStop()
 
         self.on_end_match()
 

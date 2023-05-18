@@ -93,7 +93,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "rate",
-            20.0,
+            50.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -147,7 +147,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "angular_tolerance",
-            1.0,
+            1.5,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -385,17 +385,29 @@ class GoToGoalNode(Node):
         # Goal can be a pose in any frame (in the robot's frame to do relative moves)
         # Convert the goal to the map frame
         goal_pose = goal_handle.request.pose
+        self.rotation = goal_handle.request.rotation
+
+        if self.rotation:
+            goal_pose.pose.position.x = self.pose.x
+            goal_pose.pose.position.y = self.pose.y
+
         goal_pose_map = self.convert_pose_to_map(goal_pose)
 
         # Convert the Pose ROS msg to the Pose2D internall class
         self.goal = self.get_angle_pose(goal_pose_map.pose)
-        self.get_logger().info(
-            f"Goal: ({self.goal.x}, {self.goal.y}, ${self.goal.theta})"
-        )
+
+        if self.rotation:
+            self.get_logger().info(
+                f"ROTATION Goal: ${self.goal.theta})"
+            )
+        else:
+            self.get_logger().info(
+                f"Goal: ({self.goal.x}, {self.goal.y}, ${self.goal.theta})"
+            )
 
         # Debug marker
         self.publish_marker(
-            self.get_clock().now().to_msg(), goal_handle.request.pose.pose
+            self.get_clock().now().to_msg(), goal_pose.pose
         )
 
         success = True
@@ -456,7 +468,7 @@ class GoToGoalNode(Node):
         self.pose.theta = 0.0
 
     def publish(self):
-        if self.controller.at_goal(self.pose, self.goal):
+        if self.controller.at_goal(self.pose, self.goal, self.rotation):
             desired = Pose2D()
         else:
             desired = self.controller.get_velocity(self.pose, self.goal, self.dT)
@@ -464,10 +476,13 @@ class GoToGoalNode(Node):
         d = self.controller.get_goal_distance(self.pose, self.goal)
         self.dist_pub.publish(Float32(data=float(d)))
 
-        self.send_velocity(desired.xVel, desired.thetaVel)
+        if self.rotation:
+            self.send_velocity(0.0, desired.thetaVel)
+        else:
+            self.send_velocity(desired.xVel, desired.thetaVel)
 
         # Forget the goal if achieved.
-        if self.controller.at_goal(self.pose, self.goal):
+        if self.controller.at_goal(self.pose, self.goal, self.rotation):
             self.get_logger().info("Goal achieved")
             self.controller.last_linear_speed_cmd = [0.0, 0.0]
             self.controller.last_angular_speed_cmd = [0.0, 0.0]
