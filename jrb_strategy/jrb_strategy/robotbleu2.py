@@ -361,6 +361,7 @@ class EurobotStrategyNode(Node):
         while rclpy.ok():
             self.stopLed()
             self.rollerUp()
+            # self.rollerIn()
             self.turbineStop()
             self.pub_twist.publish(Twist())
             self.get_logger().info("Init strategy. Wait for team...")

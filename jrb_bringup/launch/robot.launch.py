@@ -239,6 +239,13 @@ def generate_launch_description():
         emulate_tty=True,
     )
 
+    panier_http = Node(
+        package="jrb_strategy",
+        executable="panier_http_publisher",
+        output="screen",
+        emulate_tty=True,
+    )
+
     strategy_robotrouge = Node(
         package="jrb_strategy",
         executable="robotrouge",
