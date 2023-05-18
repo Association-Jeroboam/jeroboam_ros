@@ -2,7 +2,7 @@
 <robot name="robotrouge"
   xmlns:xacro="http://ros.org/wiki/xacro">
 
-    <!-- <xacro:include filename="arm.urdf.xacro" /> -->
+    <xacro:include filename="arm.urdf.xacro" />
     <xacro:include filename="colors.xacro" />
     <xacro:include filename="inertial.xacro" />
 
@@ -261,6 +261,9 @@
                 </geometry>
         </visual>
     </link>
+
+    <xacro:arm name="left" xyz="0.054 0.11275 0.029375" origin="0.0865 0.11275 0"/>
+    <xacro:arm name="right" xyz="0.054 -0.11275 0.029375" origin="0.0865 -0.11275 0"/>
 
     <xacro:include filename="lidar.xacro" />
     <xacro:include filename="camera.xacro" />
