@@ -969,7 +969,7 @@ class rakes:
         #self.setTorque(torqueSetup)
 
 class ball_system:
-    def __init__(self, node, lift_left_id=12, lift_right_id=6, roller_left_id=23, roller_right_id=24, figer_left_id=20, figer_right_id=13):
+    def __init__(self, node, lift_left_id=17, lift_right_id=6, roller_left_id=23, roller_right_id=2, figer_left_id=20, figer_right_id=13):
         
         self.node = node
 
@@ -1050,11 +1050,11 @@ class ball_system:
         return [self.lift_right,self.lift_left]
         
     def setRollerDown(self):
-        self.lift_right.setGoalPosition(0)
-        self.lift_left.setGoalPosition(0)
+        self.lift_right.setGoalPosition(20)
+        self.lift_left.setGoalPosition(20)
         return [self.lift_right,self.lift_left]
 
     def setRollerMiddle(self):
-        self.lift_right.setGoalPosition(250)
-        self.lift_left.setGoalPosition(250)
+        self.lift_right.setGoalPosition(260)
+        self.lift_left.setGoalPosition(260)
         return [self.lift_right,self.lift_left]

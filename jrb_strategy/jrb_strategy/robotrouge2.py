@@ -33,8 +33,7 @@ from jrb_msgs.action import GoToPose
 
 ROLL_HEIGHT_ACTION_TIME = 1  # s
 MATCH_DURATION = 100 #s
-EXPECTED_STATIC_SCORE = 5 + 5 + 15 + 5 
-DEFAULT_PANIER_SCORE = 16
+EXPECTED_STATIC_SCORE = 2 # 2 palets, sans les balles 
 
 class EurobotStrategyNode(Node):
     def __init__(self):
@@ -86,14 +85,13 @@ class EurobotStrategyNode(Node):
         self.currentX = None
         self.currentY = None
         self.currentTheta = None
-        self.panier = None
 
         self.sub_emergency = self.create_subscription(
             Bool, "/hardware/emergency/status", self.on_emergency, latchedQoS
         )
         
         self.sub_panier = self.create_subscription(
-            UInt8, "/panier/score_http", self.on_panier, 10
+            UInt8, "/panier/score", self.on_panier, 10
         )
 
         self.sub_odometry = self.create_subscription(
@@ -134,21 +132,9 @@ class EurobotStrategyNode(Node):
             callback_group=self.cb_group,
         )
 
-        self.stopLed()
-
     def on_panier(self, msg: UInt8):
         value = msg.data
-        self.panier = value
-        self.printScore()
-        
-
-    def printScore(self):
-        panier_score = DEFAULT_PANIER_SCORE
-
-        if self.panier is not None:
-            panier_score = self.panier
-
-        score = EXPECTED_STATIC_SCORE + panier_score
+        score = EXPECTED_STATIC_SCORE + value
         self.pub_score.publish(String(data=str(score)))
 
     def on_starter(self, msg: Bool):
@@ -169,7 +155,6 @@ class EurobotStrategyNode(Node):
         self.strategy = msg.data
 
     def on_obstacle_detected(self, msg: PoseArray):
-        return
         if not self.start.done():
             return
 
@@ -222,7 +207,7 @@ class EurobotStrategyNode(Node):
             return (x, y, theta)
         else:
             print("get pose theta: ", -pi + theta)
-            return (2 - x, y, pi - theta)
+            return (2 - x, y, -pi + theta)
 
     def goto_cancel_callback(self, future):
         cancel_response = future.result()
@@ -281,16 +266,13 @@ class EurobotStrategyNode(Node):
             
             theta_ = atan2(y_ - self.currentY, x_ - self.currentX)
 
-        # self.get_logger().info(f"GoTo ({str(x_)}, {str(y_)}, ${str(theta_)}) ")
+        self.get_logger().info(f"GoTo ({str(x_)}, {str(y_)}, ${str(theta_)}) ")
 
         self.goto_goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
         self.goto_goal_msg.pose.header.frame_id = "map" if not relative else "base_footprint"
 
         x, y, theta = self.get_pose(x_, y_, theta_)
-        self.get_logger().info(f"GoTo ({str(x)}, {str(y)}, ${str(theta)}) ")
         q = quaternion_from_euler(0, 0, theta)
-        self.get_logger().info(f"theta {theta}")
-
 
         self.goto_goal_msg.pose.pose.position.x = float(x)
         self.goto_goal_msg.pose.pose.position.y = float(y)
@@ -298,8 +280,6 @@ class EurobotStrategyNode(Node):
         self.goto_goal_msg.pose.pose.orientation.y = q[1]
         self.goto_goal_msg.pose.pose.orientation.z = q[2]
         self.goto_goal_msg.pose.pose.orientation.w = q[3]
-
-        self.get_logger().info(f"{q[0]} {q[1]} {q[2]} {q[3]}")
 
         self.goto_goal_msg.rotation = rotation
 
@@ -317,8 +297,47 @@ class EurobotStrategyNode(Node):
         self.goto_goal_handle = None
 
     def spin(self, yaw, relative=False):
-        self.get_logger().info(f"spin")
         self.goto(self.currentX, self.currentY, yaw, relative, rotation=True)
+        if self.end_match.done():
+            self.get_logger().warn("Match is finished, ignoring GoTo")
+            return False
+
+        # if self.obstacle_stop:
+        #     self.get_logger().warn("Obstacle ahead, ignoring GoTo")
+        #     return False
+
+        
+
+
+        self.get_logger().info(f"GoTo ({str(self.currentX)}, {str(self.currentY)}, ${str(yaw)}) ")
+
+        self.goto_goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
+        self.goto_goal_msg.pose.header.frame_id = "map" if not relative else "base_footprint"
+
+        x, y, theta = self.get_pose(self.currentX, self.currentY, yaw)
+        q = quaternion_from_euler(0, 0, theta)
+
+        self.goto_goal_msg.pose.pose.position.x = float(self.currentX)
+        self.goto_goal_msg.pose.pose.position.y = float(self.currentY)
+        self.goto_goal_msg.pose.pose.orientation.x = q[0]
+        self.goto_goal_msg.pose.pose.orientation.y = q[1]
+        self.goto_goal_msg.pose.pose.orientation.z = q[2]
+        self.goto_goal_msg.pose.pose.orientation.w = q[3]
+
+        self.goto_goal_msg.rotation = rotation
+
+        self.goto_action_client.wait_for_server()
+
+        send_goal_future = self.goto_action_client.send_goal_async(self.goto_goal_msg)
+        send_goal_future.add_done_callback(self.goto_response_callback)
+
+        rclpy.spin_until_future_complete(self, send_goal_future)
+
+        goal_handle = send_goal_future.result()
+        goal_finished_future = goal_handle.get_result_async()
+
+        rclpy.spin_until_future_complete(self, goal_finished_future)
+        self.goto_goal_handle = None
 
     def forward(self, dist=0.15):
         self.goto(dist, 0, 0, relative=True)
@@ -353,8 +372,6 @@ class EurobotStrategyNode(Node):
         while rclpy.ok():
             self.stopLed()
             self.rollerUp()
-            # self.rollerIn()
-            self.turbineStop()
             self.pub_twist.publish(Twist())
             self.get_logger().info("Init strategy. Wait for team...")
             rclpy.spin_until_future_complete(self, self.team)
@@ -370,52 +387,29 @@ class EurobotStrategyNode(Node):
             )
 
             ######### Strategy here, written for PURPLE TEAM #########
-            
-            ## STRAT 0
-            # start_angle = 90.0
-            # self.set_initialpose(0.33, 2.67, radians(start_angle))
-
-            # self.turbineStart()
-            # time.sleep(15)
-            # self.turbineStartFullSpeed()
-            # self.backup(0.50)
-            # self.turbineStop()
-
-            # self.goto(0.33, 2.67)
-            # self.printScore()
-
-            ## END STRAT 0
 
             ## STRAT 1
             start_angle = 0.0
-            self.get_logger().info(f"set inital pose")
             self.set_initialpose(0.33, 2.67, radians(start_angle))
+
             self.spin(radians(90))
-            self.get_logger().info(f"start turbine")
             self.turbineStart()
             time.sleep(10)
-            self.get_logger().info(f"stop turbine")
             self.turbineStop()
-            self.spin(radians(0.0))
 
-            
+            self.rollerMiddle()
             self.rollerIn()
 
             
-            self.goto(0.92, 2.77, radians(0.0))
-            self.rollerMiddle()
-            self.get_logger().info(f"baaaaalls")
-            time.sleep(1)
-            self.get_logger().info(f" more  baaaaalls")
-            self.goto(0.83, 2.77, radians(0.0))
-            self.rollerLow()
-            time.sleep(2)
-            
+            self.goto(0.90, 2.77)
+
+            time.sleep(4)
+
+            self.rollerOut()
+            self.rollerUp()
 
             self.goto(0.33, 2.67, radians(0.0))
-            self.rollerUp()
-            self.rollerStop()
-        
+
             self.spin(radians(90))
 
             self.turbineStart()
