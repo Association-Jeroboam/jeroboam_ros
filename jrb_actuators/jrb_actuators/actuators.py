@@ -230,16 +230,16 @@ class Actuators(Node):
                 else: 
                     value=servo.current_position
                 msg.id = servo_id
-                msg.radian = float(value)
-                self.pub_servo_value.publish(msg)
+                msg.radian = value
+                self.pub_servo_angle.publish(msg)
 
         for servo_id in dxl.connected_XL430 :
             servo=dxl.connected_XL430[servo_id]
             if servo.isReady :
                 value=int(servo.current_position / dxl.mmToRaw)
                 msg.id = servo_id
-                msg.radian = float(value)
-                self.pub_servo_value.publish(msg)
+                msg.radian = value
+                self.pub_servo_angle.publish(msg)
 
     def on_action_status_publish_timer(self):
         msg =  SimplifiedGoalStatus()
@@ -721,8 +721,6 @@ class Actuators_robotrouge(Actuators):
         time.sleep(1)
         self.actuatorsInitialized = True
         self.get_logger().info("Init actuators ok")
-
-        #self.bulldozer()
 
     def cycle_cool(self):
         while True:
