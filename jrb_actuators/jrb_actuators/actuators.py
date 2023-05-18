@@ -698,7 +698,7 @@ class Actuators_robotrouge(Actuators):
 
         self.actuatorsInitialized = True
 
-        self.bulldozer()
+        #self.bulldozer()
 
     def cycle_cool(self):
         while True:
