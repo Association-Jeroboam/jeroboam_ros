@@ -99,11 +99,15 @@ class GoalController:
         diffY = cur.y - goal.y
         return sqrt(diffX * diffX + diffY * diffY)
 
-    def at_goal(self, cur, goal):
+    def at_goal(self, cur, goal, isRotation):
         if goal is None:
             return True
-        d = self.get_goal_distance(cur, goal)
+
         dTh = abs(self.normalize_pi(cur.theta - goal.theta))
+        if isRotation:
+            return dTh < self.angular_tolerance
+
+        d = self.get_goal_distance(cur, goal)
         return d < self.linear_tolerance and dTh < self.angular_tolerance
 
     def get_velocity(self, cur, goal, dT):

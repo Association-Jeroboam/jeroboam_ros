@@ -230,7 +230,7 @@ class Actuators(Node):
                 else: 
                     value=servo.current_position
                 msg.id = servo_id
-                msg.radian = value
+                msg.radian = float(value)
                 self.pub_servo_angle.publish(msg)
 
         for servo_id in dxl.connected_XL430 :
@@ -238,7 +238,7 @@ class Actuators(Node):
             if servo.isReady :
                 value=int(servo.current_position / dxl.mmToRaw)
                 msg.id = servo_id
-                msg.radian = value
+                msg.radian = float(value)
                 self.pub_servo_angle.publish(msg)
 
     def on_action_status_publish_timer(self):
@@ -1062,6 +1062,9 @@ class Actuators_robotbleu(Actuators):
             self.get_logger().warn(f"Cannot launch unknown action ({msg.data})")    
 
     def roll_speed_cb(self, msg: Int8):
+        if self.emergency or not self.actuatorsInitialized:
+            return
+
         if msg.data == 1 :
             self.ballSystem.startRoller_in()
         elif msg.data == -1 :
@@ -1070,6 +1073,9 @@ class Actuators_robotbleu(Actuators):
             self.ballSystem.stopRoller()
 
     def roll_height_cb(self, msg: Int16):
+        if self.emergency or not self.actuatorsInitialized:
+            return
+
         if msg.data == 0 :
             self.ballSystem.setRollerDown()
         elif msg.data == 1 :
@@ -1078,6 +1084,9 @@ class Actuators_robotbleu(Actuators):
             self.ballSystem.setRollerUp()
 
     def turbine_speed_cb(self, msg: UInt16):
+        if self.emergency or not self.actuatorsInitialized:
+            return
+
         if msg.data > 0 :
             self.ballSystem.startFingersLoop()
         else :
