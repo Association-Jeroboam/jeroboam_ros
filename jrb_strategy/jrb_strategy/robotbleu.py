@@ -87,18 +87,18 @@ class RobotBleu(Strategy):
     def doStrategy(self):
         self.stop()
 
-        self.rollerUp()
-        self.wait_seconds(2)
-        self.rollerMiddle()
-        self.wait_seconds(2)
-        self.rollerLow()
+        # self.rollerUp()
+        # self.wait_seconds(2)
+        # self.rollerMiddle()
+        # self.wait_seconds(2)
+        # self.rollerLow()
 
-        self.wait_seconds(2)
-        self.rollerIn()
-        self.wait_seconds(2)
-        self.rollerOut()
-        self.wait_seconds(2)
-        self.rollerStop()
+        # self.wait_seconds(2)
+        # self.rollerIn()
+        # self.wait_seconds(2)
+        # self.rollerOut()
+        # self.wait_seconds(2)
+        # self.rollerStop()
 
         self.info("Init strategy ROBOTBLEU. Wait for team...")
         self.waitForTeamSelect()
@@ -109,8 +109,45 @@ class RobotBleu(Strategy):
         self.info(f"Start ! team: {self.getTeam()}")
 
         # Set initial pause
-        self.setInitialPose(Pose2D(x=0.25, y=2.75, theta=0.0))
+        
+        self.setInitialPose(Pose2D(x=0.33, y=2.67, theta=0.0))
         self.printPose()
+
+        # got to push disks
+        self.goTo(Pose2D(x=0.56, y=2.20, theta=-90.0))
+
+        self.goToPose(Pose2D(x=0.27, y=1.83, theta=90.0))
+
+        #ready to push disks
+
+        self.goToPose(Pose2D(x=0.27, y=2.57 , theta=-90.0))
+
+        self.goToPose(Pose2D(x=0.27, y=2.4 , theta=0.0))
+
+        #ready to go fetch cherries
+
+        self.goToPose(Pose2D(x=0.72, y=2.57 , theta=90.0))
+
+        self.goToPose(Pose2D(x=0.72, y=2.77 , theta=0.0))
+        self.goToPose(Pose2D(x=0.72, y=2.77 , theta=0.0))
+        #READY TO FECTH
+        self.rollerMiddle()
+        self.rollerIn()
+
+        self.goToPose(Pose2D(x=0.89, y=2.81 , theta=0.0))
+
+        self.wait_seconds(4)
+
+        self.rollerOut()
+
+        self.goToPose(Pose2D(x=0.5, y=2.56 , theta=113.0))
+
+        self.turbineStartFullSpeed()
+        self.wait_seconds(10)
+        self.turbineStop()
+
+
+        self.backup(0.5)    
 
         # spin
         self.forward(0.5)

@@ -471,7 +471,7 @@ class GoToGoalNode(Node):
         if self.controller.at_goal(self.pose, self.goal, self.rotation):
             desired = Pose2D()
         else:
-            desired = self.controller.get_velocity(self.pose, self.goal, self.dT)
+            desired = self.controller.get_velocity(self.pose, self.goal, self.dT, self.rotation)
 
         d = self.controller.get_goal_distance(self.pose, self.goal)
         self.dist_pub.publish(Float32(data=float(d)))

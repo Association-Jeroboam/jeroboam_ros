@@ -258,7 +258,7 @@ def generate_launch_description():
     ld.add_action(screen_manager)
     ld.add_action(actuators)
     ld.add_action(teleop_actuators_joy)
-    # ld.add_action(go_to_goal)
+    ld.add_action(go_to_goal)
 
     if isRobotrouge:
         ld.add_action(camera)

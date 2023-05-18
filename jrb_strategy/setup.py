@@ -29,6 +29,8 @@ setup(
             "bag_player = jrb_strategy.bag_player:main",
             "robotbleu = jrb_strategy.robotbleu:main",
             "robotrouge = jrb_strategy.robotrouge:main",
+            "robotbleu2 = jrb_strategy.robotbleu2:main",
+            "robotrouge2 = jrb_strategy.robotrouge2:main",
         ],
     },
 )
