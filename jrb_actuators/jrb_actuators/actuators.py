@@ -226,15 +226,15 @@ class Actuators(Node):
             if dxl.connected_XL320[servo_id].isReady :
                 value=dxl.connected_XL320[servo_id].current_position
                 msg.id = servo_id
-                msg.radian = float(value)
-                self.pub_servo_value.publish(msg)
+                msg.radian = value
+                self.pub_servo_angle.publish(msg)
 
         for servo_id in dxl.connected_XL430 :
             if dxl.connected_XL430[servo_id].isReady :
-                value=dxl.connected_XL430[servo_id].current_position
+                value=dxl.connected_XL430[servo_id].getSliderPosition_mm()
                 msg.id = servo_id
-                msg.radian = float(value)
-                self.pub_servo_value.publish(msg)
+                msg.radian = value
+                self.pub_servo_angle.publish(msg)
 
     def on_action_status_publish_timer(self):
         msg =  SimplifiedGoalStatus()
@@ -537,11 +537,6 @@ class Actuators(Node):
                     dxl.connected_XL430[servo_id].sendConfig()
                     dxl.connected_XL430[servo_id].setTorque(True)
             
-            for servo_id in dxl.connected_XL320 :
-                dxl.connected_XL320[servo_id].setTorque(False)
-            for servo_id in dxl.connected_XL430 :
-                dxl.connected_XL430[servo_id].setTorque(False)
-            
 class Actuators_robotrouge(Actuators):
     def __init__(self):
         super().__init__()
@@ -697,8 +692,6 @@ class Actuators_robotrouge(Actuators):
         self.storeArm("right")
 
         self.actuatorsInitialized = True
-
-        self.bulldozer()
 
     def cycle_cool(self):
         while True:
@@ -940,15 +933,7 @@ class Actuators_robotrouge(Actuators):
             self.right_arm.setArmPosition(88, 47, 90, -90, 0)
 
     def bulldozer(self):
-        #bras(self,"right",3, 4, 10, 9, 11, 100) #droit
-        #self.right_arm.setArmPosition(639, 326, 527, 394, 509)
-        self.right_arm.goToAngle("A", 639)
-        self.right_arm.goToAngle("B", 326)
-        self.right_arm.goToAngle("C", 527)
-        self.right_arm.goToAngle("D", 394)
-        self.right_arm.goToAngle("E", 509)
-        self.right_arm.setSliderPosition_mm(60)
-
+        pass
 
     def lookupTransform(self, target_frame, source_frame, time=rclpy.time.Time().to_msg()):
         transform_msg = self.tf_buffer.lookup_transform(
