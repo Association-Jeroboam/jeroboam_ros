@@ -740,8 +740,6 @@ class Actuators_robotrouge(Actuators):
         self.actuatorsInitialized = True
         self.get_logger().info("Init actuators ok")
 
-        #self.bulldozer()
-
     def cycle_cool(self):
         while True:
             self.takeSample("left", 1)
