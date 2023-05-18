@@ -30,7 +30,7 @@ class ArmActionServer(Node):
         )
 
         # Publisher
-        self.pub_arm_goto = self.create_publisher(PoseStamped, self.arm_name+"_arm_goto", 10)
+        self.pub_arm_goto = self.create_publisher(PoseStamped, "/actuators/arm/"+self.arm_name+"/go_to", 10)
 
         self.arm_state_msg = ArmStatus()
         self.start_time = 0
