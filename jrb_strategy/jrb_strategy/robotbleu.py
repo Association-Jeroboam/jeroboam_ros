@@ -81,7 +81,7 @@ class RobotBleu(Strategy):
         self.turbineStop()
 
     def on_obstacle_detected(self, msg: PoseArray):
-        # pass
+        pass
         super().on_obstacle_detected(msg)
 
     def doStrategy(self):
