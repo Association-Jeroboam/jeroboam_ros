@@ -6,6 +6,8 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image, CompressedImage, CameraInfo
 from std_msgs.msg import UInt8
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType, IntegerRange, SetParametersResult
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from threading import Thread
 
 import numpy as np
 import cv2
@@ -18,6 +20,8 @@ bouton_pin_number=14
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(bouton_pin_number, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 GPIO.add_event_detect(bouton_pin_number, GPIO.RISING)
+
+nb_balls = -1
 
 def opencv_to_ros(vec):
     return np.array([-vec[1], vec[0], vec[2]])
@@ -176,6 +180,7 @@ class CherriesCounter(Node):
         # counting the number of pixels
         number_of_white_pix = np.sum(full_mask == 255)
 
+        global nb_balls
 #
     #    circles = cv2.HoughCircles(img_GRAY,cv2.HOUGH_GRADIENT,self.dp/10,self.minDist,
     #                    param1=60,param2=40,minRadius=self.min_radius,maxRadius=self.max_radius)
@@ -244,9 +249,44 @@ class CherriesCounter(Node):
         img_msg.header.frame_id = "camera_link_optical"
         self.mask_image_publisher.publish(img_msg)
 
+
+def ServeHTTP():
+    """
+    Spawns an http.server.HTTPServer in a separate thread on port 8000
+    and expose the `nb_balls` global variable on the 'GET /counter' endpoint.
+    This is a backup way to communicate the score because ros topic
+    might be unreliable between robots
+    """
+    class Handler(BaseHTTPRequestHandler):
+        def send_404(self):
+            self.send_response(404)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(bytes('Not found (use /counter)', 'utf-8'))
+
+        def do_GET(self):
+            global nb_balls
+            if self.path == '/counter':
+                self.send_response(200)
+                self.send_header('Content-type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(bytes(str(round(nb_balls)), 'utf-8'))
+                return
+
+            self.send_404()
+
+    def serve_forever():
+        httpd = HTTPServer(('', 8000), Handler)
+        with httpd:
+            httpd.serve_forever()
+
+    thread = Thread(target=serve_forever, daemon=True)
+    thread.start()
+    return thread
+
 def main(args=None):
     rclpy.init(args=args)
-
+    ServeHTTP()
     node = CherriesCounter()
 
     try:
