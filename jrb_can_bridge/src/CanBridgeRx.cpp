@@ -51,6 +51,8 @@
 
 using namespace std::chrono_literals;
 
+using namespace std::chrono_literals;
+
 const uint32_t CAN_EXT_ID_MASK = (1 <<29) - 1;
 
 void* checkRxMsg(void*);
@@ -272,8 +274,11 @@ void publishReceivedMessage(CanardRxTransfer * transfer) {
       if(res == NUNAVUT_SUCCESS) {
         if(heartbeat.vendor_specific_status_code == CAN_PROTOCOL_MOTION_BOARD_ID) {
           if(heartbeat.mode.value == uavcan_node_Mode_1_0_INITIALIZATION) {
+            RCLCPP_ERROR_STREAM(rclcpp::get_logger("CanBridge"), "MotionBoard reboot detect, updating configs");
             canBridge.get()->sendMotionConfig();
+            std::this_thread::sleep_for(10ms); // give time to the motionboard to process messages
             canBridge.get()->sendAdaptPidConfig("left");
+            std::this_thread::sleep_for(10ms);
             canBridge.get()->sendAdaptPidConfig("right");
           }
         }

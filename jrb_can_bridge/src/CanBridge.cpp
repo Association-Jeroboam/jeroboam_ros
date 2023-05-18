@@ -28,6 +28,12 @@ void CanBridge::init()
     const auto thresholds = std::array<std::string, 3>({"low", "medium", "high"});
     ros2_utils::floating_point_range default_range = {0.0, 10.0, 0.0001};
 
+    // Publishers
+    initPubs();
+
+    // Subscribers
+    initSubs();
+
     for (auto const &side : sides)
     {
         for (auto const &threshold : thresholds)
@@ -56,6 +62,7 @@ void CanBridge::init()
         }
 
         sendAdaptPidConfig(side);
+        std::this_thread::sleep_for(10us);
     }
 
     ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("wheel_base"), rclcpp::ParameterValue(0.258), (ros2_utils::floating_point_range){0.0, 0.5, 0.0}, std::string("wheel base"), std::string(""), false);
@@ -76,18 +83,14 @@ void CanBridge::init()
 
     // TODO: send reboot cmd instead of this to reset transfer_id
     sendMotionConfig();
+    std::this_thread::sleep_for(10us);
     sendMotionConfig();
+    std::this_thread::sleep_for(10us);
 
     send_config_enabled = true;
 
     // Tf
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
-    
-    // Publishers
-    initPubs();
-
-    // Subscribers
-    initSubs();
 
     // Parameters callback
     param_callback_handle = this->add_on_set_parameters_callback(std::bind(&CanBridge::parametersCallback, this, std::placeholders::_1));
@@ -220,18 +223,21 @@ rcl_interfaces::msg::SetParametersResult CanBridge::parametersCallback(const std
             }
         }
     }
-    
+
     if (send_config_enabled) {
         if (leftPidParamModified) {
             sendAdaptPidConfig("left");
+            std::this_thread::sleep_for(10us);
         }
 
         if (rightPidParamModified) {
             sendAdaptPidConfig("right");
+            std::this_thread::sleep_for(10us);
         }
 
         if (motionConfigParamModified) {
             sendMotionConfig();
+            std::this_thread::sleep_for(10us);
         }
     }
 
