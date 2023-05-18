@@ -1,0 +1,17 @@
+# To install
+#    sudo loginctl enable-linger jeroboam
+#    sudo cp ./jrb_bringup/scripts/panier.service /etc/systemd/user/
+#    systemctl --user daemon-reload
+#    systemctl --user enable panier.service
+[Unit]
+Description=Start jeroboam panier
+
+[Service]
+ExecStart=/bin/bash -c 'cd /home/jeroboam/ros2_ws/src/jeroboam_ros ; eval "$(direnv hook bash)" ; _direnv_hook ; ros2 launch jrb_sensors panier.launch.py'
+RemainAfterExit=always
+Restart=always
+RestartSec=2s
+TimeoutStopSec=2s
+
+[Install]
+WantedBy=default.target
