@@ -979,7 +979,7 @@ class Actuators_robotrouge(Actuators):
             time.sleep(0.8)
             self.right_arm.setArmPosition(88, 47, 90, -90, 0)
 
-    def bulldozer(self, msg=None):
+    def bulldozer(self):
         self.right_arm.setTorque(1)
         self.right_arm.joinA.setGoalPosition(657)
         self.right_arm.joinB.setGoalPosition(343)
