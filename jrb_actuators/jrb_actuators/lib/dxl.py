@@ -70,6 +70,7 @@ class XL320:
         self.driveMode = Drive_Mode
         self.maxSpeed = Max_Speed
         self.maxTorque = Max_Torque
+        self.speed_goal = 0
         self.punch = 50
         self.CW_Angle_Limit = CW_Angle_Limit
         self.CCW_Angle_Limit = CCW_Angle_Limit
@@ -273,6 +274,7 @@ class XL320:
         if SPEED > self.maxSpeed :
             self.node.get_logger().warn(F"ID {self.ID}: Goal speed received > maxSpeed configured ({SPEED} > {self.maxSpeed})") 
             SPEED=self.maxSpeed
+        self.speed_goal=SPEED
         if reverse ^ self.reverseRotation : SPEED += 1024 # ^ : ou exclusif
         
         #self.node.get_logger().info(F"setGoalSpeed : id={self.ID} / SPEED={SPEED} / reverse={reverse}") 

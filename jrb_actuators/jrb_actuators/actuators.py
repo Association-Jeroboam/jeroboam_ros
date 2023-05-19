@@ -124,7 +124,13 @@ class Actuators(Node):
             time.sleep(0.5)
             servo.sendVolatileConfig()
             servo.setTorque(1)
-            servo.setGoalPosition(servo.target_position)
+            if servo.driveMode == dxl.CONTROL_MODE_JOINT:
+                servo.setGoalPosition(servo.target_position)
+            elif servo.driveMode == dxl.CONTROL_MODE_WHEEL:
+                servo.setGoalSpeed(servo.speed_goal)
+            else:
+                self.get_logger().warn(f"drive mode unknown for XL320 {ID}")
+
         elif ( ID in dxl.connected_XL430 ):
             servo=dxl.connected_XL430[ID]
             servo.isReady = False
@@ -961,7 +967,8 @@ class Actuators_robotrouge(Actuators):
             time.sleep(0.8)
             self.right_arm.setArmPosition(88, 47, 90, -90, 0)
 
-    def bulldozer(self):
+    def bulldozer(self, msg=None):
+        self.get_logger().info("Mode bulldozer on")
         self.right_arm.setTorque(1)
         self.right_arm.joinA.setGoalPosition(657)
         self.right_arm.joinB.setGoalPosition(343)
