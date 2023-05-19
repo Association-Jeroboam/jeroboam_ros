@@ -33,6 +33,9 @@ from rclpy.qos import QoSReliabilityPolicy, QoSProfile
 
 
 def sgn(number:float) -> int:
+    if abs(number) < 0.0001:
+        return 0
+
     if number < 0.0:
         return -1
 
@@ -52,13 +55,9 @@ MIN_ANGLE = normalize_angle(radians(LASER_LINK_ANGLE_TO_ROBOT - DETECT_ANGLE / 2
 MAX_ANGLE = normalize_angle(radians(LASER_LINK_ANGLE_TO_ROBOT + DETECT_ANGLE / 2.0))
 MIN_ANGLE_REVERSE = normalize_angle(MIN_ANGLE + pi)
 MAX_ANGLE_REVERSE = normalize_angle(MAX_ANGLE + pi)
-
-print("min", degrees(MIN_ANGLE), " max", degrees(MAX_ANGLE))
-print("min", MIN_ANGLE, " max", MAX_ANGLE)
-print("min reverse", MIN_ANGLE_REVERSE, " max reverse", MAX_ANGLE_REVERSE)
-
-    
-
+MAX_DETECT_DISTANCE = 0.05 # added to both our radius and adversary robot radius. it's the margin at which we accept the two robot can be
+ROBOT_RADIUS = 0.17 # our robot
+ADVERSARY_RADIUS = 0.17 # adversary robot radius, used to crop in table
 
 def transform_msg_to_matrix(msg: Transform):
     trans = np.array(
@@ -125,7 +124,7 @@ class ObstacleDetector(Node):
 
         self.declare_parameter(
             "max_distance",
-            0.5,
+            ROBOT_RADIUS + ADVERSARY_RADIUS + MAX_DETECT_DISTANCE,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -227,6 +226,9 @@ class ObstacleDetector(Node):
         # self.linear_velocity = 1.0
 
     def on_scan(self, msg: LaserScan, transform_msg: TransformStamped):
+        if sgn(self.linear_velocity) == 0:
+            return
+
         N = len(msg.ranges)
         transform = transform_msg_to_matrix(transform_msg)
         ranges = np.array(msg.ranges)
@@ -274,7 +276,7 @@ class ObstacleDetector(Node):
             _, _, yaw_map = euler_from_matrix(transform) + angle
             q_map = quaternion_from_euler(0, 0, yaw_map)
 
-            if not (0 + 0.1 <= x_map <= 2.0 - 0.1) or not (0 + 0.1 <= y_map <= 3.0 - 0.1):
+            if not (0 + ADVERSARY_RADIUS <= x_map <= 2.0 - ADVERSARY_RADIUS) or not (0 + ADVERSARY_RADIUS <= y_map <= 3.0 - ADVERSARY_RADIUS):
                 self.cluster_buffer.add_pose(pose=None, valid=False)
                 msg.ranges[i] = float("inf")
                 continue
