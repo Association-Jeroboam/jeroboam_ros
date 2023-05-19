@@ -617,6 +617,10 @@ class Actuators_robotrouge(Actuators):
             PoseStamped, "take_disk", self.takeDisk_cb, 10
         )
 
+        self.sub_bulldozer = self.create_subscription(
+            Bool, "/actuators/arm/set_bulldozer", self.bulldozer, 10
+        )
+
         # Timers
         self.arm_state_msg = ArmStatus()
         arm_publish_state_rate = 1 / 2  # Hz
@@ -959,7 +963,7 @@ class Actuators_robotrouge(Actuators):
             time.sleep(0.8)
             self.right_arm.setArmPosition(88, 47, 90, -90, 0)
 
-    def bulldozer(self):
+    def bulldozer(self, msg=None):
         self.right_arm.setTorque(1)
         self.right_arm.joinA.setGoalPosition(657)
         self.right_arm.joinB.setGoalPosition(343)
