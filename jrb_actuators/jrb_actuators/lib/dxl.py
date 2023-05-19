@@ -286,8 +286,16 @@ class XL320:
 
         if self.reverseRotation :
             dxl_present_position=1023-dxl_present_position
+            
         dxl_present_position-=self.offset
         self.saveCurrentPosition(dxl_present_position)
+
+        #LED
+        if dxl_present_position < self.CW_Angle_Limit or dxl_present_position > self.CCW_Angle_Limit :
+            self.setLED(5) #violet
+        else :
+            self.setLED(3) #jaune
+
         return dxl_present_position
     
     def getPresentTemperature(self):
@@ -866,7 +874,7 @@ class bras:
         
         self.slider.setTorque(1)
         self.slider.setGoalPosition(1000000)
-        self.slider.waitMoveEnd(4)
+        self.slider.waitMoveEnd(6)
 
         pos = self.slider.getPresentPosition()
         self.slider.setTorque(0)

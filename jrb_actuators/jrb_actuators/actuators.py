@@ -223,15 +223,20 @@ class Actuators(Node):
         msg = ServoAngle()
 
         for servo_id in dxl.connected_XL320 :
-            if dxl.connected_XL320[servo_id].isReady :
-                value=dxl.connected_XL320[servo_id].current_position
+            servo=dxl.connected_XL320[servo_id]
+            if servo.isReady :
+                if servo.reverseRotation:
+                    value=1023-servo.current_position
+                else: 
+                    value=servo.current_position
                 msg.id = servo_id
                 msg.radian = float(value)
                 self.pub_servo_value.publish(msg)
 
         for servo_id in dxl.connected_XL430 :
-            if dxl.connected_XL430[servo_id].isReady :
-                value=dxl.connected_XL430[servo_id].current_position
+            servo=dxl.connected_XL430[servo_id]
+            if servo.isReady :
+                value=int(servo.current_position / dxl.bras.mmToRaw)
                 msg.id = servo_id
                 msg.radian = float(value)
                 self.pub_servo_value.publish(msg)
@@ -689,14 +694,17 @@ class Actuators_robotrouge(Actuators):
         self.left_arm.initSlider()
         self.right_arm.initSlider()
 
-        #self.left_arm.setSliderPosition_mm(200)
-        #self.right_arm.setSliderPosition_mm(200)
-        #time.sleep(1)
+        self.left_arm.setSliderPosition_mm(200)
+        self.right_arm.setSliderPosition_mm(200)
+        time.sleep(1)
 
         self.storeArm("left")
         self.storeArm("right")
 
         self.actuatorsInitialized = True
+        self.get_logger().info("Init actuators ok")
+
+
 
         #self.bulldozer()
 
