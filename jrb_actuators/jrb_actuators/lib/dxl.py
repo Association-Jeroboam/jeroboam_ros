@@ -70,6 +70,7 @@ class XL320:
         self.driveMode = Drive_Mode
         self.maxSpeed = Max_Speed
         self.maxTorque = Max_Torque
+        self.speed_goal = 0
         self.punch = 50
         self.CW_Angle_Limit = CW_Angle_Limit
         self.CCW_Angle_Limit = CCW_Angle_Limit
