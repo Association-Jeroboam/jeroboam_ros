@@ -46,8 +46,8 @@ def normalize_angle(angle):
     return normalized_angle
 
 DATA_PATH = get_package_share_directory("jrb_sensors")
-DETECT_ANGLE = 90  # deg
-LASER_LINK_ANGLE_TO_ROBOT = 90  # deg
+DETECT_ANGLE = 90.0  # deg
+LASER_LINK_ANGLE_TO_ROBOT = 90.0  # deg
 MIN_ANGLE = normalize_angle(radians(LASER_LINK_ANGLE_TO_ROBOT - DETECT_ANGLE / 2.0))
 MAX_ANGLE = normalize_angle(radians(LASER_LINK_ANGLE_TO_ROBOT + DETECT_ANGLE / 2.0))
 MIN_ANGLE_REVERSE = normalize_angle(MIN_ANGLE + pi)
@@ -274,7 +274,7 @@ class ObstacleDetector(Node):
             _, _, yaw_map = euler_from_matrix(transform) + angle
             q_map = quaternion_from_euler(0, 0, yaw_map)
 
-            if not (0 + 0.1 <= x_map <= 2.0 - 0.1) or not (0 + 0.1 <= y_map <= 3.0 - 0.1):
+            if not (0 + 0.2 <= x_map <= 2.0 - 0.2) or not (0 + 0.2 <= y_map <= 3.0 - 0.2):
                 self.cluster_buffer.add_pose(pose=None, valid=False)
                 msg.ranges[i] = float("inf")
                 continue

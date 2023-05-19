@@ -273,6 +273,6 @@ def generate_launch_description():
         ld.add_action(strategy_robotrouge)
     else:
         ld.add_action(panier_http)
-    #     ld.add_action(strategy_robotbleu)
+        ld.add_action(strategy_robotbleu)
 
     return ld

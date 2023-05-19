@@ -51,6 +51,10 @@ class GoalController:
         self.angular_speed_limiter = SpeedLimiter(
             self.max_angular_speed, self.max_angular_acceleration, self.max_angular_jerk
         )
+        self.wheel_speed_limiter = SpeedLimiter(
+            self.max_linear_speed
+        )
+
         self.last_linear_speed_cmd = [0.0, 0.0]
         self.last_angular_speed_cmd = [0.0, 0.0]
 
@@ -162,6 +166,12 @@ class GoalController:
         )
         desired.xVel *= angular_ratio
         desired.thetaVel *= angular_ratio
+
+        desired_speed_wheel = abs(desired.xVel) + abs(desired.thetaVel) * 0.259
+        speed_wheel_ratio = self.wheel_speed_limiter.limit_velocity(desired_speed_wheel)
+
+        # desired.xVel *= speed_wheel_ratio
+        # desired.thetaVel *= speed_wheel_ratio
 
         # Adjust velocities if too low, so robot does not stall.
         # if abs(desired.xVel) > 0 and abs(desired.xVel) < self.min_linear_speed:

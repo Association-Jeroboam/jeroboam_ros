@@ -62,7 +62,7 @@ void CanBridge::init()
         }
 
         sendAdaptPidConfig(side);
-        std::this_thread::sleep_for(10us);
+        std::this_thread::sleep_for(10ms);
     }
 
     ros2_utils::add_parameter((rclcpp::Node &)*this, std::string("wheel_base"), rclcpp::ParameterValue(0.258), (ros2_utils::floating_point_range){0.0, 0.5, 0.0}, std::string("wheel base"), std::string(""), false);
@@ -83,9 +83,9 @@ void CanBridge::init()
 
     // TODO: send reboot cmd instead of this to reset transfer_id
     sendMotionConfig();
-    std::this_thread::sleep_for(10us);
+    std::this_thread::sleep_for(10ms);
     sendMotionConfig();
-    std::this_thread::sleep_for(10us);
+    std::this_thread::sleep_for(10ms);
 
     send_config_enabled = true;
 
@@ -227,17 +227,17 @@ rcl_interfaces::msg::SetParametersResult CanBridge::parametersCallback(const std
     if (send_config_enabled) {
         if (leftPidParamModified) {
             sendAdaptPidConfig("left");
-            std::this_thread::sleep_for(10us);
+            std::this_thread::sleep_for(10ms);
         }
 
         if (rightPidParamModified) {
             sendAdaptPidConfig("right");
-            std::this_thread::sleep_for(10us);
+            std::this_thread::sleep_for(10ms);
         }
 
         if (motionConfigParamModified) {
             sendMotionConfig();
-            std::this_thread::sleep_for(10us);
+            std::this_thread::sleep_for(10ms);
         }
     }
 

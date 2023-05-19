@@ -32,9 +32,9 @@ from jrb_msgs.msg import (
 from jrb_msgs.action import GoToPose
 
 ROLL_HEIGHT_ACTION_TIME = 1  # s
-MATCH_DURATION = 100 #s
-EXPECTED_STATIC_SCORE = 5 + 5 + 15 + 5 
-DEFAULT_PANIER_SCORE = 16
+MATCH_DURATION = 100     #s
+EXPECTED_STATIC_SCORE = 36 #5 + 5 + 15 + 5 + 6 disques
+DEFAULT_PANIER_SCORE = 20
 
 class EurobotStrategyNode(Node):
     def __init__(self):
@@ -89,11 +89,11 @@ class EurobotStrategyNode(Node):
         self.panier = None
 
         self.sub_emergency = self.create_subscription(
-            Bool, "/hardware/emergency/status", self.on_emergency, latchedQoS
+            Bool, "/hardware/emergency/status", self.on_emergency, latchedQoS,callback_group=self.cb_group,
         )
         
         self.sub_panier = self.create_subscription(
-            UInt8, "/panier/score_http", self.on_panier, 10
+            UInt8, "/panier/score_http", self.on_panier, 10, callback_group=self.cb_group,
         )
 
         self.sub_odometry = self.create_subscription(
@@ -210,7 +210,15 @@ class EurobotStrategyNode(Node):
         self.turbineStop()
         self.startLed()
         self.pub_twist.publish(Twist())
-        time.sleep(2)
+        self.printScore()
+        
+        i = 0
+        while i < 15/0.1:
+            self.printScore()
+            rclpy.spin_until_future_complete(self, Future(), timeout_sec=0.1)
+            i = i+1
+            self.goto_cancel()
+            self.pub_twist.publish(Twist())
         sys.exit(1)
 
     def get_pose(self, x, y, theta):
@@ -347,13 +355,12 @@ class EurobotStrategyNode(Node):
         # TODO: dirty hack, need a service / action to resolve when the pos is effectively set
         rclpy.spin_once(self)
 
-        time.sleep(2)
+        time.sleep(0.5)
 
     def loop(self):
         while rclpy.ok():
             self.stopLed()
             self.rollerUp()
-            # self.rollerIn()
             self.turbineStop()
             self.pub_twist.publish(Twist())
             self.get_logger().info("Init strategy. Wait for team...")
@@ -387,41 +394,88 @@ class EurobotStrategyNode(Node):
             ## END STRAT 0
 
             ## STRAT 1
+            offset = 0
+            if self.team.result() == "yellow":
+                offset = -0.03
+
             start_angle = 0.0
             self.get_logger().info(f"set inital pose")
             self.set_initialpose(0.33, 2.67, radians(start_angle))
             self.spin(radians(90))
             self.get_logger().info(f"start turbine")
-            self.turbineStart()
+            # 1st balls
+            self.turbineStartFullSpeed()
             time.sleep(10)
             self.get_logger().info(f"stop turbine")
             self.turbineStop()
             self.spin(radians(0.0))
 
-            
             self.rollerIn()
 
-            
-            self.goto(0.92, 2.77, radians(0.0))
+            # get 1st  bball rack
+            self.goto(0.90, 2.77, radians(0.0))
             self.rollerMiddle()
             self.get_logger().info(f"baaaaalls")
             time.sleep(1)
             self.get_logger().info(f" more  baaaaalls")
             self.goto(0.83, 2.77, radians(0.0))
             self.rollerLow()
-            time.sleep(2)
-            
+            time.sleep(1)
+            self.goto(0.87, 2.77, radians(0.0))
+            self.goto(0.83, 2.77, radians(0.0))
+            self.goto(0.87, 2.77, radians(0.0))
+            self.goto(0.83, 2.77, radians(0.0))
+            self.goto(0.87, 2.77, radians(0.0))
 
-            self.goto(0.33, 2.67, radians(0.0))
-            self.rollerUp()
+            #Go to start zone
+            self.goto(0.28, 2.67, radians(0.0))
             self.rollerStop()
         
             self.spin(radians(90))
-
-            self.turbineStart()
+            #énd balls
+            self.turbineStartFullSpeed()
             time.sleep(10)
             self.turbineStop()
 
+            # Push cakes
+            self.get_logger().info(f"push cakes!")
+            # self.spin(radians(0.0))
+            # self.goto(0.26, 2.77, radians(0.0))
+            self.spin(radians(-90))
+            self.goto(0.30, 1.27, radians(-90.0))
+            # self.spin(radians(0.0))
+            # self.goto(0.28, 1.27, radians(0.0))
+            self.spin(radians(-90.0))
+            #3rd rack
+            self.goto(0.40, 1.47, radians(-90.0))
+            self.spin(radians(-180.0))
+            self.rollerUp()
+            self.rollerIn()
+            self.goto(0.18 + offset, 1.47, radians(-180.0))
+            self.rollerMiddle()
+            time.sleep(1)
+            self.goto(0.24 + offset, 1.47, radians(-180.0))
+            self.rollerLow()
+            self.goto(0.20 + offset, 1.47, radians(-180.0))
+            self.goto(0.24 + offset, 1.47, radians(-180.0))
+            self.goto(0.20 + offset, 1.47, radians(-180.0))
+            self.goto(0.40 + offset, 1.47, radians(-180.0))
+
+            self.spin(radians(90.0))
+            self.rollerStop()
+
+            #3rd balls
+
+            self.goto(0.23, 2.67, radians(90.0))
+            self.rollerMiddle()
+
+            self.turbineStartFullSpeed()
+            time.sleep(10)
+            self.turbineStop()
+
+
+            # self.goto(0.40, 1.27, radians(0.0))
+            # self.goto(0.40, 2.67, radians(0.0))
             ## END STRAT 1
 
             # TODO : remove
@@ -468,6 +522,7 @@ class EurobotStrategyNode(Node):
 
             ######### End strategy ##########
 
+            # HACK : wait for the panier score to be updated
             self.get_logger().info("Strategy finished !")
             self.on_end_match()
 

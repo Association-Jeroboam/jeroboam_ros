@@ -40,6 +40,7 @@ class Actuators(Node):
     def __init__(self):
         super().__init__("actuators")
         self.get_logger().info("init")
+        time.sleep(10)
 
         self.actuatorsInitialized = False
         self.emergency = True
@@ -124,7 +125,12 @@ class Actuators(Node):
             time.sleep(0.5)
             servo.sendVolatileConfig()
             servo.setTorque(1)
-            servo.setGoalPosition(servo.target_position)
+            if servo.driveMode == dxl.CONTROL_MODE_JOINT:
+                servo.setGoalPosition(servo.target_position)
+            #elif servo.driveMode == dxl.CONTROL_MODE_WHEEL:
+            #    servo.setGoalSpeed(servo.speed_goal)
+            else:
+                self.get_logger().warn(f"drive mode unknown for XL320 {ID}")
         elif ( ID in dxl.connected_XL430 ):
             servo=dxl.connected_XL430[ID]
             servo.isReady = False
@@ -313,136 +319,149 @@ class Actuators(Node):
             while time.time() - self.last_com_time < MIN_TIME_BETWEEN_COM :
                 pass
             self.last_com_time=time.time()
-
-            if size == 1:
-                value, dxl_comm_result, dxl_error = self.packetHandler.read1ByteTxRx(
-                    self.portHandler, ID, address
-                )
-                if dxl_comm_result != COMM_SUCCESS:
-                    
+            try:
+                if size == 1:
                     value, dxl_comm_result, dxl_error = self.packetHandler.read1ByteTxRx(
                         self.portHandler, ID, address
                     )
-            elif size == 2:
-                value, dxl_comm_result, dxl_error = self.packetHandler.read2ByteTxRx(
-                    self.portHandler, ID, address
-                )
-                if dxl_comm_result != COMM_SUCCESS:
-                    
+                    if dxl_comm_result != COMM_SUCCESS:
+                        
+                        value, dxl_comm_result, dxl_error = self.packetHandler.read1ByteTxRx(
+                            self.portHandler, ID, address
+                        )
+                elif size == 2:
                     value, dxl_comm_result, dxl_error = self.packetHandler.read2ByteTxRx(
                         self.portHandler, ID, address
                     )
-            elif size == 3:
-                value, dxl_comm_result, dxl_error = self.packetHandler.read3ByteTxRx(
-                    self.portHandler, ID, address
-                )
-                if dxl_comm_result != COMM_SUCCESS:
-                    
+                    if dxl_comm_result != COMM_SUCCESS:
+                        
+                        value, dxl_comm_result, dxl_error = self.packetHandler.read2ByteTxRx(
+                            self.portHandler, ID, address
+                        )
+                elif size == 3:
                     value, dxl_comm_result, dxl_error = self.packetHandler.read3ByteTxRx(
                         self.portHandler, ID, address
                     )
-            elif size == 4:
-                value, dxl_comm_result, dxl_error = self.packetHandler.read4ByteTxRx(
-                    self.portHandler, ID, address
-                )
-                if dxl_comm_result != COMM_SUCCESS:
-                    
+                    if dxl_comm_result != COMM_SUCCESS:
+                        
+                        value, dxl_comm_result, dxl_error = self.packetHandler.read3ByteTxRx(
+                            self.portHandler, ID, address
+                        )
+                elif size == 4:
                     value, dxl_comm_result, dxl_error = self.packetHandler.read4ByteTxRx(
                         self.portHandler, ID, address
                     )
-            else:
-                self.get_logger().error("Incorrect size")
-                return -1
-
-            if dxl_comm_result != COMM_SUCCESS:
-                if address != 37:
-                    self.get_logger().warn(f"Comm_result for ID {ID} address {address} : {self.packetHandler.getTxRxResult(dxl_comm_result)}")
-                pass
-            elif dxl_error != 0:
-                if ID in dxl.connected_XL320 : #C'est pas un XL430
-                    if dxl_error == 128 : #hardware error
-                        if address == 50:
-                            if (value >> 2) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Input voltage error")
-                            if (value >> 0) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overload")
-                            if (value >> 1) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overheating")
-                        else :
-                            if (self.readValue(1,ID,50) >> 2) & 1 : #Si c'est juste input voltage error, la valeur est ok
-                                value = dxl.toSigned(value,size*8)
-                                return value
-                    else :
-                        self.get_logger().warn(f"DXL read error for ID {ID} address {address} : {self.packetHandler.getRxPacketError(dxl_error)} (error:{dxl_error} / value:{value})")
+                    if dxl_comm_result != COMM_SUCCESS:
+                        
+                        value, dxl_comm_result, dxl_error = self.packetHandler.read4ByteTxRx(
+                            self.portHandler, ID, address
+                        )
+                else:
+                    self.get_logger().error("Incorrect size")
+                    return -1
                 
-                if ID in dxl.connected_XL430 :
-                    if dxl_error == 128 : #hardware error
-                        if address == 70:
-                            if (value >> 0) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Input voltage error")
-                            if (value >> 5) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overload")
-                            if (value >> 2) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overheating")
-                            if (value >> 3) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Motor Encoder Error")
-                            if (value >> 4) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Electrical Shock Error")
+                if dxl_comm_result != COMM_SUCCESS:
+                    if address != 37:
+                        self.get_logger().warn(f"Comm_result for ID {ID} address {address} : {self.packetHandler.getTxRxResult(dxl_comm_result)}")
+                    pass
+                elif dxl_error != 0:
+                    if ID in dxl.connected_XL320 : #C'est pas un XL430
+                        if dxl_error == 128 : #hardware error
+                            if address == 50:
+                                if (value >> 2) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Input voltage error")
+                                if (value >> 0) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overload")
+                                if (value >> 1) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overheating")
+                            else :
+                                if (self.readValue(1,ID,50) >> 2) & 1 : #Si c'est juste input voltage error, la valeur est ok
+                                    value = dxl.toSigned(value,size*8)
+                                    return value
                         else :
-                            if (self.readValue(1,ID,70) >> 1) & 1 : #Si c'est juste input voltage error, la valeur est ok
-                                value = dxl.toSigned(value,size*8)
-                                return value
-                    else :
-                        self.get_logger().warn(f"DXL read error for ID {ID} address {address} : {self.packetHandler.getRxPacketError(dxl_error)} (error:{dxl_error} / value:{value})")
+                            self.get_logger().warn(f"DXL read error for ID {ID} address {address} : {self.packetHandler.getRxPacketError(dxl_error)} (error:{dxl_error} / value:{value})")
+
+                    if ID in dxl.connected_XL430 :
+                        if dxl_error == 128 : #hardware error
+                            if address == 70:
+                                if (value >> 0) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Input voltage error")
+                                if (value >> 5) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overload")
+                                if (value >> 2) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Overheating")
+                                if (value >> 3) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Motor Encoder Error")
+                                if (value >> 4) & 1 : self.get_logger().error(f"DXL error for ID {ID} : Electrical Shock Error")
+                            else :
+                                if (self.readValue(1,ID,70) >> 1) & 1 : #Si c'est juste input voltage error, la valeur est ok
+                                    value = dxl.toSigned(value,size*8)
+                                    return value
+                        else :
+                            self.get_logger().warn(f"DXL read error for ID {ID} address {address} : {self.packetHandler.getRxPacketError(dxl_error)} (error:{dxl_error} / value:{value})")
             
-            else:
-                value = dxl.toSigned(value,size*8)
-                return value
+                else:
+                    value = dxl.toSigned(value,size*8)
+                    return value
+            
+            except Exception as e:
+                self.get_logger().error("Read error : ")
+                print(e)
+                self.get_logger().error(traceback.format_exc())
+                self.get_logger().warn(f"self.portHandler={str(self.portHandler)} / ID={str(ID)} / address={str(address)}")
+
         elif ID==254 :
             self.get_logger().warn(f"Unable to readValue on all DXL at the same time (ID=254)")
         else :
             self.get_logger().warn(f"ID {ID} is not in connected_XL320 or connected_XL430 (address={address})")
         return -1
-
+        
     def writeValue(self, size, ID, address, value):
         if self.emergency: 
             return
 
-        if ( ID in dxl.connected_XL320 ) or ( ID in dxl.connected_XL430 ) or ID==254:
-            value=dxl.toUnsigned(value,size*8)
-            #self.get_logger().info(f"Writing on ID {ID}  address {address}  value {value}  size {size}")
-            if size == 1:
-                dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(
-                    self.portHandler, ID, address, value
-                )
-            elif size == 2:
-                dxl_comm_result, dxl_error = self.packetHandler.write2ByteTxRx(
-                    self.portHandler, ID, address, value
-                )
-            elif size == 3:
-                dxl_comm_result, dxl_error = self.packetHandler.write3ByteTxRx(
-                    self.portHandler, ID, address, value
-                )
-            elif size == 4:
-                dxl_comm_result, dxl_error = self.packetHandler.write4ByteTxRx(
-                    self.portHandler, ID, address, value
-                )
-            else:
-                self.get_logger().error("writeValue : Incorrect size")
-                return
+        try:
+            if ( ID in dxl.connected_XL320 ) or ( ID in dxl.connected_XL430 ) or ID==254:
+                value=dxl.toUnsigned(value,size*8)
+                #self.get_logger().info(f"Writing on ID {ID}  address {address}  value {value}  size {size}")
+                if size == 1:
+                    dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(
+                        self.portHandler, ID, address, value
+                    )
+                elif size == 2:
+                    dxl_comm_result, dxl_error = self.packetHandler.write2ByteTxRx(
+                        self.portHandler, ID, address, value
+                    )
+                elif size == 3:
+                    dxl_comm_result, dxl_error = self.packetHandler.write3ByteTxRx(
+                        self.portHandler, ID, address, value
+                    )
+                elif size == 4:
+                    dxl_comm_result, dxl_error = self.packetHandler.write4ByteTxRx(
+                        self.portHandler, ID, address, value
+                    )
+                else:
+                    self.get_logger().error("writeValue : Incorrect size")
+                    return
 
-            if dxl_comm_result != COMM_SUCCESS:
-                # print(
-                #     "Comm_result for ID",
-                #     ID,
-                #     " address",
-                #     address,
-                #     ": %s" % packetHandler.getTxRxResult(dxl_comm_result),
-                # )
-                pass
-            elif dxl_error != 0:
-                error_msg=self.packetHandler.getRxPacketError(dxl_error)
-                if(error_msg == "[RxPacketError] Hardware error occurred. Check the error at Control Table (Hardware Error Status)!"):
-                    if ID in dxl.connected_XL320 : #C'est pas un XL430
-                        self.readValue(1,ID,50)
-                        return
+                if dxl_comm_result != COMM_SUCCESS:
+                    # print(
+                    #     "Comm_result for ID",
+                    #     ID,
+                    #     " address",
+                    #     address,
+                    #     ": %s" % packetHandler.getTxRxResult(dxl_comm_result),
+                    # )
+                    pass
+                elif dxl_error != 0:
+                    error_msg=self.packetHandler.getRxPacketError(dxl_error)
+                    if(error_msg == "[RxPacketError] Hardware error occurred. Check the error at Control Table (Hardware Error Status)!"):
+                        if ID in dxl.connected_XL320 : #C'est pas un XL430
+                            self.readValue(1,ID,50)
+                            return
 
-                self.get_logger().error(f"DXL write error for ID {ID} address {address} (value {value}) : {error_msg}")
-                if(error_msg == "[RxPacketError] The data value exceeds the limit value!"):
-                    self.get_logger().error(f"value :{value}  size :{size}")
-
+                    self.get_logger().error(f"DXL write error for ID {ID} address {address} (value {value}) : {error_msg}")
+                    if(error_msg == "[RxPacketError] The data value exceeds the limit value!"):
+                        self.get_logger().error(f"value :{value}  size :{size}")
+        except Exception as e:
+            self.get_logger().error("Write error : ")
+            print(e)
+            self.get_logger().error(traceback.format_exc())
+            self.get_logger().warn(f"self.portHandler={str(self.portHandler)} / ID={str(ID)} / address={str(address)}")
+            return 
             #readValue = self.readValue(size,ID,address)
             #if readValue != value :
             #    self.get_logger().error(f"Write error for DXL ID {ID} address {address} (value sent {value} / value read {readValue})")
