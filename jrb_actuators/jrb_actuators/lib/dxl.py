@@ -8,6 +8,8 @@ CONTROL_MODE_JOINT = 2
 
 rawToRad_XL320=math.radians(300)/1023
 rawToRad_XL430=256*(2*math.pi)/1048575
+mmToRaw = 36.93191489 #pour les sliders
+
 
 connected_XL320={}
 connected_XL430={}
@@ -571,8 +573,6 @@ class bras:
         if side != "left" and side != "right" :
             self.node.get_logger().error("Bras : side doit être ""left"" ou ""right""")
             return
-
-        self.mmToRaw = 36.93191489
         
         self.node=node
         self.side=side
@@ -900,11 +900,11 @@ class bras:
 
 
     def setSliderPosition_mm(self, mm):
-        value = -int(self.mmToRaw * mm)
+        value = -int(mmToRaw * mm)
         self.slider.setGoalPosition(value)
 
     def getSliderPosition_mm(self):
-        return -int(self.slider.current_position / self.mmToRaw)
+        return -int(self.slider.current_position / mmToRaw)
 
 class rakes:
     def __init__(self, node, ID_gauche_bas=7, ID_droit_bas=15, ID_gauche_haut=5, ID_droit_haut=18):
