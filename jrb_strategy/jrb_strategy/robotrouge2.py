@@ -147,12 +147,15 @@ class EurobotStrategyNode(Node):
         self.strategy = msg.data
 
     def on_obstacle_detected(self, msg: PoseArray):
-        return
         if not self.start.done():
+            return
+
+        if self.obstacle_stop:
             return
 
         if len(msg.poses) > 0:
             self.get_logger().warn("Obstacle detected ! Cancelling all goals")
+            self.obstacle_stop = True
             self.goto_cancel()
 
     def on_odometry(self, msg: Odometry):
@@ -168,25 +171,25 @@ class EurobotStrategyNode(Node):
         _, _, self.currentTheta = euler_from_quaternion(q)
 
     def on_emergency(self, msg: Bool):
-        self.get_logger().warn("EMERGENCY")
-
         if msg.data and self.start.done():
+            self.get_logger().warn("ESTOP on")
             self.on_end_match()
 
-    def on_end_match(self):
+    def on_end_match(self, e):
         if self.end_match.done():
             return
 
-        self.get_logger().info("End match timer")
+        if e is None:
+            self.get_logger().info("[MATCH] End match because of timer")
+        else:
+            self.get_logger().info("[MATCH] End match ")
+
         self.end_match.set_result("set")
 
         if self.end_match_timer is not None:
             self.end_match_timer.cancel()
 
         self.goto_cancel()
-        self.rollerStop()
-        self.turbineStop()
-        self.startLed()
         self.pub_twist.publish(Twist())
         time.sleep(2)
         sys.exit(1)
@@ -203,9 +206,9 @@ class EurobotStrategyNode(Node):
     def goto_cancel_callback(self, future):
         cancel_response = future.result()
         if len(cancel_response.goals_canceling) > 0:
-            self.get_logger().info("GoTo goal successfully canceled")
+            self.get_logger().info("[GOTO] goal successfully canceled")
         else:
-            self.get_logger().info("GoTo goal failed to cancel")
+            self.get_logger().info("[GOTO] goal failed to cancel")
 
         self.goto_goal_handle = None
 
@@ -213,29 +216,30 @@ class EurobotStrategyNode(Node):
         if self.goto_goal_handle is None:
             return
 
-        self.get_logger().warn("Canceling GoTo goal")
+        self.get_logger().warn("[GOTO] Canceling goal...")
         cancel_future = self.goto_goal_handle.cancel_goal_async()
         cancel_future.add_done_callback(self.goto_cancel_callback)
+        self.pub_twist(Twist())
 
         return cancel_future
 
     def goto_response_callback(self, future):
         goal_handle = future.result()
         if not goal_handle.accepted:
-            self.get_logger().info("GoTo goal rejected :(")
+            self.get_logger().info("[GOTO] goal rejected :(")
             return
 
-        self.get_logger().info("GoTo goal accepted :)")
+        self.get_logger().info("[GOTO] goal accepted :)")
         self.goto_goal_handle = goal_handle
 
-    def goto(self, x_, y_, theta_=None, relative=False, rotation=False):
+    def goto(self, x_, y_, theta_=None, relative=False, rotation=False, bourrage=False):
         if self.end_match.done():
             self.get_logger().warn("Match is finished, ignoring GoTo")
             return False
 
-        # if self.obstacle_stop:
-        #     self.get_logger().warn("Obstacle ahead, ignoring GoTo")
-        #     return False
+        if self.obstacle_stop:
+            self.get_logger().warn("Obstacle ahead, ignoring GoTo")
+            return False
 
         if theta_ is None:
             new_theta = 0.0
@@ -262,10 +266,21 @@ class EurobotStrategyNode(Node):
         self.goto_goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
         self.goto_goal_msg.pose.header.frame_id = "map" if not relative else "base_footprint"
 
-        x, y, theta = self.get_pose(x_, y_, theta_)
-        self.get_logger().info(f"GoTo ({str(x)}, {str(y)}, ${str(theta)}) ")
+        x, y, theta = 0, 0, 0
+
+        if relative:
+            x = x_
+            y = y_
+            theta = -theta # à vérifier pour spin relatif
+        else:
+            x, y, theta = self.get_pose(x_, y_, theta_)
+
+    self.get_logger().info(f"[GOTO] goal :({str(x)}, {str(y)}, ${str(theta)}) ")
+    q = quaternion_from_euler(0, 0, theta)
+
+
+        self.get_logger().info(f"[GOTO] goal :({str(x)}, {str(y)}, ${str(theta)}) ")
         q = quaternion_from_euler(0, 0, theta)
-        self.get_logger().info(f"theta {theta}")
 
 
         self.goto_goal_msg.pose.pose.position.x = float(x)
@@ -292,23 +307,51 @@ class EurobotStrategyNode(Node):
         rclpy.spin_until_future_complete(self, goal_finished_future)
         self.goto_goal_handle = None
 
+        result = goal_finished_future.result()
+
+        # result = success OK
+
+        # result false -> à cause de stuck detector ou à cause de obstacle 
+
+        if self.obstacle_stop:
+            self.get_logger().warn("[GOTO] Obstacle ahead ! Wait routine...")
+            # routine de retry
+            pass
+        else:
+            if bourrage:
+                # OK c'est ce qui était voulu
+                return True
+
+            # Routine de recover, on est bloqué mais pas à cause d'un obstacle
+            self.get_logger().warn("[GOTO] Robot stucked ! recover routine...")
+            pass
+
+        return result
+
     def spin(self, yaw, relative=False):
         self.get_logger().info(f"spin")
         self.goto(self.currentX, self.currentY, yaw, relative, rotation=True)
 
-    def forward(self, dist=0.15):
-        self.goto(dist, 0, 0, relative=True)
+    def forward(self, dist=0.15, bourrage=False):
+        return self.goto(dist, 0, 0, relative=True, bourrage=bourrage)
 
-    def backup(self, dist=0.15):
-        self.goto(-dist, 0, 0, relative=True)
+    def backup(self, dist=0.15, bourrage=False):
+        return self.goto(-dist, 0, 0, relative=True, bourrage=bourrage)
+
+    def bourrageAvant(self):
+        return self.forward(dist=0.5, bourrage=True)
+
+    def bourrageArriere(self):
+        return self.forward(dist=0.5, bourrage=True)
+
 
     def set_initialpose(self, x_, y_, theta_):
-        x, y, theta = self.get_pose(x_, y_, theta_)
+        x, y, theta = self.get_pose(float(x_), float(y_), float(theta_))
         q = quaternion_from_euler(0, 0, theta)
 
         initialpose_msg = PoseWithCovarianceStamped()
         initialpose_msg.header.stamp = self.get_clock().now().to_msg()
-        initialpose_msg.header.frame_id = "odom"
+        initialpose_msg.header.frame_id = "map"
         initialpose_msg.pose.pose.position.x = x
         initialpose_msg.pose.pose.position.y = y
         initialpose_msg.pose.pose.orientation.x = q[0]
@@ -323,19 +366,19 @@ class EurobotStrategyNode(Node):
         # TODO: dirty hack, need a service / action to resolve when the pos is effectively set
         rclpy.spin_once(self)
 
-        time.sleep(2)
+        time.sleep(0.5)
 
     def loop(self):
         while rclpy.ok():
             self.pub_twist.publish(Twist())
-            self.get_logger().info("Init strategy. Wait for team...")
+            self.get_logger().info("[STRAT] Init strategy. Wait for team...")
             rclpy.spin_until_future_complete(self, self.team)
 
-            self.get_logger().info("Wait for start...")
+            self.get_logger().info("[STRAT] Wait for start...")
             rclpy.spin_until_future_complete(self, self.start)
 
             self.get_logger().info(
-                f"Start ! team: {self.team.result()} strategy: {str(self.strategy)}"
+                f"[STRAT] Start ! team: {self.team.result()} strategy: {str(self.strategy)}"
             )
             self.end_match_timer = self.create_timer(
                 MATCH_DURATION, self.on_end_match, callback_group=self.cb_group
@@ -344,8 +387,11 @@ class EurobotStrategyNode(Node):
             ######### Strategy here, written for PURPLE TEAM #########
             
             ## STRAT 0
-            start_angle = 90.0
-            self.set_initialpose(0.33, 2.67, radians(start_angle))
+            start_angle = 0.0
+            self.set_initialpose(0.0, 0.0, radians(start_angle))
+
+            self.forward(0.1)
+            self.spin(radians(45.0))
 
             
 
@@ -355,15 +401,12 @@ class EurobotStrategyNode(Node):
 
             ######### End strategy ##########
 
-            self.get_logger().info("Strategy finished !")
+            self.get_logger().info("[STRAT] Strategy finished ! Ending match...")
             self.on_end_match()
 
             rclpy.spin_until_future_complete(self, self.end_match)
 
-            self.get_logger().info("End match !")
             self.pub_end_match.publish(Empty())
-            self.rollerStop()
-            self.turbineStop()
             self.goto_cancel()
 
             rclpy.spin_until_future_complete(self, self.reset)

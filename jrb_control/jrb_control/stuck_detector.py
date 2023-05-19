@@ -68,12 +68,12 @@ class StuckDetector(Node):
 
         odom_time = Time.from_msg(odom_msg.header.stamp)
         if odom_time < max_time:
-            self.get_logger().info("odom is too old", throttle_duration_sec=2)
+            self.get_logger().debug("odom is too old", throttle_duration_sec=2)
             return
 
         cmd_vel_time = Time.from_msg(cmd_vel_msg.header.stamp)
         if cmd_vel_time < max_time:
-            self.get_logger().info("cmd_vel is too old", throttle_duration_sec=2)
+            self.get_logger().debug("cmd_vel is too old", throttle_duration_sec=2)
             return
 
         # Check if message are not desynced for more than 2dt

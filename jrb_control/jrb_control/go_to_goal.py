@@ -361,6 +361,8 @@ class GoToGoalNode(Node):
         if pose_stamped.header.frame_id == "map":
             return pose_stamped
         else:
+            print("ICI", pose_stamped.header.frame_id)
+            print("avant: ", str(pose_stamped))
             try:
                 # Wait for the transform to become available
                 self.tf_buffer.can_transform(
@@ -377,6 +379,7 @@ class GoToGoalNode(Node):
                 pose_transformed = tf2_geometry_msgs.do_transform_pose_stamped(
                     pose_stamped, transform
                 )
+                print("apres: ", str(pose_transformed))
 
                 return pose_transformed
             except Exception as e:
