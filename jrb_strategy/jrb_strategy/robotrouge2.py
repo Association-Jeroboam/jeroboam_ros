@@ -147,7 +147,6 @@ class EurobotStrategyNode(Node):
         self.strategy = msg.data
 
     def on_obstacle_detected(self, msg: PoseArray):
-        return
         if not self.start.done():
             return
 
@@ -282,7 +281,6 @@ class EurobotStrategyNode(Node):
 
         self.get_logger().info(f"[GOTO] goal :({str(x)}, {str(y)}, ${str(theta)}) ")
         q = quaternion_from_euler(0, 0, theta)
-        self.get_logger().info(f"theta {theta}")
 
 
         self.goto_goal_msg.pose.pose.position.x = float(x)
