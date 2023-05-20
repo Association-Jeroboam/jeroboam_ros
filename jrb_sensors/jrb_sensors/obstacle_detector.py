@@ -125,7 +125,7 @@ class ObstacleDetector(Node):
 
         self.declare_parameter(
             "max_distance",
-            0.5,
+            0.3,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[

@@ -40,7 +40,6 @@ class Actuators(Node):
     def __init__(self):
         super().__init__("actuators")
         self.get_logger().info("init")
-        time.sleep(10)
 
         self.actuatorsInitialized = False
         self.emergency = True

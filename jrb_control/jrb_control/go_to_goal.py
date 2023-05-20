@@ -86,6 +86,9 @@ class GoToGoalNode(Node):
             self.on_goal,
             10,
         )
+        self.stucked_spub = self.create_subscription(
+            Bool, "/stuck", self.on_stucked, 10
+        )
 
         # Tf subscriber
         self.tf_buffer = Buffer()
@@ -333,6 +336,13 @@ class GoToGoalNode(Node):
         self.get_logger().info("Params updated")
 
         return SetParametersResult(successful=True)
+
+    def on_stucked(self, stuckedMsg: Bool):
+        if stuckedMsg.data:
+            with self.goal_handle_lock:
+                if self.goal_handle is not None and self.goal_handle.is_active:
+                    self.get_logger().warn("Robot stucked, aborting action")
+                    self.goal_handle.abort()
 
     def on_accepted_callback(self, goal_handle: ServerGoalHandle):
         # Single goal policy https://github.com/ros2/rclcpp/issues/759#issuecomment-539635000

@@ -396,7 +396,7 @@ class EurobotStrategyNode(Node):
             ## STRAT 1
             offset = 0
             if self.team.result() == "yellow":
-                offset = -0.03
+                offset = -0.015
 
             start_angle = 0.0
             self.get_logger().info(f"set inital pose")
@@ -404,8 +404,8 @@ class EurobotStrategyNode(Node):
             self.spin(radians(90))
             self.get_logger().info(f"start turbine")
             # 1st balls
-            self.turbineStartFullSpeed()
-            time.sleep(10)
+            # self.turbineStartFullSpeed()
+            # time.sleep(10)
             self.get_logger().info(f"stop turbine")
             self.turbineStop()
             self.spin(radians(0.0))
@@ -433,8 +433,8 @@ class EurobotStrategyNode(Node):
         
             self.spin(radians(90))
             #énd balls
-            self.turbineStartFullSpeed()
-            time.sleep(10)
+            # self.turbineStartFullSpeed()
+            # time.sleep(10)
             self.turbineStop()
 
             # Push cakes
@@ -469,8 +469,8 @@ class EurobotStrategyNode(Node):
             self.goto(0.23, 2.67, radians(90.0))
             self.rollerMiddle()
 
-            self.turbineStartFullSpeed()
-            time.sleep(10)
+            # self.turbineStartFullSpeed()
+            # time.sleep(10)
             self.turbineStop()
 
 
