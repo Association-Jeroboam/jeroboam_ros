@@ -1018,6 +1018,15 @@ class ball_system:
                 self.setFingersOnSide()
                 self.fingers_step+=1
 
+    def on_fingers_loop_timer2(self):
+        if self.start_fingers_loop :
+            if self.fingers_step >= 3 :
+                self.setFingersOnCenter()
+                self.fingers_step=0
+            else :
+                self.setFingersOnSide()
+                self.fingers_step+=1
+
     def startFingersLoop(self) :
         self.start_fingers_loop = True
         return []
