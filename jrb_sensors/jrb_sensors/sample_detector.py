@@ -78,6 +78,18 @@ def make_marker_msg(id_, stamp, pose, color):
         marker.mesh_resource = "file://" + os.path.join(
             DATA_PATH, "meshes/echantillon_surprise.dae"
         )
+    elif color == SampleDetected.PINK:
+        marker.mesh_resource = "file://" + os.path.join(
+            DATA_PATH, "meshes/disk_pink.dae"
+        )
+    elif color == SampleDetected.YELLOW:
+        marker.mesh_resource = "file://" + os.path.join(
+            DATA_PATH, "meshes/disk_yellow.dae"
+        )
+    elif color == SampleDetected.BROWN:
+        marker.mesh_resource = "file://" + os.path.join(
+            DATA_PATH, "meshes/disk_brown.dae"
+        )
 
     marker.mesh_use_embedded_materials = True
 
@@ -102,12 +114,12 @@ class SampleDetector(Node):
 
         self.image_subscriber = self.create_subscription(
             CompressedImage,
-            "/camera/image_raw/compressed",
+            "/image_raw/compressed",
             self.on_image_compressed,
             10,
         )
         self.camera_info_subscriber = self.create_subscription(
-            CameraInfo, "/camera/camera_info", self.on_camera_info, 10
+            CameraInfo, "/camera_info", self.on_camera_info, 10
         )
 
         # Tf publisher

@@ -124,6 +124,14 @@ export_alias c "rm -rf ${ROS_WS_PATH}/{build,install,log}"
 export_alias r "ros2 launch jrb_bringup robot.launch.py"
 export_alias k "output=\$(ps aux | grep -E 'ros/humble|jrb' | grep -v 'grep' | awk '{print \$2}'); if [ -z \"\$output\" ]; then echo 'No matching processes found'; else echo \$output | xargs kill; fi"
 export_alias rosdep_install "rosdep install -i --from-path ${ROS_WS_PATH}/src --rosdistro ${ROS_DISTRO} -y"
+export_alias stop_lidar "ros2 service call /rplidar_scan_publisher/toggle_motor std_srvs/srv/SetBool 'data: false'"
+export_alias start_lidar "ros2 service call /rplidar_scan_publisher/toggle_motor std_srvs/srv/SetBool 'data: true'"
+
+export_alias service_stop "systemctl --user stop jrb_bringup"
+export_alias service_start "systemctl --user start jrb_bringup"
+export_alias service_restart "systemctl --user restart jrb_bringup"
+export_alias service_status "systemctl --user status jrb_bringup"
+export_alias service_log "journalctl --user -fu jrb_bringup -n 20000"
 
 python3 -c "
 import platform, os

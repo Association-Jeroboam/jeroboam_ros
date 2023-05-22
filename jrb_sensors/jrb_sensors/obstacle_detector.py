@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from math import radians, pi, degrees
 import traceback
 import rclpy
 from rclpy.node import Node
@@ -11,6 +12,7 @@ from rcl_interfaces.msg import (
     FloatingPointRange,
     IntegerRange,
 )
+from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
 from builtin_interfaces.msg import Duration
 import numpy as np
@@ -30,7 +32,32 @@ from tf_transformations import (
 from rclpy.qos import QoSReliabilityPolicy, QoSProfile
 
 
+def sgn(number:float) -> int:
+    if number < 0.0:
+        return -1
+
+    return 1
+
+def normalize_angle(angle):
+    # return angle
+    normalized_angle = angle % (2 * pi)    # Normalizes from 0 to 2*pi
+    if normalized_angle > pi:              # Shifts to -pi to pi
+        normalized_angle -= 2 * pi
+    return normalized_angle
+
 DATA_PATH = get_package_share_directory("jrb_sensors")
+DETECT_ANGLE = 90.0  # deg
+LASER_LINK_ANGLE_TO_ROBOT = 90.0  # deg
+MIN_ANGLE = normalize_angle(radians(LASER_LINK_ANGLE_TO_ROBOT - DETECT_ANGLE / 2.0))
+MAX_ANGLE = normalize_angle(radians(LASER_LINK_ANGLE_TO_ROBOT + DETECT_ANGLE / 2.0))
+MIN_ANGLE_REVERSE = normalize_angle(MIN_ANGLE + pi)
+MAX_ANGLE_REVERSE = normalize_angle(MAX_ANGLE + pi)
+
+print("min", degrees(MIN_ANGLE), " max", degrees(MAX_ANGLE))
+print("min", MIN_ANGLE, " max", MAX_ANGLE)
+print("min reverse", MIN_ANGLE_REVERSE, " max reverse", MAX_ANGLE_REVERSE)
+
+    
 
 
 def transform_msg_to_matrix(msg: Transform):
@@ -61,20 +88,22 @@ class ObstacleDetector(Node):
         super().__init__("obstacle_detector")
         self.get_logger().info(f"{self.get_name()} started")
 
+        lidar_qos_profile = QoSProfile(
+            depth=1,
+            reliability=QoSReliabilityPolicy(QoSReliabilityPolicy.BEST_EFFORT),
+        )
+
         self.maker_publisher = self.create_publisher(
             MarkerArray, "debug/obstacle_detected", 10
         )
         self.scan_filtered_publisher = self.create_publisher(
-            LaserScan, "debug/scan_filtered", 10
+            LaserScan, "debug/scan_filtered", lidar_qos_profile
         )
         self.obstacle_detected_publisher = self.create_publisher(
             PoseArray, "obstacle_detected", 10
         )
 
-        lidar_qos_profile = QoSProfile(
-            depth=1,
-            reliability=QoSReliabilityPolicy(QoSReliabilityPolicy.BEST_EFFORT),
-        )
+        self.odom_sub = self.create_subscription(Odometry, "/odometry", self.on_odometry, 1)
         self._lidar_subscriber = message_filters.Subscriber(
             self, LaserScan, "/scan", qos_profile=lidar_qos_profile
         )
@@ -96,7 +125,7 @@ class ObstacleDetector(Node):
 
         self.declare_parameter(
             "max_distance",
-            0.5,
+            0.3,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -137,6 +166,8 @@ class ObstacleDetector(Node):
         self.pose_array_msg.header.frame_id = "map"
 
         self.marker_array_msg = MarkerArray()
+
+        self.linear_velocity = 0.0
 
         self.add_on_set_parameters_callback(self.on_update_parameters)
 
@@ -191,6 +222,10 @@ class ObstacleDetector(Node):
 
         self.marker_array_msg.markers.append(marker)
 
+    def on_odometry(self, msg:Odometry):
+        self.linear_velocity = msg.twist.twist.linear.x
+        # self.linear_velocity = 1.0
+
     def on_scan(self, msg: LaserScan, transform_msg: TransformStamped):
         N = len(msg.ranges)
         transform = transform_msg_to_matrix(transform_msg)
@@ -217,7 +252,17 @@ class ObstacleDetector(Node):
         for i, (cos_sin, angle, range) in enumerate(
             zip(self.__cos_sin_map, angles, ranges)
         ):
-            if not self.min_distance <= range <= self.max_distance:
+            if not (self.min_distance <= range <= self.max_distance):
+                self.cluster_buffer.add_pose(pose=None, valid=False)
+                msg.ranges[i] = float("inf")
+                continue
+
+            if sgn(self.linear_velocity) > 0 and not (MIN_ANGLE <= angle <= MAX_ANGLE):
+                self.cluster_buffer.add_pose(pose=None, valid=False)
+                msg.ranges[i] = float("inf")
+                continue
+
+            if sgn(self.linear_velocity) < 0 and not (MIN_ANGLE_REVERSE <= angle <= MAX_ANGLE_REVERSE):
                 self.cluster_buffer.add_pose(pose=None, valid=False)
                 msg.ranges[i] = float("inf")
                 continue
@@ -229,7 +274,7 @@ class ObstacleDetector(Node):
             _, _, yaw_map = euler_from_matrix(transform) + angle
             q_map = quaternion_from_euler(0, 0, yaw_map)
 
-            if not (0 <= x_map <= 2000) or not (0 <= y_map <= 3000):
+            if not (0 + 0.2 <= x_map <= 2.0 - 0.2) or not (0 + 0.2 <= y_map <= 3.0 - 0.2):
                 self.cluster_buffer.add_pose(pose=None, valid=False)
                 msg.ranges[i] = float("inf")
                 continue

@@ -5,11 +5,11 @@ import rclpy
 from rclpy.node import Node
 from rcl_interfaces.msg import SetParametersResult
 from math import cos, sin
-from tf_transformations import euler_from_quaternion
-from geometry_msgs.msg import Twist, PoseWithCovarianceStamped
+from tf_transformations import euler_from_quaternion, quaternion_from_euler
+from geometry_msgs.msg import Twist, PoseWithCovarianceStamped, TransformStamped
 from nav_msgs.msg import Odometry
 import threading
-from tf_transformations import quaternion_from_euler
+from tf2_ros import TransformBroadcaster
 
 
 class SimulatedMotionboard(Node):
@@ -19,7 +19,7 @@ class SimulatedMotionboard(Node):
 
         self.declare_parameter(
             "rate",
-            50.0,
+            100.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -29,6 +29,7 @@ class SimulatedMotionboard(Node):
         )
 
         self.odom_pub = self.create_publisher(Odometry, "odometry", 10)
+        self.tf_broadcaster = TransformBroadcaster(self)
 
         self.cmd_vel_sub = self.create_subscription(
             Twist, "cmd_vel", self.on_cmd_vel, 10
@@ -51,6 +52,8 @@ class SimulatedMotionboard(Node):
         self.odom_msg = Odometry()
         self.odom_msg.header.frame_id = "odom"
         self.odom_msg.child_frame_id = "base_footprint"
+
+        self.tf_msg = TransformStamped()
 
         self.add_on_set_parameters_callback(self.on_update_parameters)
 
@@ -94,7 +97,15 @@ class SimulatedMotionboard(Node):
         self.odom_msg.pose.pose.orientation.z = q[2]
         self.odom_msg.pose.pose.orientation.w = q[3]
 
+        self.tf_msg.header = self.odom_msg.header
+        self.tf_msg.child_frame_id = self.odom_msg.child_frame_id
+        self.tf_msg.transform.translation.x = self.x
+        self.tf_msg.transform.translation.y = self.y
+        self.tf_msg.transform.translation.z = 0.0
+        self.tf_msg.transform.rotation = self.odom_msg.pose.pose.orientation
+
         self.odom_pub.publish(self.odom_msg)
+        self.tf_broadcaster.sendTransform(self.tf_msg)
 
     def loop(self):
         while rclpy.ok():

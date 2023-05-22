@@ -51,6 +51,10 @@ class GoalController:
         self.angular_speed_limiter = SpeedLimiter(
             self.max_angular_speed, self.max_angular_acceleration, self.max_angular_jerk
         )
+        self.wheel_speed_limiter = SpeedLimiter(
+            self.max_linear_speed
+        )
+
         self.last_linear_speed_cmd = [0.0, 0.0]
         self.last_angular_speed_cmd = [0.0, 0.0]
 
@@ -99,14 +103,18 @@ class GoalController:
         diffY = cur.y - goal.y
         return sqrt(diffX * diffX + diffY * diffY)
 
-    def at_goal(self, cur, goal):
+    def at_goal(self, cur, goal, isRotation):
         if goal is None:
             return True
-        d = self.get_goal_distance(cur, goal)
+
         dTh = abs(self.normalize_pi(cur.theta - goal.theta))
+        if isRotation:
+            return dTh < self.angular_tolerance
+
+        d = self.get_goal_distance(cur, goal)
         return d < self.linear_tolerance and dTh < self.angular_tolerance
 
-    def get_velocity(self, cur, goal, dT):
+    def get_velocity(self, cur, goal, dT, isRotation):
         desired = Pose2D()
 
         goal_heading = atan2(goal.y - cur.y, goal.x - cur.x)
@@ -119,21 +127,26 @@ class GoalController:
         b = -theta - a
 
         d = self.get_goal_distance(cur, goal)
-        if self.forward_movement_only:
-            direction = 1
-            a = self.normalize_pi(a)
-            b = self.normalize_pi(b)
-        else:
-            direction = self.sign(cos(a))
-            a = self.normalize_half_pi(a)
-            b = self.normalize_half_pi(b)
 
-        if abs(d) < self.linear_tolerance:
+        if isRotation:
             desired.xVel = 0
             desired.thetaVel = self.kB * theta
         else:
-            desired.xVel = self.kP * d * direction
-            desired.thetaVel = self.kA * a + self.kB * b
+            if self.forward_movement_only:
+                direction = 1
+                a = self.normalize_pi(a)
+                b = self.normalize_pi(b)
+            else:
+                direction = self.sign(cos(a))
+                a = self.normalize_half_pi(a)
+                b = self.normalize_half_pi(b)
+
+            if abs(d) < self.linear_tolerance:
+                desired.xVel = 0
+                desired.thetaVel = self.kB * theta
+            else:
+                desired.xVel = self.kP * d * direction
+                desired.thetaVel = self.kA * a + self.kB * b
 
         # Limit speed, acceleration, jerk
         linear_ratio = self.linear_speed_limiter.limit(
@@ -153,6 +166,12 @@ class GoalController:
         )
         desired.xVel *= angular_ratio
         desired.thetaVel *= angular_ratio
+
+        desired_speed_wheel = abs(desired.xVel) + abs(desired.thetaVel) * 0.259
+        speed_wheel_ratio = self.wheel_speed_limiter.limit_velocity(desired_speed_wheel)
+
+        # desired.xVel *= speed_wheel_ratio
+        # desired.thetaVel *= speed_wheel_ratio
 
         # Adjust velocities if too low, so robot does not stall.
         # if abs(desired.xVel) > 0 and abs(desired.xVel) < self.min_linear_speed:

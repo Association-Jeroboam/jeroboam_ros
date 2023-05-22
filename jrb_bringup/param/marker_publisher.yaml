@@ -8,6 +8,8 @@ marker_publisher:
         mesh_file: "meshes/table2023.dae"
         use_embedded_materials: true
 
+        pose_x: 1.0
+        pose_y: 1.5
         pose_z: -0.2
 
         color_r: 1.0

@@ -197,14 +197,14 @@ public:
                 big_text = "Le match va commencer...";
                 subtext = "Équipe: " + team_ + " Stratégie: " + strategy_;
             }
-            else if (state_ == STATE_MATCH)
+            else if (state_ == STATE_MATCH || state_ == STATE_AFTER_MATCH)
             {
                 big_text = "SCORE: " + score_;
-            }
-            else if (state_ == STATE_AFTER_MATCH)
-            {
-                big_text = "SCORE: " + score_;
-                subtext = "Match fini !";
+            // }
+            // else if (state_ == STATE_AFTER_MATCH)
+            // {
+            //     big_text = "SCORE: " + score_;
+            //     subtext = "Match fini !";
             }
 
             int big_text_width = MeasureText(big_text.c_str(), 50);

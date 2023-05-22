@@ -29,6 +29,14 @@ from jrb_msgs.action import GoToPose
 from .goal_controller import GoalController, Pose2D
 
 
+# TODO : spin in place
+# TODO : timeout
+# TODO : oscillations rejection
+# TODO : max vel lin / ang
+# TODO : deceleration ramp
+# TODO : frequency
+# TODO : feedback with remaining distance, angle, and navigation_duration
+# TODO : soft ESTOP
 class GoToGoalNode(Node):
     def __init__(self):
         super().__init__("go_to_goal")
@@ -78,6 +86,9 @@ class GoToGoalNode(Node):
             self.on_goal,
             10,
         )
+        self.stucked_spub = self.create_subscription(
+            Bool, "/stuck", self.on_stucked, 10
+        )
 
         # Tf subscriber
         self.tf_buffer = Buffer()
@@ -85,7 +96,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "rate",
-            20.0,
+            50.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -139,7 +150,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "angular_tolerance",
-            1.0,
+            1.5,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -161,7 +172,7 @@ class GoToGoalNode(Node):
 
         self.declare_parameter(
             "max_angular_speed",
-            90.0,
+            360.0,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
@@ -326,6 +337,13 @@ class GoToGoalNode(Node):
 
         return SetParametersResult(successful=True)
 
+    def on_stucked(self, stuckedMsg: Bool):
+        if stuckedMsg.data:
+            with self.goal_handle_lock:
+                if self.goal_handle is not None and self.goal_handle.is_active:
+                    self.get_logger().warn("Robot stucked, aborting action")
+                    self.goal_handle.abort()
+
     def on_accepted_callback(self, goal_handle: ServerGoalHandle):
         # Single goal policy https://github.com/ros2/rclcpp/issues/759#issuecomment-539635000
         with self.goal_handle_lock:
@@ -346,21 +364,30 @@ class GoToGoalNode(Node):
         # Accept all cancel
         return CancelResponse.ACCEPT
 
-    def convert_pose_to_map(self, pose_stamped:PoseStamped):
-        if pose_stamped.header.frame_id == 'map':
+    def convert_pose_to_map(self, pose_stamped: PoseStamped):
+        if pose_stamped.header.frame_id == "map":
             return pose_stamped
         else:
             try:
                 # Wait for the transform to become available
-                self.tf_buffer.can_transform('map', pose_stamped.header.frame_id, pose_stamped.header.stamp, timeout=rclpy.time.Duration(seconds=0.5))
+                self.tf_buffer.can_transform(
+                    "map",
+                    pose_stamped.header.frame_id,
+                    pose_stamped.header.stamp,
+                    timeout=rclpy.time.Duration(seconds=0.5),
+                )
 
                 # Transform the pose
-                transform = self.tf_buffer.lookup_transform('map', pose_stamped.header.frame_id, pose_stamped.header.stamp)
-                pose_transformed = tf2_geometry_msgs.do_transform_pose_stamped(pose_stamped, transform)
+                transform = self.tf_buffer.lookup_transform(
+                    "map", pose_stamped.header.frame_id, pose_stamped.header.stamp
+                )
+                pose_transformed = tf2_geometry_msgs.do_transform_pose_stamped(
+                    pose_stamped, transform
+                )
 
                 return pose_transformed
             except Exception as e:
-                self.get_logger().error('Failed to convert pose: %s' % e)
+                self.get_logger().error("Failed to convert pose: %s" % e)
                 raise e
                 return None
 
@@ -368,17 +395,29 @@ class GoToGoalNode(Node):
         # Goal can be a pose in any frame (in the robot's frame to do relative moves)
         # Convert the goal to the map frame
         goal_pose = goal_handle.request.pose
+        self.rotation = goal_handle.request.rotation
+
+        if self.rotation:
+            goal_pose.pose.position.x = self.pose.x
+            goal_pose.pose.position.y = self.pose.y
+
         goal_pose_map = self.convert_pose_to_map(goal_pose)
 
         # Convert the Pose ROS msg to the Pose2D internall class
         self.goal = self.get_angle_pose(goal_pose_map.pose)
-        self.get_logger().info(
-            f"Goal: ({self.goal.x}, {self.goal.y}, ${self.goal.theta})"
-        )
+
+        if self.rotation:
+            self.get_logger().info(
+                f"ROTATION Goal: ${self.goal.theta})"
+            )
+        else:
+            self.get_logger().info(
+                f"Goal: ({self.goal.x}, {self.goal.y}, ${self.goal.theta})"
+            )
 
         # Debug marker
         self.publish_marker(
-            self.get_clock().now().to_msg(), goal_handle.request.pose.pose
+            self.get_clock().now().to_msg(), goal_pose.pose
         )
 
         success = True
@@ -420,7 +459,7 @@ class GoToGoalNode(Node):
             goal_handle.succeed()
             self.goal_achieved_pub.publish(Bool(data=True))
         else:
-            self.get_logger().info("Goal cancelled")
+            self.get_logger().warn("Goal cancelled")
             goal_handle.canceled()
             self.goal_achieved_pub.publish(Bool(data=False))
 
@@ -439,18 +478,21 @@ class GoToGoalNode(Node):
         self.pose.theta = 0.0
 
     def publish(self):
-        if self.controller.at_goal(self.pose, self.goal):
+        if self.controller.at_goal(self.pose, self.goal, self.rotation):
             desired = Pose2D()
         else:
-            desired = self.controller.get_velocity(self.pose, self.goal, self.dT)
+            desired = self.controller.get_velocity(self.pose, self.goal, self.dT, self.rotation)
 
         d = self.controller.get_goal_distance(self.pose, self.goal)
         self.dist_pub.publish(Float32(data=float(d)))
 
-        self.send_velocity(desired.xVel, desired.thetaVel)
+        if self.rotation:
+            self.send_velocity(0.0, desired.thetaVel)
+        else:
+            self.send_velocity(desired.xVel, desired.thetaVel)
 
         # Forget the goal if achieved.
-        if self.controller.at_goal(self.pose, self.goal):
+        if self.controller.at_goal(self.pose, self.goal, self.rotation):
             self.get_logger().info("Goal achieved")
             self.controller.last_linear_speed_cmd = [0.0, 0.0]
             self.controller.last_angular_speed_cmd = [0.0, 0.0]
@@ -466,10 +508,10 @@ class GoToGoalNode(Node):
     def on_odometry(self, newPose: Odometry):
         self.pose = self.get_angle_pose(newPose.pose.pose)
 
-    def on_goal(self, goal):
+    def on_goal(self, goal:PoseStamped):
         self.action_client.wait_for_server()
         action_goal = GoToPose.Goal()
-        action_goal.pose.pose = goal.pose
+        action_goal.pose = goal
         self.action_client.send_goal_async(action_goal)
 
     def get_angle_pose(self, pose: Pose) -> Pose2D:

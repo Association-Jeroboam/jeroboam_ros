@@ -1,6 +1,8 @@
+import time
 import traceback
 import rclpy
 from rclpy.node import Node
+import sys
 
 from jrb_msgs.msg import SampleDetectedArray
 from geometry_msgs.msg import PoseStamped
@@ -12,7 +14,7 @@ class ArmToSampleNode(Node):
         self.get_logger().info("init")
 
         self.pub_left_arm_goto = self.create_publisher(
-            PoseStamped, "/left_arm_goto", 10
+            PoseStamped, "/take_disk", 10
         )
         self.sub_sample_detected = self.create_subscription(
             SampleDetectedArray, "sample_detected", self.on_sample_detected, 10
@@ -33,6 +35,9 @@ class ArmToSampleNode(Node):
         )
 
         self.pub_left_arm_goto.publish(left_arm_goal)
+        time.sleep(0.5)
+        self.destroy_node()
+        sys.exit(0)
 
 
 def main(args=None):

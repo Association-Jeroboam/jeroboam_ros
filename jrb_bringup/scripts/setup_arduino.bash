@@ -60,6 +60,7 @@ echo ""
 
 title "Install libraries"
 arduino-cli lib install --git-url https://github.com/adafruit/Adafruit_NeoPixel.git
+arduino-cli lib install --git-url https://github.com/FastLED/FastLED
 echo ""
 
 title "Finished"

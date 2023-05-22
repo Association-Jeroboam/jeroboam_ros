@@ -205,6 +205,7 @@ void CanBridge::sendAdaptPidConfig(std::string side)
     if (side == "left")
     {
         res = jeroboam_datatypes_actuators_motion_AdaptativePIDConfig_0_1_serialize_(&leftAdaptConfig, buffer, &buf_size);
+        RCLCPP_ERROR_STREAM(this->get_logger(), "CanBridge::sendAdaptPidConfig error: Failed serilializing motion_AdaptativePIDConfig " << res);
     }
     else
     {

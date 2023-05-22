@@ -1,13 +1,18 @@
-#include <Adafruit_NeoPixel.h>
+#include <FastLED.h>
+
+FASTLED_USING_NAMESPACE
 
 const int PIN_STARTER = 23;
 const int PIN_TEAM = 22;
 const int PIN_STRATEGY = 21;
-const int PIN_LED = 11;
+const int DATA_PIN = 11; //LED
+#define LED_TYPE    WS2811
+#define COLOR_ORDER GRB
+#define NUM_LEDS    62
+CRGB leds[NUM_LEDS];
+#define BRIGHTNESS         255
+unsigned int set_led=0;
 
-const int NB_LED = 10;
-
-Adafruit_NeoPixel LEDmodule = Adafruit_NeoPixel(NB_LED, PIN_LED, NEO_GRB + NEO_KHZ800);  // création de l'objet module
 
 const int BAUDRATE = 115200;
 const int BUFFER_SIZE = 64;
@@ -71,7 +76,7 @@ void processSerialData(char *data)
     char command;
     char values[BUFFER_SIZE-2];
     sscanf(data, "%c", &command);
-    unsigned int led,R,G,B;
+    //unsigned int led,R,G,B;
 
     if (strlen(data) > 2) {
         strncpy(values, &data[2], sizeof(values));
@@ -89,20 +94,10 @@ void processSerialData(char *data)
             sendStrategyValue();
             break;
         }
-
+/*
         case 'c':{
             sscanf(values, "%d %d %d %d", &led,&R,&G,&B);
             LEDmodule.setPixelColor(led,R,G,B);
-            /*Serial.print("l ");
-            Serial.print("led ");
-            Serial.print(led);
-            Serial.print(" set to ");
-            Serial.print(R);
-            Serial.print(" ");
-            Serial.print(G);
-            Serial.print(" ");
-            Serial.print(B);
-            Serial.println(" (send 's' to update state)");*/
             break;
         }
 
@@ -111,9 +106,15 @@ void processSerialData(char *data)
             Serial.println("a");
             break;
         }
+*/
+        case 'l':{
+            sscanf(values, "%d", &set_led);
+            Serial.print("Set led to ");
+            Serial.println(set_led);
+            break;
+        }
 
         default: {
-            Serial.print("l ");
             Serial.print("Unknown command: ");
             Serial.print(command);
             Serial.print(" with values: ");
@@ -167,13 +168,19 @@ void setup()
     prevValues[1] = currentValues[1];
     prevValues[2] = currentValues[2];
 
-    LEDmodule.begin();
-    for(int i=0;i<NB_LED;i++)
-    {
-        LEDmodule.setPixelColor(i,0,0,0);
-    }
-    LEDmodule.show();}
+    FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+    FastLED.setBrightness(BRIGHTNESS);
+}
 
+// List of patterns to cycle through.  Each is defined as a separate function below.
+typedef void (*SimplePatternList[])();
+
+SimplePatternList gPatterns = { bpm, juggle };
+//SimplePatternList gPatterns = { rainbow, rainbowWithGlitter, confetti, sinelon, juggle, bpm };
+
+uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
+uint8_t gHue = 0; // rotating "base color" used by many of the patterns
+  
 void loop()
 {
     readSerial();
@@ -204,4 +211,101 @@ void loop()
         sendStrategyValue();
         prevValues[2] = currentValues[2];
     }
+
+    if (set_led==1)
+    {
+        gPatterns[gCurrentPatternNumber]();
+
+        for( int i = 0; i < 26; i++){
+          leds[i] = CRGB::Lime;
+        }
+
+        // send the 'leds' array out to the actual LED strip
+        FastLED.show();  
+        // insert a delay to keep the framerate modest
+        //FastLED.delay(1000/FRAMES_PER_SECOND); 
+
+        // do some periodic updates
+        EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
+        EVERY_N_SECONDS( 10 ) { nextPattern(); } // change patterns periodically
+    }
+    else
+    {
+        for( int i = 0; i < NUM_LEDS; i++){
+          //leds[i] = CRGB::Black;
+          leds[i] = CRGB::Black;
+        }
+    }
+    FastLED.show();  
+}
+
+
+
+// LED functions
+
+#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
+
+void nextPattern()
+{
+  // add one to the current pattern number, and wrap around at the end
+  gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns);
+}
+
+void rainbow() 
+{
+  // FastLED's built-in rainbow generator
+  fill_rainbow( leds, NUM_LEDS, gHue, 7);
+}
+
+void rainbowWithGlitter() 
+{
+  // built-in FastLED rainbow, plus some random sparkly glitter
+  rainbow();
+  addGlitter(80);
+}
+
+void addGlitter( fract8 chanceOfGlitter) 
+{
+  if( random8() < chanceOfGlitter) {
+    leds[ random16(NUM_LEDS) ] += CRGB::White;
+  }
+}
+
+void confetti() 
+{
+  // random colored speckles that blink in and fade smoothly
+  fadeToBlackBy( leds, NUM_LEDS, 10);
+  int pos = random16(NUM_LEDS);
+  leds[pos] += CHSV( gHue + random8(64), 200, 255);
+  addGlitter(80);
+}
+
+void sinelon()
+{
+  // a colored dot sweeping back and forth, with fading trails
+  fadeToBlackBy( leds, NUM_LEDS, 20);
+  int pos = beatsin16( 13, 0, NUM_LEDS-1 );
+  leds[pos] += CHSV( gHue, 255, 192);
+}
+
+void bpm()
+{
+  // colored stripes pulsing at a defined Beats-Per-Minute (BPM)
+  uint8_t BeatsPerMinute = 55;
+  CRGBPalette16 palette = HeatColors_p;
+  uint8_t beat = beatsin8( BeatsPerMinute, 64, 255);
+  for( int i = 0; i < NUM_LEDS; i++) { //9948
+    leds[i] = ColorFromPalette(palette, gHue+(i*2), beat-gHue+(i*10));
+  }
+  addGlitter(50);
+}
+
+void juggle() {
+  // nine colored dots, weaving in and out of sync with each other
+  fadeToBlackBy( leds, NUM_LEDS, 20);
+  uint8_t dothue = 0;
+  for( int i = 0; i < 9; i++) {
+    leds[beatsin16( i+8, 0, NUM_LEDS-1 )] |= CHSV(dothue, 200, 255);
+    dothue += 32;
+  }
 }

@@ -3,14 +3,14 @@
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.substitutions import LaunchConfiguration 
+from launch.substitutions import LaunchConfiguration
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.actions import DeclareLaunchArgument
 from launch_ros.actions import Node
 from launch.substitutions import ThisLaunchFileDir, PathJoinSubstitution
 from launch.actions import IncludeLaunchDescription, GroupAction
 from launch_ros.substitutions import FindPackageShare
-from launch.conditions import  UnlessCondition
+from launch.conditions import UnlessCondition
 from launch_ros.actions import SetRemap
 import rclpy
 from rclpy.logging import get_logger
@@ -19,7 +19,7 @@ import os
 
 def generate_launch_description():
     rclpy.init()
-    logger = get_logger('launch_logger')
+    logger = get_logger("launch_logger")
 
     package_name = "jrb_bringup"
     this_pkg = FindPackageShare("jrb_bringup")
@@ -34,7 +34,7 @@ def generate_launch_description():
     camera_param_path = LaunchConfiguration("camera_param_path")
     lidar_param_path = LaunchConfiguration("lidar_param_path")
     can_bridge_param_path = LaunchConfiguration("can_bridge_param_path")
-    global_localization = LaunchConfiguration('global_localization')
+    global_localization = LaunchConfiguration("global_localization")
 
     declare_camera_param = DeclareLaunchArgument(
         "camera_param_path",
@@ -47,9 +47,7 @@ def generate_launch_description():
     declare_lidar_param = DeclareLaunchArgument(
         "lidar_param_path",
         description="Full path to camera parameter file to load",
-        default_value=PathJoinSubstitution(
-            [this_pkg, "param", "lidar_param.yaml"]
-        ),
+        default_value=PathJoinSubstitution([this_pkg, "param", "lidar_param.yaml"]),
     )
 
     declare_can_bridge_param = DeclareLaunchArgument(
@@ -62,9 +60,9 @@ def generate_launch_description():
     declare_global_localization = DeclareLaunchArgument(
         "global_localization",
         description="Use a global localization node such as amcl to have the tf map->odom",
-        default_value="False"
-    )    
-    
+        default_value="False",
+    )
+
     twist_mux_params = os.path.join(
         get_package_share_directory("jrb_bringup"), "param", "twist_mux.yaml"
     )
@@ -81,7 +79,9 @@ def generate_launch_description():
         ),
         launch_arguments={
             "display_meshes": "true",
-            "urdf_file": PathJoinSubstitution([FindPackageShare("jrb_description"), "urdf", robotName+".urdf.xacro"])
+            "urdf_file": PathJoinSubstitution(
+                [FindPackageShare("jrb_description"), "urdf", robotName + ".urdf.xacro"]
+            ),
         }.items(),
     )
 
@@ -89,15 +89,18 @@ def generate_launch_description():
         package="jrb_can_bridge",
         executable="jrb_can_bridge",
         output="screen",
-        parameters=[can_bridge_param_path, {"robot_name": os.environ.get("ROBOT_NAME")}],
-        emulate_tty=True
+        parameters=[
+            can_bridge_param_path,
+            {"robot_name": os.environ.get("ROBOT_NAME")},
+        ],
+        emulate_tty=True,
     )
 
     go_to_goal = Node(
         package="jrb_control",
         executable="go_to_goal",
         output="screen",
-        emulate_tty=True
+        emulate_tty=True,
     )
 
     lidar = Node(
@@ -105,14 +108,14 @@ def generate_launch_description():
         executable="rplidar_scan_publisher",
         parameters=[lidar_param_path],
         output="screen",
-        emulate_tty=True
+        emulate_tty=True,
     )
 
     obstacle_detector = Node(
         package="jrb_sensors",
         executable="obstacle_detector.py",
         output="screen",
-        emulate_tty=True
+        emulate_tty=True,
     )
 
     gpio_node = Node(
@@ -120,7 +123,7 @@ def generate_launch_description():
         executable="gpio_node",
         output="screen",
         parameters=[{"robot_name": os.environ.get("ROBOT_NAME")}],
-        emulate_tty=True
+        emulate_tty=True,
     )
 
     joystick = GroupAction(
@@ -140,7 +143,7 @@ def generate_launch_description():
         output="screen",
         parameters=[twist_mux_params],
         remappings=[("cmd_vel_out", "/cmd_vel")],
-        emulate_tty=True
+        emulate_tty=True,
     )
 
     marker_publisher_params = os.path.join(
@@ -153,7 +156,7 @@ def generate_launch_description():
         output="screen",
         parameters=[marker_publisher_params],
         remappings=[("markers", "/debug/table_mesh")],
-        emulate_tty=True
+        emulate_tty=True,
     )
 
     static_transform_broadcaster = Node(
@@ -161,16 +164,33 @@ def generate_launch_description():
         executable="static_transform_publisher",
         name="static_transform_publisher",
         output="screen",
-        arguments=["--x", "0.0", "--y", "0.0", "--z", "0.0", "--roll", "0.0", "--pitch", "0.0", "--yaw", "0.0", "--frame-id", "map", "--child-frame-id", "odom"],
+        arguments=[
+            "--x",
+            "0.0",
+            "--y",
+            "0.0",
+            "--z",
+            "0.0",
+            "--roll",
+            "0.0",
+            "--pitch",
+            "0.0",
+            "--yaw",
+            "0.0",
+            "--frame-id",
+            "map",
+            "--child-frame-id",
+            "odom",
+        ],
         condition=UnlessCondition(global_localization),
-        emulate_tty=True
+        emulate_tty=True,
     )
 
     screen_manager = Node(
         package="jrb_screen",
         executable="screen_manager",
         output="screen",
-        emulate_tty=True
+        emulate_tty=True,
     )
 
     camera = Node(
@@ -179,22 +199,22 @@ def generate_launch_description():
         name="v4l2_camera",
         parameters=[camera_param_path],
         output="screen",
-        emulate_tty=True
+        emulate_tty=True,
     )
 
     sample_detector = Node(
         package="jrb_sensors",
         executable="sample_detector",
         output="screen",
-        emulate_tty=True
+        emulate_tty=True,
     )
 
-    actuators =  Node(
+    actuators = Node(
         package="jrb_actuators",
         executable="actuators.py",
         output="screen",
         parameters=[{"robot_name": os.environ.get("ROBOT_NAME")}],
-        emulate_tty=True
+        emulate_tty=True,
     )
 
     teleop_actuators_joy = Node(
@@ -202,14 +222,35 @@ def generate_launch_description():
         executable="teleop_actuators_joy",
         output="screen",
         parameters=[{"robot_name": os.environ.get("ROBOT_NAME")}],
-        emulate_tty=True
+        emulate_tty=True,
     )
-    
-    strategy = Node(
-        package="jrb_strategy", 
-        executable="eurobot", 
+
+    strategy_robotbleu = Node(
+        package="jrb_strategy",
+        executable="robotbleu2",
         output="screen",
-        emulate_tty=True
+        emulate_tty=True,
+    )
+
+    panier_http = Node(
+        package="jrb_strategy",
+        executable="panier_http_publisher",
+        output="screen",
+        emulate_tty=True,
+    )
+
+    strategy_robotrouge = Node(
+        package="jrb_strategy",
+        executable="robotrouge2",
+        output="screen",
+        emulate_tty=True,
+    )
+
+    stuck_detector = Node(
+        package="jrb_control",
+        executable="stuck_detector",
+        output="screen",
+        emulate_tty=True,
     )
 
     ld = LaunchDescription()
@@ -232,10 +273,14 @@ def generate_launch_description():
     ld.add_action(actuators)
     ld.add_action(teleop_actuators_joy)
     ld.add_action(go_to_goal)
-    # ld.add_action(strategy)
+    ld.add_action(stuck_detector)
 
     if isRobotrouge:
         ld.add_action(camera)
         ld.add_action(sample_detector)
+        # ld.add_action(strategy_robotrouge)
+    else:
+        ld.add_action(panier_http)
+        # ld.add_action(strategy_robotbleu)
 
     return ld
