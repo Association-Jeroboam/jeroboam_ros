@@ -227,7 +227,7 @@ def generate_launch_description():
 
     strategy_robotbleu = Node(
         package="jrb_strategy",
-        executable="robotbleu2",
+        executable="robotbleu3",
         output="screen",
         emulate_tty=True,
     )
@@ -266,7 +266,7 @@ def generate_launch_description():
     ld.add_action(gpio_node)
     ld.add_action(lidar)
     ld.add_action(obstacle_detector)
-    ld.add_action(twist_mux)
+    ld.add_action(twist_mux)        
     ld.add_action(joystick)
     ld.add_action(marker_publisher)
     ld.add_action(screen_manager)
@@ -281,6 +281,6 @@ def generate_launch_description():
         # ld.add_action(strategy_robotrouge)
     else:
         ld.add_action(panier_http)
-        # ld.add_action(strategy_robotbleu)
+        ld.add_action(strategy_robotbleu)
 
     return ld

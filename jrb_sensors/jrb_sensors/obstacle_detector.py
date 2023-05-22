@@ -129,7 +129,7 @@ class ObstacleDetector(Node):
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 floating_point_range=[
-                    FloatingPointRange(from_value=0.1, to_value=12.0, step=0.1)
+                    FloatingPointRange(from_value=0.1, to_value=12.0)
                 ],
             ),
         )

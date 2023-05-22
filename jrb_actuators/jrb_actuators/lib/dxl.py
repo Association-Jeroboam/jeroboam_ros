@@ -75,6 +75,8 @@ class XL320:
         self.pid_I = 0
         self.pid_D = 0
         self.isReady=False
+        self.target_speed_avant_reverse=0
+        self.my_position_avant_reverse=0
 
         self.sendConfig()
 
@@ -249,6 +251,9 @@ class XL320:
         elif self.CCW_Angle_Limit < POSITION:
             self.node.get_logger().warning(f"ID {self.ID}: Position goal ({POSITION}) > CCW_Angle_Limit ({self.CCW_Angle_Limit})")
             POSITION = self.CCW_Angle_Limit
+        
+        self.my_position_avant_reverse=POSITION
+
         if self.reverseRotation :
             POSITION=1023-POSITION
 
@@ -271,6 +276,9 @@ class XL320:
         if SPEED > self.maxSpeed :
             self.node.get_logger().warn(F"ID {self.ID}: Goal speed received > maxSpeed configured ({SPEED} > {self.maxSpeed})") 
             SPEED=self.maxSpeed
+        
+        self.target_speed_avant_reverse = SPEED
+
         if reverse ^ self.reverseRotation : SPEED += 1024 # ^ : ou exclusif
         
         #self.node.get_logger().info(F"setGoalSpeed : id={self.ID} / SPEED={SPEED} / reverse={reverse}") 
@@ -482,8 +490,8 @@ class XL430:
                 POSITION = self.CCW_Angle_Limit
 
         self.target_reached=False
-        self.node.sendGenericCommand(4, self.ID, 116, POSITION)
         self.target_position=POSITION
+        self.node.sendGenericCommand(4, self.ID, 116, POSITION)
 
         self.setTorque(
             self.torque
@@ -1009,22 +1017,26 @@ class ball_system:
         self.roller_right.setGoalSpeed(0)
         return [self.roller_right,self.roller_left]
 
-    def on_fingers_loop_timer(self):
+    def on_fingers_loop_timer1(self):
         if self.start_fingers_loop :
-            if self.fingers_step >= 3 :
+            if self.fingers_step >= 1 :
                 self.setFingersOnCenter()
                 self.fingers_step=0
             else :
                 self.setFingersOnSide()
                 self.fingers_step+=1
 
-    def on_fingers_loop_timer2(self):
+    def on_fingers_loop_timer(self):
         if self.start_fingers_loop :
-            if self.fingers_step >= 3 :
-                self.setFingersOnCenter()
+            if self.fingers_step >= 1 :
+                self.figer_right.setGoalPosition(600)
+                self.figer_left.setGoalPosition(390)
+                #self.setFingersOnCenter()
                 self.fingers_step=0
             else :
-                self.setFingersOnSide()
+                #self.setFingersOnSide()
+                self.figer_left.setGoalPosition(600)
+                self.figer_right.setGoalPosition(390)
                 self.fingers_step+=1
 
     def startFingersLoop(self) :
