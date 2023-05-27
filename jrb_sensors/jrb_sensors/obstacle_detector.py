@@ -255,6 +255,12 @@ class ObstacleDetector(Node):
             zip(self.__cos_sin_map, angles, ranges)
         ):
             if not (self.min_distance <= range <= self.max_distance):
+            if (
+                # not (self.min_distance <= range <= self.max_distance)
+                False
+                or (sgn(self.linear_velocity) > 0 and not (MIN_ANGLE <= angle <= MAX_ANGLE))
+                or (sgn(self.linear_velocity) < 0 and not (MIN_ANGLE_REVERSE <= angle <= MAX_ANGLE_REVERSE))
+            ):
                 self.cluster_buffer.add_pose(pose=None, valid=False)
                 msg.ranges[i] = float("inf")
                 continue

@@ -146,6 +146,7 @@ class RobotBleu(Strategy):
         self.wait_seconds(10)
         self.turbineStop()
 
+        self.on_end_match()
 
         self.backup(0.5)    
 

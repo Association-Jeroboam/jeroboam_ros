@@ -47,10 +47,10 @@ class ArmTeleop(Node):
         #self.pub_left_goto = self.create_publisher(PoseStamped, "left_arm_goto", 10)
         #self.pub_right_goto = self.create_publisher(PoseStamped, "right_arm_goto", 10)
 
-        self.pub_rakes = self.create_publisher(Bool, "open_rakes",10)
+        self.pub_rakes = self.create_publisher(Bool, "/actuators/set_open_rakes",10)
 
-        self.pub_left_pump = self.create_publisher(Bool, "pump_left",10)
-        self.pub_right_pump = self.create_publisher(Bool, "pump_right",10)
+        self.pub_left_pump = self.create_publisher(Bool, "/actuators/pump/left/set_enabled",10)
+        self.pub_right_pump = self.create_publisher(Bool, "/actuators/pump/right/set_enabled",10)
 
 
 
@@ -114,24 +114,24 @@ class ArmTeleop(Node):
                 self.goto_msg.pose.pose.orientation.z = 0.0
 
             #poignet
-            elif value == "6":
+            elif value == "m" or value == "6" :
                 self.goto_msg.pose.pose.orientation.x -= math.radians(5)
-            elif value == "4":
+            elif value == "k" or value == "4" :
                 self.goto_msg.pose.pose.orientation.x += math.radians(5)
-            elif value == "8":
+            elif value == "o" or value == "8" :
                 self.goto_msg.pose.pose.orientation.y -= math.radians(5)
-            elif value == "5":
+            elif value == "l" or value == "5" :
                 self.goto_msg.pose.pose.orientation.y += math.radians(5)
-            elif value == "9":
+            elif value == "p" or value == "9" : 
                 self.goto_msg.pose.pose.orientation.z -= math.radians(5)
-            elif value == "7":
+            elif value == "i" or value == "7" :
                 self.goto_msg.pose.pose.orientation.z += math.radians(5)
 
             #rateaux
-            elif value == "o" :
+            elif value == "g" :
                 self.open_rakes_msg.data = True
                 publisherID=2
-            elif value == "c" :
+            elif value == "f" :
                 self.open_rakes_msg.data = False
                 publisherID=2
 

@@ -126,10 +126,11 @@ class Actuators(Node):
             servo.setTorque(1)
             if servo.driveMode == dxl.CONTROL_MODE_JOINT:
                 servo.setGoalPosition(servo.target_position)
-            #elif servo.driveMode == dxl.CONTROL_MODE_WHEEL:
-            #    servo.setGoalSpeed(servo.speed_goal)
+            elif servo.driveMode == dxl.CONTROL_MODE_WHEEL:
+                servo.setGoalSpeed(servo.speed_goal)
             else:
                 self.get_logger().warn(f"drive mode unknown for XL320 {ID}")
+
         elif ( ID in dxl.connected_XL430 ):
             servo=dxl.connected_XL430[ID]
             servo.isReady = False
@@ -238,15 +239,20 @@ class Actuators(Node):
         msg = ServoAngle()
 
         for servo_id in dxl.connected_XL320 :
-            if dxl.connected_XL320[servo_id].isReady :
-                value=dxl.connected_XL320[servo_id].current_position
+            servo=dxl.connected_XL320[servo_id]
+            if servo.isReady :
+                if servo.reverseRotation:
+                    value=1023-servo.current_position
+                else: 
+                    value=servo.current_position
                 msg.id = servo_id
                 msg.radian = float(value)
                 self.pub_servo_angle.publish(msg)
 
         for servo_id in dxl.connected_XL430 :
-            if dxl.connected_XL430[servo_id].isReady :
-                value=dxl.connected_XL430[servo_id].current_position
+            servo=dxl.connected_XL430[servo_id]
+            if servo.isReady :
+                value=int(servo.current_position / dxl.mmToRaw)
                 msg.id = servo_id
                 msg.radian = float(value)
                 self.pub_servo_angle.publish(msg)
@@ -564,6 +570,13 @@ class Actuators(Node):
                 for servo_id in dxl.connected_XL430 :
                     dxl.connected_XL430[servo_id].sendConfig()
                     dxl.connected_XL430[servo_id].setTorque(True)
+        
+        #to remove
+        #for servo_id in dxl.connected_XL320 :
+        #    dxl.connected_XL320[servo_id].setTorque(False)
+        #for servo_id in dxl.connected_XL430 :
+        #    dxl.connected_XL430[servo_id].setTorque(False)
+
             
 class Actuators_robotrouge(Actuators):
     def __init__(self):
@@ -621,6 +634,10 @@ class Actuators_robotrouge(Actuators):
 
         self.sub_take_disk = self.create_subscription(
             PoseStamped, "take_disk", self.takeDisk_cb, 10
+        )
+
+        self.sub_bulldozer = self.create_subscription(
+            Bool, "/actuators/arm/set_bulldozer", self.bulldozer, 10
         )
 
         # Timers
@@ -712,14 +729,17 @@ class Actuators_robotrouge(Actuators):
         self.left_arm.initSlider()
         self.right_arm.initSlider()
 
-        #self.left_arm.setSliderPosition_mm(200)
-        #self.right_arm.setSliderPosition_mm(200)
-        #time.sleep(1)
+        self.left_arm.setSliderPosition_mm(200)
+        self.right_arm.setSliderPosition_mm(200)
+        time.sleep(1)
 
-        self.storeArm("left")
+        #self.storeArm("left")
         self.storeArm("right")
+        self.camera_pose() #left
 
+        time.sleep(1)
         self.actuatorsInitialized = True
+        self.get_logger().info("Init actuators ok")
 
     def cycle_cool(self):
         while True:
@@ -960,8 +980,32 @@ class Actuators_robotrouge(Actuators):
             time.sleep(0.8)
             self.right_arm.setArmPosition(88, 47, 90, -90, 0)
 
-    def bulldozer(self):
-        pass
+    def bulldozer(self, msg=None):
+        self.get_logger().info("Mode bulldozer on")
+        self.right_arm.setTorque(1)
+        self.right_arm.joinA.setGoalPosition(657)
+        self.right_arm.joinB.setGoalPosition(343)
+        self.right_arm.joinC.setGoalPosition(549)
+        self.right_arm.joinD.setGoalPosition(620)
+        #self.right_arm.joinE.setGoalPosition(0) #ventouse
+        self.right_arm.setSliderPosition_mm(40)
+
+        self.left_arm.setTorque(1)
+        self.left_arm.joinA.setGoalPosition(1023-657)
+        self.left_arm.joinB.setGoalPosition(1023-343)
+        self.left_arm.joinC.setGoalPosition(549)
+        self.left_arm.joinD.setGoalPosition(620)
+        #self.left_arm.joinE.setGoalPosition(0) #ventouse
+        self.left_arm.setSliderPosition_mm(40)
+
+    def camera_pose(self):
+        self.left_arm.setTorque(1)
+        self.left_arm.joinA.setGoalPosition(637)
+        self.left_arm.joinB.setGoalPosition(330)
+        self.left_arm.joinC.setGoalPosition(512-307) #307=90°
+        self.left_arm.joinD.setGoalPosition(512)
+        #self.left_arm.joinE.setGoalPosition(0) #ventouse
+        self.left_arm.setSliderPosition_mm(193)
 
     def lookupTransform(self, target_frame, source_frame, time=rclpy.time.Time().to_msg()):
         transform_msg = self.tf_buffer.lookup_transform(

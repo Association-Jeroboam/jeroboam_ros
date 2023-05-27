@@ -8,6 +8,8 @@ CONTROL_MODE_JOINT = 2
 
 rawToRad_XL320=math.radians(300)/1023
 rawToRad_XL430=256*(2*math.pi)/1048575
+mmToRaw = 36.93191489 #pour les sliders
+
 
 connected_XL320={}
 connected_XL430={}
@@ -68,6 +70,7 @@ class XL320:
         self.driveMode = Drive_Mode
         self.maxSpeed = Max_Speed
         self.maxTorque = Max_Torque
+        self.speed_goal = 0
         self.punch = 50
         self.CW_Angle_Limit = CW_Angle_Limit
         self.CCW_Angle_Limit = CCW_Angle_Limit
@@ -294,8 +297,16 @@ class XL320:
 
         if self.reverseRotation :
             dxl_present_position=1023-dxl_present_position
+            
         dxl_present_position-=self.offset
         self.saveCurrentPosition(dxl_present_position)
+
+        #LED
+        if dxl_present_position < self.CW_Angle_Limit or dxl_present_position > self.CCW_Angle_Limit :
+            self.setLED(5) #violet
+        else :
+            self.setLED(3) #jaune
+
         return dxl_present_position
     
     def getPresentTemperature(self):
@@ -563,8 +574,6 @@ class bras:
         if side != "left" and side != "right" :
             self.node.get_logger().error("Bras : side doit être ""left"" ou ""right""")
             return
-
-        self.mmToRaw = 36.93191489
         
         self.node=node
         self.side=side
@@ -874,7 +883,7 @@ class bras:
         
         self.slider.setTorque(1)
         self.slider.setGoalPosition(1000000)
-        self.slider.waitMoveEnd(4)
+        self.slider.waitMoveEnd(6)
 
         pos = self.slider.getPresentPosition()
         self.slider.setTorque(0)
@@ -892,11 +901,11 @@ class bras:
 
 
     def setSliderPosition_mm(self, mm):
-        value = -int(self.mmToRaw * mm)
+        value = -int(mmToRaw * mm)
         self.slider.setGoalPosition(value)
 
     def getSliderPosition_mm(self):
-        return -int(self.slider.current_position / self.mmToRaw)
+        return -int(self.slider.current_position / mmToRaw)
 
 class rakes:
     def __init__(self, node, ID_gauche_bas=7, ID_droit_bas=15, ID_gauche_haut=5, ID_droit_haut=18):
