@@ -33,6 +33,9 @@ from rclpy.qos import QoSReliabilityPolicy, QoSProfile
 
 
 def sgn(number:float) -> int:
+    if abs(number) < 0.0001:
+        return 0
+
     if number < 0.0:
         return -1
 
@@ -52,13 +55,9 @@ MIN_ANGLE = normalize_angle(radians(LASER_LINK_ANGLE_TO_ROBOT - DETECT_ANGLE / 2
 MAX_ANGLE = normalize_angle(radians(LASER_LINK_ANGLE_TO_ROBOT + DETECT_ANGLE / 2.0))
 MIN_ANGLE_REVERSE = normalize_angle(MIN_ANGLE + pi)
 MAX_ANGLE_REVERSE = normalize_angle(MAX_ANGLE + pi)
-
-print("min", degrees(MIN_ANGLE), " max", degrees(MAX_ANGLE))
-print("min", MIN_ANGLE, " max", MAX_ANGLE)
-print("min reverse", MIN_ANGLE_REVERSE, " max reverse", MAX_ANGLE_REVERSE)
-
-    
-
+MAX_DETECT_DISTANCE = 0.05 # added to both our radius and adversary robot radius. it's the margin at which we accept the two robot can be
+ROBOT_RADIUS = 0.17 # our robot
+ADVERSARY_RADIUS = 0.17 # adversary robot radius, used to crop in table
 
 def transform_msg_to_matrix(msg: Transform):
     trans = np.array(
@@ -227,6 +226,9 @@ class ObstacleDetector(Node):
         # self.linear_velocity = 1.0
 
     def on_scan(self, msg: LaserScan, transform_msg: TransformStamped):
+        if sgn(self.linear_velocity) == 0:
+            return
+
         N = len(msg.ranges)
         transform = transform_msg_to_matrix(transform_msg)
         ranges = np.array(msg.ranges)

@@ -83,7 +83,6 @@ class Strategy(BasicNavigator):
 
     def on_starter(self, msg: Bool):
         value = msg.data
-        self.info("starter : " + str(value))
 
         if value and not self.start_match_future.done():
             self.warn("start match")
@@ -96,8 +95,6 @@ class Strategy(BasicNavigator):
         if not value and self.end_match_future.done():
             self.warn("reset")
             self.reset_future.set_result("set")
-            self.start_match_future = Future()
-            self.end_match_future = Future()
 
     def on_team(self, msg: String):
         if not self.start_match_future.done():
@@ -115,7 +112,7 @@ class Strategy(BasicNavigator):
             self.cancelNavTask()
 
     def on_end_match(self):
-        if self.isMatchFinished():
+        if self.end_match_future.done():
             return
 
         self.warn("end match")
@@ -133,8 +130,7 @@ class Strategy(BasicNavigator):
         )
 
     def waitForMatchToEnd(self):
-        while not self.isMatchFinished():
-            pass
+        rclpy.spin_until_future_complete(self, self.end_match_future, executor=self.executor)
 
     def waitForTeamSelect(self):
         rclpy.spin_until_future_complete(self, self.team_future, executor=self.executor)
@@ -223,3 +219,5 @@ class Strategy(BasicNavigator):
 
             self.info("Wait for reset...")
             self.waitForReset()
+            self.start_match_future = Future()
+            self.end_match_future = Future()
