@@ -253,13 +253,6 @@ def generate_launch_description():
         emulate_tty=True,
     )
 
-    strategy_robotrouge = Node(
-        package="jrb_strategy",
-        executable="robotrouge2",
-        output="screen",
-        emulate_tty=True,
-    )
-
     stuck_detector = Node(
         package="jrb_control",
         executable="stuck_detector",
