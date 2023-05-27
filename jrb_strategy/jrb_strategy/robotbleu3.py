@@ -118,6 +118,17 @@ class EurobotStrategyNode(Node):
             10,
             callback_group=self.cb_group,
         )
+        self.actuators_init = False
+        delta = 0.5
+        current_t = 0
+        
+        while not self.actuators_init:
+            time.sleep(delta)
+            current_t += delta
+            rclpy.spin_once(self)
+            self.get_logger().info("Wait for actuator init...")
+        self.get_logger().info("Actuators init !! gogo")
+
     def on_panier(self, msg: UInt8):
         value = msg.data
         self.panier = value
@@ -143,7 +154,6 @@ class EurobotStrategyNode(Node):
     def on_strategy(self, msg: Bool):
         self.strategy = msg.data
     def on_obstacle_detected(self, msg: PoseArray):
-        return
         if not self.start.done():
             return
         if self.obstacle_stop:
@@ -162,10 +172,17 @@ class EurobotStrategyNode(Node):
             msg.pose.pose.orientation.w,
         ]
         _, _, self.currentTheta = euler_from_quaternion(q)
+        
     def on_emergency(self, msg: Bool):
+        if not msg.data and not self.start.done():
+            self.get_logger().warn("ESTOP OFF before match")
+            time.sleep(10.0)
+            self.actuators_init = True
+
         if msg.data and self.start.done():
             self.get_logger().warn("ESTOP on")
             self.on_end_match()
+            
     def on_end_match(self, e=None):
         self.startLed()
         self.rollerStop()
@@ -337,7 +354,6 @@ class EurobotStrategyNode(Node):
         self.forward(dist=0.05)
         self.backup(dist=0.05)
         self.forward(dist=0.05)
-        self.rollerStop()
 
 
     def loop(self):
@@ -376,6 +392,7 @@ class EurobotStrategyNode(Node):
             
             #zone de départ pour tirer
             self.goto(0.224, 2.73, radians(0.0))
+            self.rollerStop()
             
             #tirer
             self.spin(radians(90))
@@ -403,6 +420,7 @@ class EurobotStrategyNode(Node):
             #reculer au milieu de la table
             # self.goto(0.994, 1.335, radians(161.0))
             self.backup(0.3)
+            self.rollerStop()
             self.spin(radians(110.0))
             
             # #se positionner devant le ta de disque
@@ -444,8 +462,12 @@ class EurobotStrategyNode(Node):
             self.spin(radians(90))
             
             self.turbineStartFullSpeed()
+            self.rollerMiddle()
             time.sleep(10)
             self.turbineStop()
+            time.sleep(1)
+            self.turbineStartFullSpeed()
+            self.turbineStart()
             self.printScore()
 
 

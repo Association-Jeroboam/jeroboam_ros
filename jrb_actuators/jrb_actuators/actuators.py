@@ -157,6 +157,16 @@ class Actuators(Node):
                 #elif (value >> 2) & 1 :
                 #    self.get_logger().error(f"Reboot {ID} after Input voltage error")
                 #    self.dxlReboot(ID)
+
+                elif not ((value >> 2) & 1) : #spammer les consignes de positions
+                    #pass
+                    if dxl.connected_XL320[ID].driveMode == dxl.CONTROL_MODE_JOINT :
+                        dxl.connected_XL320[ID].setGoalPosition(dxl.connected_XL320[ID].my_position_avant_reverse)
+                    elif dxl.connected_XL320[ID].driveMode == dxl.CONTROL_MODE_WHEEL :
+                        if dxl.connected_XL320[ID].reverseRotation :
+                            dxl.connected_XL320[ID].setGoalSpeed(dxl.connected_XL320[ID].target_speed_avant_reverse, dxl.connected_XL320[ID].reverseRotation)
+
+
         
         for ID in dxl.connected_XL430 :
             if dxl.connected_XL430[ID].isReady :
